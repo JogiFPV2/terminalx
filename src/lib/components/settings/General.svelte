@@ -1,6 +1,16 @@
 <script lang="ts">
-  import { app, ui } from '../../state.svelte';
+  import { app, ui, notify } from '../../state.svelte';
   import { BRAND } from '../../defaults';
+  import { call, isTauri } from '../../ipc';
+  import { checkUpdate, upd } from '../../update.svelte';
+  import Icon from '../../Icon.svelte';
+
+  const isWin = typeof navigator !== 'undefined' && /Windows/.test(navigator.userAgent);
+  let explorer = $state(false);
+  if (isTauri && isWin) call<boolean>('explorer_menu', { enable: null }).then((v) => (explorer = v)).catch(() => {});
+  async function setExplorer(on: boolean) {
+    try { explorer = await call<boolean>('explorer_menu', { enable: on }); } catch (e) { explorer = !on; notify(String(e), 'error'); }
+  }
 </script>
 
 <h2>Ogólne</h2>
@@ -24,4 +34,14 @@
   <textarea class="inp" id="ask" value={app.settings.alwaysAsk.join('\n')} oninput={(e) => (app.settings.alwaysAsk = e.currentTarget.value.split('\n').map((s) => s.trim()).filter(Boolean))}></textarea>
   <small>Jeden wzorzec w linii. Agent pyta o zgodę, gdy komenda zawiera któryś z nich.</small>
 </div>
-<p class="hint">{BRAND.name} {BRAND.version}. Dane aplikacji są w folderze danych użytkownika; folder <code>data</code> obok pliku exe włącza tryb portable.</p>
+{#if isTauri && isWin}
+  <div class="field" style="max-width:560px">
+    <label class="checks"><input type="checkbox" checked={explorer} onchange={(e) => setExplorer(e.currentTarget.checked)} />„Otwórz w {BRAND.name}” w menu Eksploratora</label>
+    <small>Prawy przycisk na folderze otwiera w nim terminal. Z wiersza poleceń: <code>--open-terminal-path &lt;folder&gt;</code>, <code>--open-terminal-shell &lt;powłoka&gt;</code>.</small>
+  </div>
+{/if}
+<p class="hint">
+  {BRAND.name} {BRAND.version}{#if upd.version} · dostępna wersja {upd.version}{/if}
+  {#if isTauri}<button class="icobtn" style="display:inline-grid;vertical-align:middle" title="Sprawdź aktualizacje" onclick={() => checkUpdate(true)}><Icon name="refresh" size={13} /></button>{/if}
+</p>
+<p class="hint"> Dane aplikacji są w folderze danych użytkownika; folder <code>data</code> obok pliku exe włącza tryb portable.</p>

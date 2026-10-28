@@ -189,5 +189,6 @@ export function initialState(defaultShell: string): AppState {
     hosts: [],
     remote: { enabled: false, mode: 'lan', port: 7420, devices: [] },
     local: { comfyDir: '', port: 8188, idleMin: 5, args: '', custom: [] },
+    monitor: { cols: ['cpu', 'mem', 'disk', 'net', 'gpu', 'ping'], interval: 3, hosts: [] },
   };
 }

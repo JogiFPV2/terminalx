@@ -1,6 +1,7 @@
 mod ai;
 mod local;
 mod media;
+mod monitor;
 mod pty;
 mod remote;
 mod ssh;
@@ -16,10 +17,56 @@ fn app_restart(app: tauri::AppHandle) {
     app.restart();
 }
 
+/// Otwarcie terminala z wiersza poleceń albo z menu Eksploratora („Otwórz w TerminalX”):
+/// `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`, albo sam folder jako argument.
+#[derive(serde::Serialize, Clone, Default)]
+struct CliOpen {
+    path: Option<String>,
+    shell: Option<String>,
+}
+
+fn parse_cli(argv: &[String]) -> Option<CliOpen> {
+    let mut o = CliOpen::default();
+    let mut it = argv.iter().skip(1);
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--open-terminal-path" => o.path = it.next().cloned(),
+            "--open-terminal-shell" => o.shell = it.next().cloned(),
+            _ if !a.starts_with('-') && std::path::Path::new(a).is_dir() => o.path = Some(a.clone()),
+            _ => {}
+        }
+    }
+    (o.path.is_some() || o.shell.is_some()).then_some(o)
+}
+
+static START_OPEN: std::sync::OnceLock<Option<CliOpen>> = std::sync::OnceLock::new();
+
+/// Polecenie z argumentów startowych (frontend pyta raz, po wczytaniu stanu).
+#[tauri::command]
+fn cli_initial() -> Option<CliOpen> {
+    START_OPEN.get().cloned().flatten()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let ptys = Arc::new(pty::Ptys::default());
-    tauri::Builder::default()
+    START_OPEN.get_or_init(|| parse_cli(&std::env::args().collect::<Vec<_>>()));
+    let mut builder = tauri::Builder::default();
+    // Jedna kopia aplikacji: kolejne uruchomienie (np. z Eksploratora) otwiera terminal w działającej.
+    // Testy end-to-end (port DevTools) działają obok zwykłej kopii.
+    if std::env::var("TERMINALX_DEVTOOLS_PORT").is_err() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            use tauri::Emitter;
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+            if let Some(o) = parse_cli(&argv) {
+                let _ = app.emit("cli-open", o);
+            }
+        }));
+    }
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -28,6 +75,7 @@ pub fn run() {
         .manage(Arc::new(ssh::SshState::default()))
         .manage(Arc::new(remote::RemoteState::default()))
         .manage(local::LocalState::default())
+        .manage(monitor::MonState::default())
         .setup(|app| {
             // Okno tworzymy tutaj, żeby dało się dołożyć argumenty WebView2. Port DevTools tylko na żądanie
             // (zmienna TERMINALX_DEVTOOLS_PORT, testy end-to-end); domyślnie wyłączony.
@@ -58,6 +106,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             app_restart,
+            cli_initial,
+            sys::explorer_menu,
+            monitor::mon_local,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

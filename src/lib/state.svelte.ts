@@ -49,6 +49,7 @@ export function tabKind(t: Tab): { label: string; c: string; icon: string } {
   if (t.kind === 'flow') return { label: 'FLOW', c: 'var(--chart-4)', icon: 'flow' };
   if (t.kind === 'sftp') return { label: 'SFTP', c: 'var(--chart-5)', icon: 'folder' };
   if (t.kind === 'vault') return { label: 'HOST', c: 'var(--primary)', icon: 'hosts' };
+  if (t.kind === 'monitor') return { label: 'MON', c: 'var(--chart-1)', icon: 'activity' };
   const sh = t.panes[0]?.shell || '';
   if (sh.startsWith('ssh:')) return { label: 'SSH', c: 'var(--chart-5)', icon: 'ssh' };
   if (sh === 'pwsh') return { label: 'PS', c: 'var(--chart-2)', icon: 'ps' };
@@ -91,7 +92,7 @@ export function finalizeAll() { for (const p of [...ui.pending]) { dropPending(p
 
 export function makePane(shell: string, cwd?: string): Pane { return { id: nid('p'), shell, cwd }; }
 
-export function newTab(kind: string, wsId = app.activeWs): Tab {
+export function newTab(kind: string, wsId = app.activeWs, cwd?: string): Tab {
   const ws = app.workspaces.find((w) => w.id === wsId) || curWs();
   let tab: Tab;
   if (kind === 'flow') {
@@ -99,8 +100,8 @@ export function newTab(kind: string, wsId = app.activeWs): Tab {
     app.flows[flowId] = { id: flowId, nodes: [{ id: nid('n'), type: 'manual', x: 40, y: 60, label: '', cfg: {} }], edges: [] } as Flow;
     tab = { id: nid('t'), kind: 'flow', title: 'Workflow', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null, flowId };
   } else {
-    const pane = makePane(kind);
-    tab = { id: nid('t'), kind: 'terminal', title: defaultTitle(kind), panes: [pane], split: 0.5, splitDir: 'col', subagent: ws.subDefault, win: null };
+    const pane = makePane(kind, cwd);
+    tab = { id: nid('t'), kind: 'terminal', title: cwd ? cwd.replace(/[\/]+$/, '').split(/[\/]/).pop() || defaultTitle(kind) : defaultTitle(kind), panes: [pane], split: 0.5, splitDir: 'col', subagent: ws.subDefault, win: null };
     sessions.ensureSession(pane);
   }
   ws.tabs.push(tab);
@@ -285,6 +286,7 @@ export async function loadState() {
     hosts: saved.hosts || [],
     remote: { ...fresh.remote, ...(saved.remote || {}) },
     local: { ...fresh.local, ...(saved.local || {}) },
+    monitor: { ...fresh.monitor, ...(saved.monitor || {}) },
   } as AppState;
   if (!merged.workspaces?.length) merged.workspaces = fresh.workspaces;
   if (!merged.workspaces.some((w) => w.id === merged.activeWs)) merged.activeWs = merged.workspaces[0].id;

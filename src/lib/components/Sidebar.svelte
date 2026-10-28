@@ -4,7 +4,7 @@
   import { app, ui, curWs, activateTab, tabKind, newTab } from '../state.svelte';
   import { plug, sidebarPlugins, emit } from '../plugins/host.svelte';
   import { agentState } from '../agent.svelte';
-  import { openVault } from '../hosts.svelte';
+  import { openVault, openMonitor } from '../hosts.svelte';
   import { track, clamp } from '../util';
 
   const wide = $derived(app.layout.side >= 140);
@@ -27,6 +27,7 @@
     <button class="item" class:on={ws.tabs.find((t) => t.id === ws.activeTab)?.kind === 'terminal'} title="Nowy terminal" onclick={() => newTab(app.settings.defaultShell)}><Icon name="terminal" /></button>
     <button class="item" class:on={ws.tabs.find((t) => t.id === ws.activeTab)?.kind === 'vault'} title="Hosty SSH{app.hosts.length ? ` (${app.hosts.length})` : ''}" onclick={openVault}><Icon name="hosts" /></button>
     <button class="item" class:on={ws.tabs.find((t) => t.id === ws.activeTab)?.kind === 'flow'} title="Nowy workflow" onclick={() => newTab('flow')}><Icon name="flow" /></button>
+    <button class="item" class:on={ws.tabs.find((t) => t.id === ws.activeTab)?.kind === 'monitor'} title="Monitoring" onclick={openMonitor}><Icon name="activity" /></button>
     <button class="item" title="Snippety" onclick={() => { ui.settingsPage = 'snippets'; ui.settingsOpen = true; }}><Icon name="snip" /></button>
   </div>
 

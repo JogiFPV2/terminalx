@@ -102,6 +102,14 @@ export function openVault() {
   return addTab({ id: nid('t'), kind: 'vault', title: 'Hosty', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null });
 }
 
+/** Monitoring: jedna zakładka na workspace. */
+export function openMonitor() {
+  const ws = curWs();
+  const existing = ws.tabs.find((t) => t.kind === 'monitor');
+  if (existing) { activateTab(existing.id); return existing; }
+  return addTab({ id: nid('t'), kind: 'monitor', title: 'Monitoring', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null });
+}
+
 /* ---------- secrets & keys ---------- */
 
 export async function saveSecret(h: Host, value: string) {

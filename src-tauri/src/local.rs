@@ -55,7 +55,7 @@ pub struct Hardware {
     unified: bool,
 }
 
-fn run_out(program: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn run_out(program: &str, args: &[&str]) -> Option<String> {
     let mut cmd = Command::new(program);
     cmd.args(args).stdin(Stdio::null()).stderr(Stdio::null());
     no_window(&mut cmd);

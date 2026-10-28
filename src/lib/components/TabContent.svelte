@@ -3,6 +3,7 @@
   import FlowEditor from '../workflow/FlowEditor.svelte';
   import Vault from './Vault.svelte';
   import Sftp from './Sftp.svelte';
+  import Monitor from './Monitor.svelte';
   import { track, clamp } from '../util';
   import { app } from '../state.svelte';
   import type { Tab } from '../types';
@@ -21,6 +22,8 @@
 
 {#if tab.kind === 'vault'}
   <Vault />
+{:else if tab.kind === 'monitor'}
+  <Monitor />
 {:else if tab.kind === 'sftp'}
   <Sftp {tab} />
 {:else if tab.kind === 'flow'}

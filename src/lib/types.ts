@@ -27,7 +27,7 @@ export interface Host {
 
 export interface Tab {
   id: string;
-  kind: 'terminal' | 'flow' | 'sftp' | 'vault';
+  kind: 'terminal' | 'flow' | 'sftp' | 'vault' | 'monitor';
   hostId?: string;
   title: string;
   /** Jeden albo dwa panele; drugi pojawia się po podziale. */
@@ -189,7 +189,11 @@ export interface AppState {
   hosts: Host[];
   remote: RemoteCfg;
   local: LocalCfg;
+  monitor: MonitorCfg;
 }
+
+/** Monitoring: kolumny, odświeżanie (s) i hosty SSH dołączone do tabeli. */
+export interface MonitorCfg { cols: string[]; interval: number; hosts: string[] }
 
 /** Workflow ComfyUI zaimportowany przez użytkownika (format API). */
 export interface ComfyCustom { id: string; name: string; op: MediaOp; graph: Record<string, any>; created: number }

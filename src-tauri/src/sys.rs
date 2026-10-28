@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use sysinfo::{Pid, ProcessesToUpdate, System};
 
-pub struct SysState(Mutex<System>);
+pub struct SysState(pub(crate) Mutex<System>);
 
 impl Default for SysState {
     fn default() -> Self {
@@ -287,5 +287,49 @@ mod tests {
         let utf16: Vec<u8> = "Ubuntu\r\n".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
         assert_eq!(decode(&utf16), "Ubuntu\r\n");
         assert_eq!(decode("zażółć".as_bytes()), "zażółć");
+    }
+}
+
+/// „Otwórz w TerminalX” w menu Eksploratora (Windows, wpisy użytkownika w HKCU). Instalator dodaje je sam;
+/// to polecenie służy wersji portable i wyłączeniu wpisu.
+#[tauri::command]
+pub fn explorer_menu(enable: Option<bool>) -> Result<bool, String> {
+    #[cfg(windows)]
+    {
+        let name = "TerminalX";
+        let keys = [format!(r"HKCU\Software\Classes\Directory\shell\{name}"), format!(r"HKCU\Software\Classes\Directory\Background\shell\{name}")];
+        let reg = |args: &[&str]| {
+            let mut cmd = Command::new("reg");
+            cmd.args(args).stdout(Stdio::null()).stderr(Stdio::null());
+            no_window(&mut cmd);
+            cmd.status().map(|s| s.success()).unwrap_or(false)
+        };
+        match enable {
+            None => Ok(reg(&["query", &keys[0]])),
+            Some(true) => {
+                let exe = std::env::current_exe().map_err(|e| e.to_string())?.to_string_lossy().into_owned();
+                let command = format!("\"{exe}\" --open-terminal-path \"%V\"");
+                for k in &keys {
+                    let ok = reg(&["add", k, "/ve", "/d", &format!("Otwórz w {name}"), "/f"])
+                        && reg(&["add", k, "/v", "Icon", "/d", &exe, "/f"])
+                        && reg(&["add", &format!(r"{k}\command"), "/ve", "/d", &command, "/f"]);
+                    if !ok {
+                        return Err("Nie udało się zapisać wpisu w rejestrze".into());
+                    }
+                }
+                Ok(true)
+            }
+            Some(false) => {
+                for k in &keys {
+                    reg(&["delete", k, "/f"]);
+                }
+                Ok(false)
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = enable;
+        Err("Menu Eksploratora jest dostępne tylko w Windows".into())
     }
 }

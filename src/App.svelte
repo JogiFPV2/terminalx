@@ -29,6 +29,7 @@
   onMount(() => {
     let statsTimer = 0;
     let offClose: (() => void) | undefined;
+    let offCli: (() => void) | undefined;
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const onScheme = () => theme();
     mq.addEventListener('change', onScheme);
@@ -41,6 +42,14 @@
         startHost();
         startScheduler();
         startUpdates();
+        // „Otwórz w TerminalX” z Eksploratora i flagi --open-terminal-path / --open-terminal-shell.
+        if (isTauri) {
+          type CliOpen = { path?: string; shell?: string };
+          const open = (o: CliOpen | null) => { if (o) newTab(o.shell && ui.shells.some((x) => x.id === o.shell) ? o.shell : app.settings.defaultShell, app.activeWs, o.path || undefined); };
+          open(await call<CliOpen | null>('cli_initial').catch(() => null));
+          const { listen } = await import('@tauri-apps/api/event');
+          offCli = await listen<CliOpen>('cli-open', (e) => open(e.payload));
+        }
         initRemote();
         const poll = async () => { try { ui.stats = await call('sys_stats'); } catch { /* ignore */ } };
         poll();
@@ -56,7 +65,7 @@
     })();
     const beforeUnload = () => { finalizeAll(); saveNow(); };
     addEventListener('beforeunload', beforeUnload);
-    return () => { clearInterval(statsTimer); offClose?.(); mq.removeEventListener('change', onScheme); removeEventListener('beforeunload', beforeUnload); };
+    return () => { clearInterval(statsTimer); offClose?.(); offCli?.(); mq.removeEventListener('change', onScheme); removeEventListener('beforeunload', beforeUnload); };
   });
 
   function theme() {
