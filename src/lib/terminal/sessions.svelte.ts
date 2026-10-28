@@ -1,0 +1,332 @@
+// Sesje terminali: xterm.js + proces w PTY. Sesja żyje niezależnie od komponentów:
+// niewidoczny terminal czeka w ukrytym „parkingu” w DOM i dalej przyjmuje wyjście,
+// więc przełączanie zakładek, tryb okien i Procesy w tle niczego nie przerywają.
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { SearchAddon } from '@xterm/addon-search';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import '@xterm/xterm/css/xterm.css';
+import { call, ptySpawn, sshSpawn, isTauri } from '../ipc';
+import { terminalTheme, toHex } from '../theme';
+import type { Pane, Settings } from '../types';
+
+interface Session {
+  pane: Pane;
+  term: Terminal;
+  fit: FitAddon;
+  search: SearchAddon;
+  el: HTMLDivElement;
+  ptyId: number | null;
+  started: number;
+  ro: ResizeObserver | null;
+  scanned: number;
+  ssh: boolean;
+}
+
+/** Konfiguracja hosta SSH dla `ssh:<id>`; ustawia ją warstwa stanu (Vault). */
+let hostResolver: ((id: string) => Record<string, unknown> | null) | null = null;
+let sshConnected: ((hostId: string) => void) | null = null;
+export function setSshHooks(resolve: typeof hostResolver, connected: typeof sshConnected) { hostResolver = resolve; sshConnected = connected; }
+
+const cmd = (s: Session, op: 'write' | 'resize' | 'kill') =>
+  s.ssh ? ({ write: 'ssh_write', resize: 'ssh_resize', kill: 'ssh_close' } as const)[op] : ({ write: 'pty_write', resize: 'pty_resize', kill: 'pty_kill' } as const)[op];
+
+export const termStatus = $state<Record<string, { exited: boolean; code: number | null; title: string; cwd: string }>>({});
+
+const sessions = new Map<string, Session>();
+let park: HTMLDivElement | null = null;
+let settingsRef: Settings | null = null;
+const listeners = new Set<(paneId: string, data: string) => void>();
+
+function parking() {
+  if (!park) {
+    park = document.createElement('div');
+    park.setAttribute('aria-hidden', 'true');
+    Object.assign(park.style, { position: 'fixed', left: '-10000px', top: '0', width: '900px', height: '500px', overflow: 'hidden', visibility: 'hidden' });
+    document.body.appendChild(park);
+  }
+  return park;
+}
+
+async function openExternal(url: string) {
+  if (isTauri) {
+    const { openUrl } = await import('@tauri-apps/plugin-opener');
+    openUrl(url).catch(() => {});
+  } else window.open(url, '_blank');
+}
+
+export function configure(s: Settings) { settingsRef = s; }
+
+export function onOutput(cb: (paneId: string, data: string) => void) { listeners.add(cb); return () => listeners.delete(cb); }
+
+export function has(paneId: string) { return sessions.has(paneId); }
+
+export function ensureSession(pane: Pane): Session {
+  const existing = sessions.get(pane.id);
+  if (existing) return existing;
+  const s = settingsRef;
+  const term = new Terminal({
+    fontFamily: s?.fontFamily || 'Consolas, monospace',
+    fontSize: s?.fontSize || 13,
+    lineHeight: s?.lineHeight || 1.2,
+    scrollback: s?.scrollback || 5000,
+    cursorBlink: s?.cursorBlink ?? true,
+    allowProposedApi: true,
+    theme: terminalTheme(),
+    windowsPty: { backend: 'conpty' },
+    macOptionIsMeta: true,
+    rightClickSelectsWord: false,
+  });
+  const fit = new FitAddon();
+  const search = new SearchAddon();
+  term.loadAddon(fit);
+  term.loadAddon(search);
+  term.loadAddon(new WebLinksAddon((_e, uri) => openExternal(uri)));
+  const uni = new Unicode11Addon();
+  term.loadAddon(uni);
+  term.unicode.activeVersion = '11';
+
+  const el = document.createElement('div');
+  el.className = 'term-el';
+  el.style.cssText = 'width:100%;height:100%;';
+  parking().appendChild(el);
+  term.open(el);
+  if (s && s.lightMode === false) {
+    try {
+      const gl = new WebglAddon();
+      gl.onContextLoss(() => gl.dispose());
+      term.loadAddon(gl);
+    } catch { /* zostaje renderer DOM */ }
+  }
+
+  const session: Session = { pane, term, fit, search, el, ptyId: null, started: Date.now(), ro: null, scanned: 0, ssh: pane.shell.startsWith('ssh:') };
+  sessions.set(pane.id, session);
+  termStatus[pane.id] = { exited: false, code: null, title: '', cwd: pane.cwd || '' };
+
+  term.onData((d) => {
+    const st = termStatus[pane.id];
+    if (st?.exited) { if (d === '\r') restart(pane.id); return; }
+    if (session.ptyId != null) call(cmd(session, 'write'), { id: session.ptyId, data: d }).catch(() => {});
+  });
+  term.onResize(({ cols, rows }) => { if (session.ptyId != null) call(cmd(session, 'resize'), { id: session.ptyId, cols, rows }).catch(() => {}); });
+  term.onTitleChange((t) => { if (termStatus[pane.id]) termStatus[pane.id].title = t; });
+  // OSC 7: powłoka zgłasza bieżący katalog (bash/zsh z odpowiednim promptem, pwsh z modułem).
+  term.parser.registerOscHandler(7, (data) => {
+    try { const u = new URL(data); if (termStatus[pane.id]) termStatus[pane.id].cwd = decodeURIComponent(u.pathname.replace(/^\/([A-Za-z]:)/, '$1')); } catch { /* ignore */ }
+    return true;
+  });
+  term.attachCustomKeyEventHandler((e) => {
+    if (e.type !== 'keydown') return true;
+    const k = e.key.toLowerCase();
+    if (e.ctrlKey && (k === 'c') && (e.shiftKey || term.hasSelection())) {
+      const sel = term.getSelection();
+      if (sel) { navigator.clipboard.writeText(sel).catch(() => {}); term.clearSelection(); }
+      return false;
+    }
+    if (e.ctrlKey && k === 'v') {
+      navigator.clipboard.readText().then((t) => t && term.paste(t)).catch(() => {});
+      e.preventDefault();
+      return false;
+    }
+    // Skróty aplikacji nie trafiają do powłoki.
+    if (e.ctrlKey && e.shiftKey && ['t', 'w', 'f', 'k', 'p', 'd', 'e'].includes(k)) return false;
+    if (e.ctrlKey && (k === 'tab' || k === ',')) return false;
+    return true;
+  });
+  term.onWriteParsed(() => highlight(session));
+  el.addEventListener('contextmenu', (e) => {
+    // PPM w terminalu: z zaznaczeniem kopiuje, bez zaznaczenia wkleja (jak Windows Terminal).
+    e.preventDefault();
+    e.stopPropagation();
+    if (term.hasSelection()) { navigator.clipboard.writeText(term.getSelection()).catch(() => {}); term.clearSelection(); }
+    else navigator.clipboard.readText().then((t) => t && term.paste(t)).catch(() => {});
+  });
+
+  spawn(session);
+  return session;
+}
+
+function spawn(session: Session) {
+  const { pane, term } = session;
+  const onEvent = (ev: import('../ipc').PtyEvent) => {
+    if (ev.type === 'data') {
+      term.write(ev.data);
+      for (const cb of listeners) cb(pane.id, ev.data);
+    } else {
+      session.ptyId = null;
+      if (termStatus[pane.id]) { termStatus[pane.id].exited = true; termStatus[pane.id].code = ev.code; }
+      term.write(`\r\n\x1b[2m[${session.ssh ? 'połączenie zakończone' : 'proces zakończony'}${ev.code != null ? `, kod ${ev.code}` : ''} · Enter ${session.ssh ? 'łączy' : 'uruchamia'} ponownie]\x1b[0m\r\n`);
+    }
+  };
+  let start: Promise<number>;
+  if (session.ssh) {
+    const host = hostResolver?.(pane.shell.slice(4));
+    if (!host) start = Promise.reject(new Error('Tego hosta nie ma już w Vault.'));
+    else {
+      term.write(`\x1b[2mŁączenie z ${host.user}@${host.host}:${host.port}…\x1b[0m\r\n`);
+      start = sshSpawn(host, term.cols, term.rows, onEvent).then((id) => { sshConnected?.(pane.shell.slice(4)); return id; });
+    }
+  } else start = ptySpawn(pane.shell, pane.cwd, term.cols, term.rows, onEvent);
+  start.then((id) => { session.ptyId = id; session.started = Date.now(); })
+    .catch((err) => {
+      if (termStatus[pane.id]) termStatus[pane.id].exited = true;
+      term.write(`\x1b[31m${String(err).replace(/^Error: /, '')}\x1b[0m\r\n\x1b[2mEnter: spróbuj ponownie\x1b[0m\r\n`);
+    });
+}
+
+export function restart(paneId: string) {
+  const s = sessions.get(paneId);
+  if (!s) return;
+  if (s.ptyId != null) call(cmd(s, 'kill'), { id: s.ptyId }).catch(() => {});
+  if (termStatus[paneId]) { termStatus[paneId].exited = false; termStatus[paneId].code = null; }
+  s.term.write('\r\n');
+  spawn(s);
+}
+
+/* ---------- keyword highlighting ---------- */
+
+function highlight(s: Session) {
+  const rules = settingsRef?.keywords || [];
+  if (!rules.length) return;
+  const buf = s.term.buffer.active;
+  const end = buf.baseY + buf.cursorY;
+  if (end < s.scanned) s.scanned = end; // po wyczyszczeniu ekranu (cls/clear)
+  // Tylko linie zakończone (powyżej kursora): są już ostateczne, więc każdą dekorujemy raz.
+  const start = Math.max(s.scanned, end - 200);
+  if (start >= end) return;
+  const cs = getComputedStyle(document.documentElement);
+  for (let y = start; y < end; y++) {
+    const line = buf.getLine(y)?.translateToString(true);
+    if (!line) continue;
+    for (const r of rules) {
+      let re: RegExp;
+      try { re = new RegExp(r.pattern, 'g'); } catch { continue; }
+      for (const m of line.matchAll(re)) {
+        if (!m[0]) continue;
+        const marker = s.term.registerMarker(y - (buf.baseY + buf.cursorY));
+        if (!marker) continue;
+        const color = toHex(cs.getPropertyValue('--' + r.color).trim() || r.color, '#ff5555');
+        s.term.registerDecoration({ marker, x: m.index!, width: m[0].length, foregroundColor: color, layer: 'top' });
+      }
+    }
+  }
+  s.scanned = end;
+}
+
+/* ---------- attach / detach ---------- */
+
+export function attach(paneId: string, host: HTMLElement, focus = false) {
+  const s = sessions.get(paneId);
+  if (!s) return;
+  host.appendChild(s.el);
+  const doFit = () => { try { if (host.clientWidth > 20 && host.clientHeight > 20) s.fit.fit(); } catch { /* ignore */ } };
+  requestAnimationFrame(doFit);
+  s.ro?.disconnect();
+  let t: number | undefined;
+  s.ro = new ResizeObserver(() => { clearTimeout(t); t = window.setTimeout(doFit, 30); });
+  s.ro.observe(host);
+  if (focus) setTimeout(() => s.term.focus(), 0);
+}
+
+export function detach(paneId: string, host?: HTMLElement) {
+  const s = sessions.get(paneId);
+  if (!s) return;
+  if (host && s.el.parentElement !== host) return; // ktoś inny już go przejął
+  s.ro?.disconnect();
+  s.ro = null;
+  parking().appendChild(s.el);
+}
+
+export function focus(paneId: string) { sessions.get(paneId)?.term.focus(); }
+
+export function dispose(paneId: string) {
+  const s = sessions.get(paneId);
+  if (!s) return;
+  if (s.ptyId != null) call(cmd(s, 'kill'), { id: s.ptyId }).catch(() => {});
+  s.ro?.disconnect();
+  s.term.dispose();
+  s.el.remove();
+  sessions.delete(paneId);
+  delete termStatus[paneId];
+}
+
+export function write(paneId: string, text: string) {
+  const s = sessions.get(paneId);
+  if (s?.ptyId != null) return call(cmd(s, 'write'), { id: s.ptyId, data: text });
+  return Promise.reject(new Error('Terminal nie działa'));
+}
+
+export function paste(paneId: string, text: string) { sessions.get(paneId)?.term.paste(text); }
+
+/** Ostatnie linie bufora (bez pustych na końcu). */
+export function tail(paneId: string, lines = 50): string[] {
+  const s = sessions.get(paneId);
+  if (!s) return [];
+  const buf = s.term.buffer.active;
+  const out: string[] = [];
+  const last = buf.baseY + buf.cursorY;
+  for (let y = Math.max(0, last - lines * 3); y <= last; y++) {
+    const line = buf.getLine(y);
+    if (!line) continue;
+    const text = line.translateToString(true);
+    if (line.isWrapped && out.length) out[out.length - 1] += text; else out.push(text);
+  }
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  return out.slice(-lines);
+}
+
+export function fullText(paneId: string) {
+  const s = sessions.get(paneId);
+  if (!s) return '';
+  const buf = s.term.buffer.active;
+  const out: string[] = [];
+  for (let y = 0; y < buf.length; y++) out.push(buf.getLine(y)?.translateToString(true) || '');
+  return out.join('\n').replace(/\n+$/, '\n');
+}
+
+export function selection(paneId: string) { return sessions.get(paneId)?.term.getSelection() || ''; }
+
+export function find(paneId: string, q: string, back = false) {
+  const s = sessions.get(paneId);
+  if (!s || !q) return false;
+  const opts = { decorations: { matchOverviewRuler: '#888888', activeMatchColorOverviewRuler: '#ffaa00', matchBackground: '#55555566', activeMatchBackground: '#ffaa0088' } };
+  return back ? s.search.findPrevious(q, opts) : s.search.findNext(q, opts);
+}
+
+export function clearFind(paneId: string) { sessions.get(paneId)?.search.clearDecorations(); }
+
+export async function info(paneId: string) {
+  const s = sessions.get(paneId);
+  if (!s || s.ptyId == null || s.ssh) return null;
+  try {
+    const r = await call<{ pid: number | null; shell: string; started: number; children: string[] }>('pty_info', { id: s.ptyId });
+    return { ...r, started: s.started };
+  } catch { return null; }
+}
+
+export function startedAt(paneId: string) { return sessions.get(paneId)?.started || Date.now(); }
+
+/** Po zmianie motywu albo ustawień terminala. */
+export function refreshAll() {
+  const theme = terminalTheme();
+  for (const s of sessions.values()) {
+    s.term.options.theme = theme;
+    if (settingsRef) {
+      s.term.options.fontFamily = settingsRef.fontFamily;
+      s.term.options.fontSize = settingsRef.fontSize;
+      s.term.options.lineHeight = settingsRef.lineHeight;
+      s.term.options.cursorBlink = settingsRef.cursorBlink;
+      s.term.options.scrollback = settingsRef.scrollback;
+    }
+    try { s.fit.fit(); } catch { /* ignore */ }
+  }
+}
+
+export function killAll() { for (const id of [...sessions.keys()]) dispose(id); }
+
+export function size(paneId: string) {
+  const s = sessions.get(paneId);
+  return s ? { cols: s.term.cols, rows: s.term.rows } : { cols: 80, rows: 24 };
+}

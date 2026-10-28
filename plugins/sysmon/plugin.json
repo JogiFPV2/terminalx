@@ -1,0 +1,20 @@
+{
+  "id": "tx.sysmon",
+  "name": "Monitor zasobów",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "CPU i RAM systemu na pasku statusu.",
+  "icon": "activity",
+  "permissions": ["system:info", "ui:statusbar"],
+  "contributes": {
+    "statusBar": [{ "id": "sysmon", "alignment": "right", "priority": 50 }]
+  },
+  "config": {
+    "intervalSec": 2,
+    "showCpu": true,
+    "showRam": true,
+    "warnAtPercent": 85
+  }
+}

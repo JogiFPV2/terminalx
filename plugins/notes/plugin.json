@@ -1,0 +1,23 @@
+{
+  "id": "tx.notes",
+  "name": "Notatki",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "Notatki i foldery w pasku bocznym. Każda notatka to osobny plik .md w folderze danych pluginu.",
+  "icon": "notebook",
+  "permissions": ["storage", "ui:sidebar", "ui:commands"],
+  "contributes": {
+    "sidebar": [{ "id": "notes", "title": "Notatki", "icon": "notebook" }],
+    "commands": [
+      { "id": "notes.new", "title": "Notatki: nowa notatka", "keybinding": "Ctrl+Alt+N" },
+      { "id": "notes.newFolder", "title": "Notatki: nowy folder" }
+    ]
+  },
+  "config": {
+    "fileExtension": ".md",
+    "newNoteInSelectedFolder": true,
+    "untitledLabelFromFirstLine": true
+  }
+}

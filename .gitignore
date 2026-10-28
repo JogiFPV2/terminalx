@@ -1,0 +1,12 @@
+node_modules/
+dist/assets/
+dist/index.html
+src-tauri/target/
+src-tauri/gen/
+*.log
+.DS_Store
+release/
+dist/
+src-tauri/remote/node_modules/
+*.part
+.env

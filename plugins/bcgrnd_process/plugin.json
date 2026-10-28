@@ -1,0 +1,21 @@
+{
+  "id": "tx.bcgrnd_process",
+  "name": "Procesy w tle",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "Odkłada zakładki z działającym procesem do osobnej sekcji. Proces działa dalej, a zakładka wraca na swoje miejsce jednym kliknięciem.",
+  "icon": "layers",
+  "permissions": ["tabs:manage", "terminal:read", "ui:sidebar", "ui:tabmenu"],
+  "contributes": {
+    "sidebar": [{ "id": "bg", "title": "Procesy w tle", "icon": "layers" }],
+    "tabMenu": [{ "id": "park", "title": "Przenieś do „Procesy w tle”", "icon": "layers", "when": "terminal" }]
+  },
+  "config": {
+    "showLastLine": true,
+    "suggestRunning": true,
+    "confirmStop": true,
+    "refreshSec": 10
+  }
+}

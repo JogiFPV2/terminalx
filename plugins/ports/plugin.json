@@ -1,0 +1,19 @@
+{
+  "id": "tx.ports",
+  "name": "Porty",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "Nasłuchujące porty lokalne: otwieranie w przeglądarce i zatrzymywanie procesu.",
+  "icon": "plug",
+  "permissions": ["shell:exec", "net:localhost", "ui:sidebar"],
+  "contributes": {
+    "sidebar": [{ "id": "ports", "title": "Porty", "icon": "plug" }]
+  },
+  "config": {
+    "refreshSec": 5,
+    "hideSystemPorts": true,
+    "confirmKill": true
+  }
+}

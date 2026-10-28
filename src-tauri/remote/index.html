@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#111114">
+<title>TerminalX</title>
+<link rel="stylesheet" href="/xterm.css">
+<style>
+:root{--bg:#111114;--fg:#e7e7ea;--card:#16161a;--muted:#1c1c21;--mf:#8b8b95;--pri:#8b8cf8;--prif:#0f0f14;--acc:#24242b;--bd:#26262d;--red:#f87171;--green:#4ade80;--yellow:#fbbf24;--blue:#60a5fa;--term:#0f0f12;
+  --mono:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 var(--sans);overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+#app{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bd)}
+header b{flex:1}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--mf)}
+.dot.on{background:var(--green)}.dot.wait{background:var(--yellow)}
+.chip{font-size:11px;border:1px solid var(--bd);border-radius:99px;padding:2px 8px;color:var(--mf);white-space:nowrap}
+.bar{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--bd)}
+.bar button{display:flex;align-items:center;gap:6px;border:1px solid var(--bd);border-radius:99px;padding:5px 10px;white-space:nowrap;color:var(--mf)}
+.bar button.on{background:var(--acc);color:var(--fg)}
+.bar i{width:7px;height:7px;border-radius:50%;display:inline-block}
+.badge{font:500 10px var(--mono);padding:1px 4px;border-radius:4px;background:color-mix(in oklab,var(--c) 18%,transparent);color:var(--c)}
+main{min-height:0;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+header,.bar,.keys,.line,nav.tabs{min-width:0}
+#termwrap{flex:1;min-height:0;min-width:0;background:var(--term);padding:6px;overflow:auto}
+#term{height:100%;width:max-content;min-width:100%}
+.keys{display:flex;gap:6px;padding:6px 8px;overflow-x:auto;scrollbar-width:none;border-top:1px solid var(--bd);background:var(--card)}
+.keys button{min-width:44px;height:36px;border:1px solid var(--bd);border-radius:8px;font:12px var(--mono);flex:none}
+.keys button.on{background:var(--pri);color:var(--prif)}
+.line{display:flex;gap:6px;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:var(--card)}
+.line input,.line textarea{flex:1;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:8px;padding:9px 10px;font:14px var(--mono);outline:none}
+.line textarea{font-family:var(--sans);resize:none;height:42px}
+.btn{border:1px solid var(--bd);border-radius:8px;padding:8px 12px;font-weight:500}
+.btn.pri{background:var(--pri);color:var(--prif);border-color:var(--pri)}
+nav.tabs{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--bd);background:var(--card);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{padding:10px 0;color:var(--mf);font-size:12px;position:relative}
+nav.tabs button.on{color:var(--fg)}
+nav.tabs .n{position:absolute;top:6px;margin-left:4px;background:var(--red);color:#fff;border-radius:99px;font-size:10px;padding:0 5px}
+.list{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{font-size:14px;line-height:1.5}
+.msg .who{font-size:11px;color:var(--mf);margin-bottom:2px}
+.msg.user{align-self:flex-end;background:var(--muted);padding:8px 10px;border-radius:10px;max-width:88%}
+.msg.error{color:var(--red)}
+.msg pre,.approve pre{white-space:pre-wrap;font:12px var(--mono);background:var(--term);border:1px solid var(--bd);border-radius:8px;padding:8px;margin:6px 0 0;overflow-x:auto}
+.approve{border:1px solid var(--bd);border-radius:10px;padding:10px;margin-top:6px;display:flex;flex-direction:column;gap:8px}
+.approve .row{display:flex;gap:8px}.approve .row .btn{flex:1}
+.row2{display:flex;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:10px;padding:10px}
+.row2 div{flex:1;min-width:0}.row2 small{display:block;color:var(--mf);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.center{flex:1;display:grid;place-items:center;align-content:center;gap:14px;padding:24px;text-align:center;color:var(--mf)}
+.center h1{color:var(--fg);font-size:18px;margin:0}
+.muted{color:var(--mf)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><span class="dot" id="dot"></span><b>TerminalX</b><span class="chip" id="perm"></span></header>
+  <div class="bar" id="wsbar"></div>
+  <main id="main"><div class="center"><h1>Łączenie…</h1></div></main>
+  <nav class="tabs hidden" id="nav">
+    <button data-v="term" class="on">Terminal</button>
+    <button data-v="agent">Agent<span class="n hidden" id="agentN"></span></button>
+    <button data-v="bg">W tle</button>
+  </nav>
+</div>
+<script src="/nacl.js"></script>
+<script src="/xterm.js"></script>
+<script src="/fit.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const te = new TextEncoder(), td = new TextDecoder();
+  const b64 = (u) => { let s = ''; u.forEach((x) => (s += String.fromCharCode(x))); return btoa(s); };
+  const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
+  const STORE = 'tx-remote:' + location.host;
+
+  let key = null, device = null, ws = null, seq = 0, perm = 'view', ready = false, retry = 0;
+  const pending = new Map();
+  const st = { state: null, ws: null, tab: null, view: 'term', chat: [], ctrl: false };
+  let term = null, fit = null;
+
+  const enc = (s) => { const n = nacl.randomBytes(24); const box = nacl.secretbox(te.encode(s), n, key); const o = new Uint8Array(24 + box.length); o.set(n); o.set(box, 24); return b64(o); };
+  const dec = (f) => { const r = unb64(f); const p = nacl.secretbox.open(r.slice(24), r.slice(0, 24), key); return p ? td.decode(p) : null; };
+  const send = (obj) => ws && ws.readyState === 1 && ws.send(enc(JSON.stringify(obj)));
+  const req = (m, p = {}) => new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); send({ t: 'req', id, m, p }); setTimeout(() => { if (pending.delete(id)) rej(new Error('Brak odpowiedzi')); }, 30000); });
+
+  function screen(html) { $('#main').innerHTML = html; }
+  function setDot(cls) { $('#dot').className = 'dot ' + cls; }
+
+  function deviceName() {
+    const ua = navigator.userAgent;
+    if (/iPhone/.test(ua)) return 'iPhone'; if (/iPad/.test(ua)) return 'iPad';
+    const m = ua.match(/Android[^;]*;\s*([^;)]+)/); if (m) return m[1].trim().slice(0, 30);
+    return 'Telefon';
+  }
+
+  function connect(pair) {
+    setDot('wait');
+    ws = new WebSocket(`ws://${location.host}/ws`);
+    ws.onopen = () => {
+      ws.send(JSON.stringify(pair ? { t: 'pair', pair: pair.p, name: deviceName() } : { t: 'hello', device }));
+      ws.send(enc(JSON.stringify({ t: 'auth', ts: Date.now() })));
+    };
+    ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { const d = dec(ev.data); if (!d) return; msg = JSON.parse(d); }
+      handle(msg);
+    };
+    ws.onclose = () => {
+      setDot('');
+      if (!ready) return;
+      ready = false;
+      retry = Math.min(retry + 1, 6);
+      setTimeout(() => connect(null), 500 * 2 ** retry);
+    };
+  }
+
+  function handle(m) {
+    if (m.t === 'error') { screen(`<div class="center"><h1>Brak połączenia</h1><p>${esc(m.msg)}</p></div>`); if (/Nieznane/.test(m.msg)) localStorage.removeItem(STORE); return; }
+    if (m.t === 'waiting') { screen('<div class="center"><h1>Potwierdź na komputerze</h1><p>W aplikacji TerminalX pojawiło się pytanie o nowe urządzenie.</p></div>'); return; }
+    if (m.t === 'denied') { screen('<div class="center"><h1>Odrzucono</h1><p>Komputer nie zgodził się na to urządzenie.</p></div>'); return; }
+    if (m.t === 'paired') { device = m.device; localStorage.setItem(STORE, JSON.stringify({ device, key: b64(key) })); history.replaceState(null, '', '/'); return; }
+    if (m.t === 'ready') { ready = true; retry = 0; perm = m.perm; setDot('on'); $('#perm').textContent = { view: 'podgląd', control: 'sterowanie', full: 'pełny dostęp' }[perm]; $('#nav').classList.remove('hidden'); refresh(); return; }
+    if (m.t === 'res') { const p = pending.get(m.id); if (p) { pending.delete(m.id); m.ok ? p.res(m.r) : p.rej(new Error(m.error)); } return; }
+    if (m.t === 'ev') {
+      if (m.e === 'out' && term && m.d.tab === st.tab) term.write(m.d.data);
+      if (m.e === 'state') { st.state = m.d; renderBar(); if (st.view === 'bg') renderBg(); }
+      if (m.e === 'chat' && m.d.ws === st.ws) { st.chat = m.d.messages; if (st.view === 'agent') renderAgent(); badge(); }
+    }
+  }
+
+  async function refresh() {
+    st.state = await req('state');
+    st.ws = st.ws && st.state.workspaces.some((w) => w.id === st.ws) ? st.ws : st.state.activeWs;
+    renderBar();
+    await loadChat();
+    show(st.view);
+  }
+  async function loadChat() { try { st.chat = await req('chat', { ws: st.ws }); badge(); } catch { st.chat = []; } }
+  function badge() { const n = st.chat.filter((m) => m.approve && m.approve.state === 'pending').length; const el = $('#agentN'); el.textContent = n; el.classList.toggle('hidden', !n); }
+
+  function curWs() { return st.state?.workspaces.find((w) => w.id === st.ws); }
+  function renderBar() {
+    const w = curWs();
+    $('#wsbar').innerHTML = (st.state?.workspaces || []).map((x) => `<button data-ws="${x.id}" class="${x.id === st.ws ? 'on' : ''}"><i style="background:${esc(x.color)}"></i>${esc(x.name)}</button>`).join('');
+    if (st.view === 'term') renderTabs(w);
+  }
+  function renderTabs(w) {
+    const tabs = (w?.tabs || []).filter((t) => t.kind === 'terminal');
+    if (!st.tab || !tabs.some((t) => t.id === st.tab)) st.tab = tabs.find((t) => t.id === w?.activeTab)?.id || tabs[0]?.id || null;
+    const strip = $('#tabstrip');
+    if (strip) strip.innerHTML = tabs.map((t) => `<button data-tab="${t.id}" class="${t.id === st.tab ? 'on' : ''}"><span class="badge" style="--c:${esc(t.color)}">${esc(t.label)}</span>${esc(t.title)}</button>`).join('') || '<span class="muted" style="padding:6px">Brak terminali</span>';
+  }
+
+  function show(v) {
+    st.view = v;
+    document.querySelectorAll('nav.tabs button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
+    if (term) { term.dispose(); term = null; if (st.sub) { req('unsubscribe', { tab: st.sub }).catch(() => {}); st.sub = null; } }
+    if (v === 'term') renderTerm(); else if (v === 'agent') renderAgent(); else renderBg();
+  }
+
+  async function renderTerm() {
+    const can = perm !== 'view';
+    screen(`<div class="bar" id="tabstrip"></div><div id="termwrap"><div id="term"></div></div>
+      ${can ? `<div class="keys">${['Esc', 'Tab', 'Ctrl', '^C', '↑', '↓', '←', '→', '|', '~', '/', '-'].map((k) => `<button data-key="${k}">${k}</button>`).join('')}</div>
+      <div class="line"><input id="cmd" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Komenda… (Enter wysyła)"><button class="btn pri" id="go">⏎</button></div>` : '<div class="line muted">Tryb podglądu: to urządzenie nie może pisać do terminali.</div>'}`);
+    renderTabs(curWs());
+    if (!st.tab) return;
+    term = new Terminal({ fontFamily: getComputedStyle(document.body).getPropertyValue('--mono'), fontSize: 12, theme: { background: '#0f0f12', foreground: '#e7e7ea', cursor: '#8b8cf8' }, scrollback: 3000, disableStdin: !can, convertEol: false });
+    term.open($('#term'));
+    try {
+      const r = await req('subscribe', { tab: st.tab });
+      st.sub = st.tab;
+      term.resize(r.cols, r.rows);
+      // Terminal ma rozmiar z komputera; dopasowujemy czcionkę do szerokości telefonu.
+      const w = $('#termwrap').clientWidth - 12;
+      term.options.fontSize = Math.max(7, Math.min(14, Math.floor((w / r.cols) / 0.6)));
+      term.write(r.screen.replace(/\n/g, '\r\n'));
+    } catch (e) { term.write(`\x1b[31m${e.message}\x1b[0m`); }
+    if (can) term.onData((d) => write(d));
+  }
+  function write(d) {
+    if (st.ctrl && d.length === 1) { d = String.fromCharCode(d.toUpperCase().charCodeAt(0) - 64); st.ctrl = false; document.querySelector('[data-key="Ctrl"]')?.classList.remove('on'); }
+    req('write', { tab: st.tab, data: d }).catch((e) => alert(e.message));
+  }
+
+  function renderAgent() {
+    const can = perm !== 'view', full = perm === 'full';
+    const html = st.chat.map((m) => `<div class="msg ${m.role}"><div class="who">${esc(m.who)}</div>${esc(m.text).replace(/```[\w-]*\n?([\s\S]*?)```/g, '<pre>$1</pre>').replace(/\n/g, '<br>')}
+      ${m.approve ? `<div class="approve"><span class="muted">${m.approve.state === 'pending' ? 'Wymaga zgody' : m.approve.state === 'approved' ? 'Zatwierdzono' : 'Odrzucono'}</span><pre>${esc(m.approve.command)}</pre>
+        ${m.approve.state === 'pending' && can ? `<div class="row"><button class="btn pri" data-approve="${m.id}" data-ok="1">Uruchom</button><button class="btn" data-approve="${m.id}">Odrzuć</button></div>` : ''}</div>` : ''}</div>`).join('');
+    screen(`<div class="list" id="chat">${html || '<div class="center">Brak rozmowy z agentem w tym workspace.</div>'}</div>
+      ${full ? '<div class="line"><textarea id="ask" placeholder="Zleć coś agentowi…"></textarea><button class="btn pri" id="send">Wyślij</button></div>' : ''}`);
+    const c = $('#chat'); c.scrollTop = c.scrollHeight;
+  }
+
+  function renderBg() {
+    const parked = st.state?.parked || [];
+    const can = perm !== 'view';
+    screen(`<div class="list">${parked.map((p) => `<div class="row2"><div><b>${esc(p.title)}</b><small>${esc(p.ws)}</small></div>
+      ${can ? `<button class="btn" data-unpark="${p.id}">Przywróć</button>` : ''}</div>`).join('') || '<div class="center">Brak zakładek w tle.</div>'}</div>`);
+  }
+
+  document.addEventListener('click', async (e) => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.v) show(t.dataset.v);
+    else if (t.dataset.ws) { st.ws = t.dataset.ws; st.tab = null; renderBar(); await loadChat(); show(st.view); }
+    else if (t.dataset.tab) { st.tab = t.dataset.tab; show('term'); }
+    else if (t.dataset.key) {
+      const k = t.dataset.key;
+      if (k === 'Ctrl') { st.ctrl = !st.ctrl; t.classList.toggle('on', st.ctrl); return; }
+      const map = { Esc: '\x1b', Tab: '\t', '^C': '\x03', '↑': '\x1b[A', '↓': '\x1b[B', '→': '\x1b[C', '←': '\x1b[D' };
+      write(map[k] || k);
+    } else if (t.id === 'go') { const i = $('#cmd'); write(i.value + '\r'); i.value = ''; }
+    else if (t.id === 'send') { const a = $('#ask'); const v = a.value.trim(); if (!v) return; a.value = ''; req('agent', { ws: st.ws, text: v }).catch((e) => alert(e.message)); }
+    else if (t.dataset.approve) { req('approve', { ws: st.ws, msg: t.dataset.approve, ok: !!t.dataset.ok }).catch((e) => alert(e.message)); }
+    else if (t.dataset.unpark) { req('unpark', { tab: t.dataset.unpark }).catch((e) => alert(e.message)); }
+  });
+  document.addEventListener('keydown', (e) => { if (e.target.id === 'cmd' && e.key === 'Enter') { e.preventDefault(); $('#go').click(); } });
+
+  // Start: parowanie z kodu QR albo zapisane urządzenie.
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('p') && h.get('k')) { key = unb64(h.get('k')); connect({ p: h.get('p') }); }
+  else {
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if (saved) { key = unb64(saved.key); device = saved.device; connect(null); }
+    else screen('<div class="center"><h1>Sparuj telefon</h1><p>Na komputerze otwórz Ustawienia → Zdalny dostęp i zeskanuj kod QR.</p></div>');
+  }
+})();
+</script>
+</body>
+</html>
