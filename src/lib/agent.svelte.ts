@@ -142,7 +142,23 @@ export async function sendToAgent(ws: Workspace, text: string) {
   if (p.tools.includes('read_all')) tools.push({ name: 'read_tab', description: 'Ostatnie linie wyjścia terminala w zakładce.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, lines: { type: 'integer' } }, required: ['tab_id'] } });
   if (p.tools.includes('run_command') && p.perm !== 'read') tools.push({ name: 'run_command', description: 'Uruchamia komendę w terminalu zakładki i zwraca wyjście.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, command: { type: 'string' } }, required: ['tab_id', 'command'] } });
   if (p.tools.includes('delegate')) tools.push({ name: 'delegate', description: 'Zleca zadanie podagentowi zakładki terminala. Podagent sam czyta wyjście i uruchamia komendy, potem zwraca raport. Kilka wywołań w jednej odpowiedzi działa równolegle.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, task: { type: 'string' } }, required: ['tab_id', 'task'] } });
-  if (p.tools.includes('workflow')) tools.push({ name: 'run_workflow', description: 'Uruchamia workflow z zakładki typu workflow i zwraca wyniki.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, input: { type: 'string' } }, required: ['tab_id'] } });
+  if (p.tools.includes('workflow')) {
+    tools.push({ name: 'run_workflow', description: 'Uruchamia workflow z zakładki typu workflow i zwraca wyniki.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, input: { type: 'string' } }, required: ['tab_id'] } });
+    tools.push({ name: 'list_node_types', description: 'Typy nodów workflow (id, nazwa, kategoria, pola cfg). Wywołaj przed build_workflow.', input_schema: { type: 'object', properties: {} } });
+    tools.push({
+      name: 'build_workflow',
+      description: 'Tworzy nową zakładkę workflow z nodów i połączeń. Kanwa układa się sama; bez wyzwalacza dodawany jest „Ręczny start”. Wynik noda trafia do następnych jako {{input}}. Zwraca id zakładki (do run_workflow).',
+      input_schema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          nodes: { type: 'array', items: { type: 'object', properties: { key: { type: 'string', description: 'Krótki klucz do krawędzi, np. "a"' }, type: { type: 'string', description: 'id typu z list_node_types' }, label: { type: 'string' }, cfg: { type: 'object' } }, required: ['key', 'type'] } },
+          edges: { type: 'array', items: { type: 'array', items: { type: 'string' }, minItems: 2, maxItems: 2 }, description: 'Pary [klucz_z, klucz_do]' },
+        },
+        required: ['nodes'],
+      },
+    });
+  }
 
   const signal = { aborted: false };
   aborts.set(ws.id, signal);
@@ -159,7 +175,12 @@ export async function sendToAgent(ws: Workspace, text: string) {
         try {
           const t = c.input.tab_id ? findTab(String(c.input.tab_id))?.tab : undefined;
           if (c.name === 'list_tabs') out = tabsSummary(ws);
-          else if (!t && c.name !== 'list_tabs') out = `Nie ma zakładki o id ${c.input.tab_id}. Użyj list_tabs.`;
+          else if (c.name === 'list_node_types') out = (await import('./workflow/builder')).nodeCatalog();
+          else if (c.name === 'build_workflow') {
+            const r = (await import('./workflow/builder')).buildFlow(c.input);
+            post(ws, { role: 'agent', who: p.name, text: r.summary });
+            out = r.summary;
+          } else if (!t) out = `Nie ma zakładki o id ${c.input.tab_id}. Użyj list_tabs.`;
           else if (c.name === 'read_tab') out = sessions.tail(t!.panes[0]?.id, Math.min(400, c.input.lines || 60)).join('\n') || '(pusto)';
           else if (c.name === 'run_command') out = await runInTab(ws, p, t!, String(c.input.command || ''), p.name, signal);
           else if (c.name === 'delegate') {

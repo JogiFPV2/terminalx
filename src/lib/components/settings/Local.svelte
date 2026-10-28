@@ -4,7 +4,7 @@
   import { call, isTauri } from '../../ipc';
   import { nid } from '../../util';
   import { catalogPresets, local, refreshLocal, fit, installed, presetSize, downloadPreset, removePreset, installComfy, startComfy, stopComfy, ensureProvider, inspectCustom, fileKey, GB } from '../../workflow/comfy.svelte';
-  import type { MediaOp } from '../../types';
+  import type { MediaOp, Provider } from '../../types';
   import type { Preset } from '../../workflow/comfy.svelte';
 
   let busy = $state('');
@@ -19,6 +19,20 @@
   const OPS: Record<MediaOp, [string, string]> = { image: ['image', 'Obraz'], edit: ['wand', 'Edycja'], video: ['film', 'Wideo'], i2v: ['clapper', 'Obraz → wideo'], upscale: ['maximize', 'Powiększenie'], rmbg: ['scissors', 'Usuwanie tła'] };
   const FIT = { ok: ['var(--chart-1)', 'Pasuje do tego komputera'], slow: ['var(--chart-3)', 'Zadziała wolniej (część modelu w RAM)'], no: ['var(--destructive)', 'Za mało pamięci na tym komputerze'], '?': ['var(--muted-foreground)', 'Nie znam wymagań'] } as const;
   const all = $derived(catalogPresets());
+
+  // Zdalne serwery ComfyUI: zwykli providerzy typu comfy z adresem innym niż ten komputer.
+  const remotes = $derived(app.providers.filter((p) => p.type === 'comfy' && p.id !== 'comfy'));
+  let ping = $state<Record<string, boolean>>({});
+  function addRemote() {
+    const id = nid('comfy');
+    app.providers.push({ id, type: 'comfy', name: 'ComfyUI (zdalny)', url: 'http://', keyRef: `provider:${id}`, hasKey: false, models: [] });
+  }
+  async function testRemote(p: Provider) {
+    try {
+      await call('media_request', { provider: { type: p.type, url: p.url, keyRef: p.keyRef }, method: 'GET', url: `${p.url.replace(/\/$/, '')}/system_stats`, body: null, multipart: null, headers: null });
+      ping[p.id] = true;
+    } catch (e) { ping[p.id] = false; notify(`${p.name}: ${String(e).replace(/^Error: /, '')}`, 'error'); }
+  }
   const shown = $derived(all.filter((p) => showAll || fit(p) !== 'no' || installed(p)));
   const hidden = $derived(all.length - shown.length);
   const progressOf = (p: Preset) => {
@@ -117,6 +131,18 @@
   </div>
 </div>
 
+<div class="pagehead sec"><h3>Zdalny ComfyUI</h3><button class="icobtn" title="Dodaj serwer ComfyUI (inny komputer w sieci albo wynajęte GPU)" onclick={addRemote}><Icon name="plus" /></button></div>
+<p class="hint">Mocniejszy komputer w sieci lokalnej albo serwer z GPU w chmurze (np. RunPod, Vast.ai) z uruchomionym ComfyUI. Pojawi się jako osobny provider w nodach grafiki i wideo; modele muszą być pobrane na tamtym serwerze.</p>
+{#each remotes as p (p.id)}
+  <div class="box rrow">
+    <span class="dot" title={ping[p.id] === true ? 'Odpowiada' : ping[p.id] === false ? 'Nie odpowiada' : 'Nie sprawdzono'} style:background={ping[p.id] === true ? 'var(--chart-1)' : ping[p.id] === false ? 'var(--destructive)' : 'var(--muted-foreground)'}></span>
+    <input class="inp" bind:value={p.name} aria-label="Nazwa" />
+    <input class="inp mono" bind:value={p.url} placeholder="http://192.168.1.20:8188" aria-label="Adres" spellcheck="false" />
+    <button class="icobtn" title="Sprawdź połączenie" onclick={() => testRemote(p)}><Icon name="refresh" size={14} /></button>
+    <button class="icobtn" title="Usuń" onclick={() => (app.providers = app.providers.filter((x) => x.id !== p.id))}><Icon name="trash" size={14} /></button>
+  </div>
+{/each}
+
 <div class="pagehead sec"><h3>Modele</h3>
   {#if hidden || showAll}<div><button class="icobtn" class:on={showAll} title={showAll ? 'Pokaż tylko pasujące do tego komputera' : `Pokaż też modele dla mocniejszych komputerów (${hidden})`} onclick={() => (showAll = !showAll)}><Icon name="eye" /></button></div>{/if}
 </div>
@@ -176,6 +202,9 @@
   .op { color: var(--muted-foreground); display: grid; }
   .okmark { color: var(--chart-1); display: grid; padding: 0 4px; }
   .err { color: var(--destructive) !important; white-space: normal !important; }
+  .rrow { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 6px; }
+  .rrow .inp:first-of-type { width: 170px; flex: none; }
+  .rrow .inp.mono { flex: 1; min-width: 0; }
   .name { height: 28px; }
   .opsel { width: auto; height: 28px; }
   .icobtn.on { color: var(--primary); }
