@@ -1,7 +1,7 @@
 // Menu kontekstowe zakładki i menu „+” (nowa zakładka). Wspólne dla paska zakładek i okien.
 import { app, ui, curWs, newTab, closeTab, splitTab, duplicateTab, findTab, tabKind, notify, type MenuItem } from './state.svelte';
 import { tabMenuItems, emit } from './plugins/host.svelte';
-import { openSsh, openSftp, openVault, openMonitor } from './hosts.svelte';
+import { openSsh, openSftp, openVault, openMonitor, openGallery } from './hosts.svelte';
 import * as sessions from './terminal/sessions.svelte';
 import { isTauri, call } from './ipc';
 
@@ -20,6 +20,7 @@ export function newTabItems(): MenuItem[] {
   }
   items.push({ sep: true }, { heading: 'Narzędzia' });
   items.push({ label: 'Workflow', icon: 'flow', c: 'var(--chart-4)', kbd: 'Ctrl+Shift+E', run: () => newTab('flow') });
+  items.push({ label: 'Galeria', icon: 'image', c: 'var(--chart-4)', run: () => openGallery() });
   items.push({ label: 'Monitoring', icon: 'activity', c: 'var(--chart-1)', run: () => openMonitor() });
   if (app.hosts.length) {
     items.push({ sep: true }, { heading: 'SSH' });

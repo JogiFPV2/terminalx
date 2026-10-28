@@ -321,3 +321,51 @@ pub async fn font_fetch(app: AppHandle, family: String) -> Result<String, String
     std::fs::write(&css_path, &out).map_err(|e| e.to_string())?;
     Ok(out)
 }
+
+/* ---------- galeria: dziennik wyników w media/gallery.jsonl ---------- */
+
+fn gallery_file(app: &AppHandle) -> Result<PathBuf, String> {
+    Ok(media_root(app)?.join("gallery.jsonl"))
+}
+
+/// Dopisuje wpisy (jeden JSON w linii). Plik rośnie tylko o metadane, same media już są w folderze.
+#[tauri::command]
+pub fn gallery_add(app: AppHandle, entries: Vec<serde_json::Value>) -> Result<(), String> {
+    use std::io::Write;
+    let mut f = std::fs::OpenOptions::new().create(true).append(true).open(gallery_file(&app)?).map_err(|e| e.to_string())?;
+    for e in entries {
+        writeln!(f, "{}", e).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Wpisy galerii, których pliki nadal istnieją (najnowsze na końcu).
+#[tauri::command]
+pub fn gallery_list(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let text = std::fs::read_to_string(gallery_file(&app)?).unwrap_or_default();
+    Ok(text
+        .lines()
+        .filter_map(|l| serde_json::from_str::<serde_json::Value>(l).ok())
+        .filter(|v| v.get("path").and_then(|p| p.as_str()).is_some_and(|p| Path::new(p).is_file()))
+        .collect())
+}
+
+/// Usuwa pliki z folderu media i ich wpisy. Ścieżki spoza folderu media są tylko wypisywane z galerii.
+#[tauri::command]
+pub fn gallery_remove(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
+    let root = media_root(&app)?.canonicalize().map_err(|e| e.to_string())?;
+    for p in &paths {
+        if let Ok(c) = Path::new(p).canonicalize() {
+            if c.starts_with(&root) && c.is_file() {
+                let _ = std::fs::remove_file(c);
+            }
+        }
+    }
+    let file = gallery_file(&app)?;
+    let text = std::fs::read_to_string(&file).unwrap_or_default();
+    let keep: Vec<&str> = text
+        .lines()
+        .filter(|l| serde_json::from_str::<serde_json::Value>(l).ok().and_then(|v| v.get("path").and_then(|p| p.as_str()).map(String::from)).is_none_or(|p| !paths.contains(&p)))
+        .collect();
+    std::fs::write(&file, if keep.is_empty() { String::new() } else { keep.join("\n") + "\n" }).map_err(|e| e.to_string())
+}

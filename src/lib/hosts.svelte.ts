@@ -102,13 +102,15 @@ export function openVault() {
   return addTab({ id: nid('t'), kind: 'vault', title: 'Hosty', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null });
 }
 
-/** Monitoring: jedna zakładka na workspace. */
-export function openMonitor() {
+/** Zakładki narzędzi (monitoring, galeria): jedna na workspace. */
+function openTool(kind: 'monitor' | 'gallery', title: string) {
   const ws = curWs();
-  const existing = ws.tabs.find((t) => t.kind === 'monitor');
+  const existing = ws.tabs.find((t) => t.kind === kind);
   if (existing) { activateTab(existing.id); return existing; }
-  return addTab({ id: nid('t'), kind: 'monitor', title: 'Monitoring', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null });
+  return addTab({ id: nid('t'), kind, title, panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null });
 }
+export const openMonitor = () => openTool('monitor', 'Monitoring');
+export const openGallery = () => openTool('gallery', 'Galeria');
 
 /* ---------- secrets & keys ---------- */
 

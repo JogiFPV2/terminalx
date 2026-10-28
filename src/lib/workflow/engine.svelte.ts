@@ -120,7 +120,7 @@ function jsonPath(input: string, path: string) {
   return typeof v === 'string' ? v : JSON.stringify(v, null, 2);
 }
 
-async function runMedia(node: FlowNode, input: string, vars: Record<string, string>, media: Media[]): Promise<Result> {
+async function runMedia(node: FlowNode, input: string, vars: Record<string, string>, media: Media[], flowId: string): Promise<Result> {
   const ty = nodeType(node.type);
   const cfg = { ...MEDIA_DEFAULTS, ...node.cfg } as MediaCfg;
   const prompt = promptFor({ ...aiDefaults({}), base: cfg.base, prompt: cfg.prompt }, input, vars).trim();
@@ -134,15 +134,24 @@ async function runMedia(node: FlowNode, input: string, vars: Record<string, stri
   try {
     const outs = await Promise.all(Array.from({ length: n }, (_, i) => generateOnce(ty.media!, at(i), prompt, images, progress).then((r) => { done++; return r; })));
     const all = outs.flat();
+    logGallery(all, node, flowId, ty.media!, cfg, prompt);
     return { text: all.map((m) => m.path).join('\n'), media: all };
   } finally { delete flowRun.note[node.id]; delete flowRun.preview[node.id]; }
 }
 
-async function exec(node: FlowNode, input: string, exitIn: number | undefined, vars: Record<string, string>, media: Media[] = []): Promise<Result> {
+/** Wpis w galerii: plik z promptem, modelem i seedem (do powtórzenia z tym samym seedem). */
+function logGallery(all: Media[], node: FlowNode, flowId: string, op: string, cfg: MediaCfg, prompt: string) {
+  const provider = app.providers.find((p) => p.id === cfg.provider)?.name || cfg.provider || '';
+  const at = Date.now();
+  const entries = all.map((m) => ({ path: m.path, kind: m.kind, op, prompt: prompt.slice(0, 2000), provider, model: cfg.model || '', seed: m.seed ?? (cfg.seed ? +cfg.seed : null), aspect: cfg.aspect, flowId, nodeId: node.id, at }));
+  call('gallery_add', { entries }).catch(() => {});
+}
+
+async function exec(node: FlowNode, input: string, exitIn: number | undefined, vars: Record<string, string>, media: Media[] = [], flowId = ''): Promise<Result> {
   const ty = nodeType(node.type);
   const c = node.cfg;
   const f = (s: unknown) => fill(String(s ?? ''), { ...vars, input });
-  if (ty.media) return runMedia(node, input, vars, media);
+  if (ty.media) return runMedia(node, input, vars, media, flowId);
   if (ty.ai) return runAi(c as AiCfg, input, vars, media);
   switch (ty.id) {
     case 'media_in': {
@@ -179,7 +188,9 @@ async function exec(node: FlowNode, input: string, exitIn: number | undefined, v
       }
       return { text: saved.join('\n'), media };
     }
-    case 'manual': case 'parallel': case 'merge': case 'cron': return { text: input };
+    // Węzły startowe przekazują też media (obraz albo wideo z trybu partii).
+    case 'manual': case 'cron': return { text: input, media: media.length ? media : undefined };
+    case 'parallel': case 'merge': return { text: input };
     case 'git_push': {
       if (!c.repo) return { text: input };
       const r: any = await call('sys_exec', { cmd: 'git', args: ['-C', c.repo, 'log', '-1', '--format=%h %an: %s', c.branch || 'HEAD'], cwd: null, timeoutMs: 15000 });
@@ -265,8 +276,9 @@ async function exec(node: FlowNode, input: string, exitIn: number | undefined, v
 }
 
 /** Wykonuje cały workflow albo (z `only`) jeden node: poprzedniki z udanym wynikiem nie są uruchamiane ponownie.
- *  `force` liczy wszystko od nowa, bez wyników z pamięci. Zwraca tekst wyników węzłów końcowych. */
-export async function runFlow(flow: Flow, initial = '', only?: string, force = false): Promise<string> {
+ *  `force` liczy wszystko od nowa, bez wyników z pamięci; `initialMedia` trafia do nodów startowych (tryb partii).
+ *  Zwraca tekst wyników węzłów końcowych. */
+export async function runFlow(flow: Flow, initial = '', only?: string, force = false, initialMedia: Media[] = []): Promise<string> {
   if (flowRun.running[flow.id]) throw new Error('Ten workflow już działa');
   flowRun.running[flow.id] = true;
   const need = new Set<string>();
@@ -301,7 +313,7 @@ export async function runFlow(flow: Flow, initial = '', only?: string, force = f
       const live = ups.map((u) => results[u]).filter((r): r is Result => !!r && !r.stop);
       if (ups.length && !live.length) { results[id] = null; flowRun.status[id] = 'skip'; continue; }
       const input = ups.length ? live.filter((r) => !r.media?.length).map((r) => r.text).join('\n\n') : initial;
-      const media = live.flatMap((r) => r.media || []);
+      const media = ups.length ? live.flatMap((r) => r.media || []) : initialMedia;
       const exitIn = live.find((r) => r.exit !== undefined)?.exit;
       const items = live.length === 1 ? live[0].items : undefined;
       const ty = nodeType(node.type);
@@ -314,9 +326,9 @@ export async function runFlow(flow: Flow, initial = '', only?: string, force = f
         else if (items && items.length && ty.id !== 'join' && ty.id !== 'merge') {
           const parts: string[] = [];
           const got: Media[] = [];
-          for (const it of items) { const r = await exec(node, it, exitIn, vars, media); parts.push(r.text); got.push(...(r.media || [])); }
+          for (const it of items) { const r = await exec(node, it, exitIn, vars, media, flow.id); parts.push(r.text); got.push(...(r.media || [])); }
           res = { text: parts.join('\n'), media: got.length ? got : undefined };
-        } else res = await exec(node, input, exitIn, vars, media);
+        } else res = await exec(node, input, exitIn, vars, media, flow.id);
         if (key) memo.set(id, { key, res });
         results[id] = res;
         flowRun.out[id] = res.text;
@@ -335,6 +347,26 @@ export async function runFlow(flow: Flow, initial = '', only?: string, force = f
   } finally { flowRun.running[flow.id] = false; }
   const sinks = flow.nodes.filter((n) => !flow.edges.some(([a]) => a === n.id) && results[n.id]);
   return sinks.map((n) => `${n.label || nodeType(n.type).name}: ${results[n.id]!.text}`).join('\n\n').slice(0, 8000) || '(brak wyników)';
+}
+
+/* ---------- tryb partii ---------- */
+
+export const batchRun = $state({} as Record<string, { done: number; total: number; stop?: boolean }>);
+
+/** Uruchamia workflow po kolei dla każdego wejścia: linii tekstu ({{input}} nodów startowych) albo pliku obrazu/wideo. */
+export async function runBatch(flow: Flow, inputs: { text?: string; media?: Media }[]) {
+  batchRun[flow.id] = { done: 0, total: inputs.length };
+  const st = batchRun[flow.id]; // obiekt reaktywny (licznik w UI)
+  let failed = 0;
+  try {
+    for (const it of inputs) {
+      if (st.stop) break;
+      await runFlow(flow, it.text || '', undefined, false, it.media ? [it.media] : []);
+      if (flow.nodes.some((n) => flowRun.status[n.id] === 'err')) failed++;
+      st.done++;
+    }
+  } finally { delete batchRun[flow.id]; }
+  notify(st.stop ? `Partia zatrzymana po ${st.done} z ${st.total}` : `Partia gotowa: ${st.total - failed} z ${st.total}${failed ? `, błędy: ${failed}` : ''}`, failed ? 'warning' : 'success', 7000);
 }
 
 /* ---------- scheduler for triggers ---------- */

@@ -248,7 +248,8 @@ export async function comfyGenerate(p: Provider, op: MediaOp, model: string, cfg
       const up = await req(p, 'POST', `${base}/upload/image`, null, [{ name: 'image', file: images[0] }, { name: 'overwrite', value: 'true' }]);
       image = up.subfolder ? `${up.subfolder}/${up.name}` : up.name;
     }
-    const graph = pr.build(op, params(pr, op, cfg, prompt, image));
+    const pp = params(pr, op, cfg, prompt, image);
+    const graph = pr.build(op, pp);
     const client = nid('c');
     let finish!: (e?: Error) => void;
     const done = new Promise<void>((ok, fail) => { finish = (e) => (e ? fail(e) : ok()); });
@@ -303,7 +304,7 @@ export async function comfyGenerate(p: Provider, op: MediaOp, model: string, cfg
       progress('pobieram');
       return await Promise.all(files.map(async (x) => {
         const path = await call<string>('media_download', { provider: ref(p), url: `${base}/view?filename=${encodeURIComponent(x.filename)}&subfolder=${encodeURIComponent(x.subfolder || '')}&type=${x.type}`, ext: null });
-        return { kind: /\.(mp4|webm|mov|mkv)$/i.test(x.filename) ? 'video' as const : 'image' as const, path };
+        return { kind: /\.(mp4|webm|mov|mkv)$/i.test(x.filename) ? 'video' as const : 'image' as const, path, seed: pp.seed };
       }));
     } finally {
       over = true;

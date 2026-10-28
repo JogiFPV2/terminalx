@@ -2,7 +2,7 @@
   import Icon from '../Icon.svelte';
   import { app, ui, notify } from '../state.svelte';
   import { NODE_CATS, CAT_COLOR, isChat } from '../defaults';
-  import { allNodeTypes, nodeType, makeNode, runFlow, flowRun } from './engine.svelte';
+  import { allNodeTypes, nodeType, makeNode, runFlow, flowRun, runBatch, batchRun } from './engine.svelte';
   import { ASPECTS, isVideoOp, mediaProviders, modelHints, mediaSrc, kindOf } from './media';
   import { presetsFor, presetById, installed, local, refreshLocal } from './comfy.svelte';
   if (app.providers.some((p) => p.type === 'comfy')) refreshLocal();
@@ -106,6 +106,27 @@
       const to = hit?.closest('[data-nid]')?.getAttribute('data-nid');
       if (to && to !== n.id && !flow.edges.some(([a, b]) => a === n.id && b === to)) flow.edges.push([n.id, to]);
     });
+  }
+
+  // Tryb partii: lista promptów (linia = jedno uruchomienie) albo folder obrazów i wideo.
+  let batch = $state<{ text: string; dir: string; files: string[] } | null>(null);
+  const batchSt = $derived(batchRun[flow.id]);
+  async function pickBatchDir() {
+    if (!batch || !isTauri) return;
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const dir = await open({ directory: true });
+    if (typeof dir !== 'string') return;
+    batch.dir = dir;
+    batch.files = (await call<string[]>('fs_list', { dir })).filter((f) => /\.(png|jpe?g|webp|mp4|webm|mov)$/i.test(f));
+  }
+  function startBatch() {
+    if (!batch) return;
+    const inputs = batch.files.length
+      ? batch.files.map((path) => ({ media: { kind: kindOf(path), path } }))
+      : batch.text.split('\n').map((s) => s.trim()).filter(Boolean).map((text) => ({ text }));
+    if (!inputs.length) { notify('Dodaj co najmniej jedną linię albo wybierz folder', 'warning'); return; }
+    batch = null;
+    runBatch(flow, inputs).catch((e) => notify(String(e), 'error'));
   }
 
   async function run(only?: string, force = false) {
@@ -227,7 +248,26 @@
   </div>
 
   {#if !compact}
-    <div class="tools"><button class="fab" disabled={running} title={running ? 'Działa…' : 'Uruchom workflow (z Shift: wszystko od nowa)'} onclick={(e) => run(undefined, e.shiftKey)}>{#if running}<span class="spin"></span>{:else}<Icon name="play" size={14} />{/if}</button></div>
+    <div class="tools">
+      {#if batchSt}
+        <button class="icobtn batch on" title="Zatrzymaj partię po bieżącym uruchomieniu" onclick={() => (batchSt.stop = true)}>{batchSt.done}/{batchSt.total}</button>
+      {:else}
+        <button class="icobtn batch" disabled={running} title="Partia: uruchom dla listy promptów albo folderu obrazów" onclick={() => (batch = batch ? null : { text: '', dir: '', files: [] })}><Icon name="layers" size={14} /></button>
+      {/if}
+      <button class="fab" disabled={running} title={running ? 'Działa…' : 'Uruchom workflow (z Shift: wszystko od nowa)'} onclick={(e) => run(undefined, e.shiftKey)}>{#if running}<span class="spin"></span>{:else}<Icon name="play" size={14} />{/if}</button>
+      {#if batch}
+        <div class="batchbox">
+          <textarea class="inp" rows="6" placeholder="Jeden prompt w linii – każda linia to osobne uruchomienie ({'{{input}}'} w nodach startowych)" bind:value={batch.text} disabled={!!batch.files.length}></textarea>
+          <div class="row">
+            <button class="icobtn" title="Folder obrazów lub wideo (każdy plik to osobne uruchomienie)" onclick={pickBatchDir}><Icon name="folder" size={14} /></button>
+            <span class="hint">{batch.files.length ? `${batch.files.length} plików` : `${batch.text.split('\n').filter((s) => s.trim()).length} uruchomień`}</span>
+            {#if batch.files.length}<button class="icobtn" title="Wyczyść folder" onclick={() => batch && ((batch.files = []), (batch.dir = ''))}><Icon name="x" size={13} /></button>{/if}
+            <span class="sp"></span>
+            <button class="btn primary" onclick={startBatch}><Icon name="play" size={12} />Start</button>
+          </div>
+        </div>
+      {/if}
+    </div>
   {/if}
 
   {#if selNode && selType && !compact}
@@ -412,7 +452,13 @@
   .port.in { left: -6px; }
   .port.out { right: -6px; cursor: crosshair; }
   .port.out:hover { background: var(--c); }
-  .tools { position: absolute; right: 14px; top: 12px; z-index: 3; }
+  .tools { position: absolute; right: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 6px; }
+  .batch { height: 30px; min-width: 30px; border-radius: 15px; background: var(--card); border: 1px solid var(--border); font-size: 11px; font-variant-numeric: tabular-nums; padding: 0 8px; }
+  .batch.on { color: var(--primary); border-color: var(--primary); }
+  .batchbox { position: absolute; top: 42px; right: 0; width: 320px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 12px 32px -12px rgb(0 0 0 / .4); display: flex; flex-direction: column; gap: 6px; }
+  .batchbox textarea { resize: vertical; font-size: 12px; }
+  .batchbox .row { display: flex; align-items: center; gap: 4px; }
+  .batchbox .sp { flex: 1; }
   .has-insp .tools { right: 302px; }
   .fab { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); box-shadow: 0 6px 18px -8px var(--primary); }
   .fab:disabled { background: var(--card); border: 1px solid var(--border); cursor: default; }

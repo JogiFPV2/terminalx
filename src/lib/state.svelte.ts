@@ -50,6 +50,7 @@ export function tabKind(t: Tab): { label: string; c: string; icon: string } {
   if (t.kind === 'sftp') return { label: 'SFTP', c: 'var(--chart-5)', icon: 'folder' };
   if (t.kind === 'vault') return { label: 'HOST', c: 'var(--primary)', icon: 'hosts' };
   if (t.kind === 'monitor') return { label: 'MON', c: 'var(--chart-1)', icon: 'activity' };
+  if (t.kind === 'gallery') return { label: 'IMG', c: 'var(--chart-4)', icon: 'image' };
   const sh = t.panes[0]?.shell || '';
   if (sh.startsWith('ssh:')) return { label: 'SSH', c: 'var(--chart-5)', icon: 'ssh' };
   if (sh === 'pwsh') return { label: 'PS', c: 'var(--chart-2)', icon: 'ps' };

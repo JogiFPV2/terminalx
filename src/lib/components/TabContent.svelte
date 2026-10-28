@@ -4,6 +4,7 @@
   import Vault from './Vault.svelte';
   import Sftp from './Sftp.svelte';
   import Monitor from './Monitor.svelte';
+  import Gallery from './Gallery.svelte';
   import { track, clamp } from '../util';
   import { app } from '../state.svelte';
   import type { Tab } from '../types';
@@ -24,6 +25,8 @@
   <Vault />
 {:else if tab.kind === 'monitor'}
   <Monitor />
+{:else if tab.kind === 'gallery'}
+  <Gallery />
 {:else if tab.kind === 'sftp'}
   <Sftp {tab} />
 {:else if tab.kind === 'flow'}

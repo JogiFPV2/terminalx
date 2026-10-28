@@ -27,7 +27,7 @@ export interface Host {
 
 export interface Tab {
   id: string;
-  kind: 'terminal' | 'flow' | 'sftp' | 'vault' | 'monitor';
+  kind: 'terminal' | 'flow' | 'sftp' | 'vault' | 'monitor' | 'gallery';
   hostId?: string;
   title: string;
   /** Jeden albo dwa panele; drugi pojawia się po podziale. */
@@ -119,7 +119,7 @@ export interface NodeTypeDef {
 
 /** Operacje nodów mediów: tekst→obraz, edycja obrazu, tekst→wideo, obraz→wideo, powiększenie, usunięcie tła. */
 export type MediaOp = 'image' | 'edit' | 'video' | 'i2v' | 'upscale' | 'rmbg';
-export interface Media { kind: 'image' | 'video'; path: string }
+export interface Media { kind: 'image' | 'video'; path: string; seed?: number }
 export interface MediaCfg {
   base: string;
   prompt: string;
