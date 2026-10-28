@@ -55,7 +55,6 @@
   async function transfer(dir: 'up' | 'down', items: E[]) {
     if (!host) return;
     for (const it of items) {
-      if (it.isDir) { notify(`Pomijam folder „${it.name}”; przenoszenie folderów będzie w kolejnej wersji.`, 'warning'); continue; }
       const id = nid('x');
       transfers.unshift({ id, name: it.name, dir, done: 0, total: it.size, state: 'run' });
       const t = transfers[0];
@@ -87,7 +86,7 @@
   }
   async function del() {
     const items = remote.filter((e) => rsel.includes(e.path)); if (!items.length) return;
-    if (!(await confirm('Usunąć z serwera?', `${items.map((i) => i.name).join(', ')}\n\nTej operacji nie da się cofnąć.`))) return;
+    if (!(await confirm('Usunąć z serwera?', `${items.map((i) => i.name).join(', ')}${items.some((i) => i.isDir) ? '\n\nFoldery zostaną usunięte razem z zawartością.' : ''}\n\nTej operacji nie da się cofnąć.`))) return;
     for (const it of items) await remoteOp(it.isDir ? 'rmdir' : 'rm', it.path);
   }
   async function openEditor(it: E) {
@@ -133,7 +132,7 @@
     {#if isL ? lerr : rerr}<div class="err-box">{isL ? lerr : rerr}</div>{/if}
     <div class="files" class:busy={!isL && busy}>
       {#each list as it (it.path)}
-        <div class="row" class:sel={sel.includes(it.path)} draggable={!it.isDir} role="option" aria-selected={sel.includes(it.path)} tabindex="-1"
+        <div class="row" class:sel={sel.includes(it.path)} draggable="true" role="option" aria-selected={sel.includes(it.path)} tabindex="-1"
           ondragstart={() => { dragFrom = side; if (!sel.includes(it.path)) { if (isL) lsel = [it.path]; else rsel = [it.path]; } }}
           onclick={(e) => { if (isL) lsel = pick(lsel, it.path, e); else rsel = pick(rsel, it.path, e); }}
           ondblclick={() => { if (it.isDir) isL ? loadLocal(it.path) : loadRemote(it.path); else if (!isL) openEditor(it); }}>

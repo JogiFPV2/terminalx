@@ -142,8 +142,10 @@
           </div>
         </div>
         <div class="field"><span class="flabel">Uwierzytelnianie</span>
-          <div class="seg"><button class:on={edit.auth === 'password'} onclick={() => (edit!.auth = 'password')}>Hasło</button><button class:on={edit.auth === 'key'} onclick={() => (edit!.auth = 'key')}>Klucz</button></div></div>
-        {#if edit.auth === 'key'}
+          <div class="seg"><button class:on={edit.auth === 'password'} onclick={() => (edit!.auth = 'password')}>Hasło</button><button class:on={edit.auth === 'key'} onclick={() => (edit!.auth = 'key')}>Klucz</button><button class:on={edit.auth === 'agent'} onclick={() => (edit!.auth = 'agent')}>Agent SSH</button></div></div>
+        {#if edit.auth === 'agent'}
+          <p class="hint">Klucze z agenta SSH: w Windows usługa „OpenSSH Authentication Agent” (klucze dodane przez <code>ssh-add</code>) albo Pageant, w Linux i macOS agent z <code>SSH_AUTH_SOCK</code>. Aplikacja nie widzi kluczy prywatnych.</p>
+        {:else if edit.auth === 'key'}
           <div class="grid2">
             <div class="field"><label for="hKey">Plik klucza prywatnego</label><input class="inp" id="hKey" bind:value={edit.keyPath} spellcheck="false" /></div>
             <div class="field"><label for="hSecret">Hasło klucza (jeśli jest)</label><input class="inp" id="hSecret" type="password" bind:value={secret} autocomplete="off" placeholder={edit.hasSecret ? 'zapisane; puste = bez zmian' : 'brak'} /></div>

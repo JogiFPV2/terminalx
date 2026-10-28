@@ -13,7 +13,7 @@ export interface Host {
   host: string;
   port: number;
   user: string;
-  auth: 'password' | 'key';
+  auth: 'password' | 'key' | 'agent';
   keyPath: string;
   /** Hasło albo hasło do klucza w magazynie systemowym. */
   secretRef: string;

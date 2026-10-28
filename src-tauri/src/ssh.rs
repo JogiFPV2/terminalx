@@ -190,7 +190,9 @@ async fn connect(app: &AppHandle, state: &SshState, cfg: &HostCfg) -> Result<Arc
             other => format!("Nie udało się połączyć z {}:{}: {other}", cfg.host, cfg.port),
         })?;
 
-    let ok = if cfg.auth == "key" {
+    let ok = if cfg.auth == "agent" {
+        agent_auth(&mut handle, &cfg.user).await?
+    } else if cfg.auth == "key" {
         let path = expand_home(cfg.key_path.as_deref().unwrap_or("~/.ssh/id_ed25519"));
         let pass = secret(&cfg.secret_ref);
         let key = russh::keys::load_secret_key(&path, pass.as_deref()).map_err(|e| format!("Nie można wczytać klucza {path}: {e}"))?;
@@ -302,6 +304,49 @@ pub async fn ssh_disconnect(state: State<'_, Arc<SshState>>, host_id: String) ->
     Ok(())
 }
 
+/// Logowanie kluczami z agenta SSH: w Windows agent OpenSSH (usługa ssh-agent) albo Pageant,
+/// w Linux i macOS gniazdo z SSH_AUTH_SOCK. Klucze prywatne nie opuszczają agenta.
+async fn agent_auth(handle: &mut client::Handle<Client>, user: &str) -> Result<bool, String> {
+    #[cfg(windows)]
+    {
+        use russh::keys::agent::client::AgentClient;
+        if let Ok(a) = AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await {
+            if try_agent(handle, user, a).await? {
+                return Ok(true);
+            }
+        }
+        match AgentClient::connect_pageant().await {
+            Ok(a) => try_agent(handle, user, a).await,
+            Err(_) => Err("Nie znaleziono agenta SSH. Uruchom usługę „OpenSSH Authentication Agent” (ssh-add) albo Pageant.".into()),
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let a = russh::keys::agent::client::AgentClient::connect_env().await.map_err(|_| "Nie znaleziono agenta SSH (zmienna SSH_AUTH_SOCK).".to_string())?;
+        try_agent(handle, user, a).await
+    }
+}
+
+async fn try_agent<S>(handle: &mut client::Handle<Client>, user: &str, mut agent: russh::keys::agent::client::AgentClient<S>) -> Result<bool, String>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let ids = agent.request_identities().await.map_err(|e| format!("Agent SSH: {e}"))?;
+    if ids.is_empty() {
+        return Err("Agent SSH nie ma żadnych kluczy (dodaj je poleceniem ssh-add).".into());
+    }
+    let hash = handle.best_supported_rsa_hash().await.map_err(|e| e.to_string())?.flatten();
+    for id in ids {
+        let key = id.public_key().into_owned();
+        if let Ok(r) = handle.authenticate_publickey_with(user, key, hash, &mut agent).await {
+            if r.success() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 /// Jedna komenda bez PTY (np. wykrycie dystrybucji z /etc/os-release).
 #[tauri::command]
 pub async fn ssh_exec(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, command: String) -> Result<crate::sys::ExecOut, String> {
@@ -376,7 +421,7 @@ pub async fn sftp_op(app: AppHandle, state: State<'_, Arc<SshState>>, host: Host
     let s = sftp(&app, &state, &host).await?;
     let r = match op.as_str() {
         "mkdir" => s.create_dir(path).await,
-        "rmdir" => s.remove_dir(path).await,
+        "rmdir" => return remove_tree(&s, &path).await,
         "rm" => s.remove_file(path).await,
         "rename" => s.rename(path, to.ok_or("Brak nowej nazwy")?).await,
         other => return Err(format!("Nieznana operacja {other}")),
@@ -407,41 +452,100 @@ pub async fn sftp_write_text(app: AppHandle, state: State<'_, Arc<SshState>>, ho
 #[serde(rename_all = "camelCase")]
 struct Progress { id: String, done: u64, total: u64 }
 
-/// Pobiera albo wysyła plik strumieniowo, z postępem w zdarzeniu `sftp:progress`.
+/// Lista plików do przeniesienia: (ścieżka źródłowa, ścieżka docelowa, rozmiar). Foldery są tworzone po drodze.
+async fn plan_download(s: &SftpSession, remote: &str, local: &std::path::Path, out: &mut Vec<(String, std::path::PathBuf, u64)>) -> Result<(), String> {
+    let meta = s.metadata(remote.to_string()).await.map_err(|e| format!("{remote}: {e}"))?;
+    if !meta.is_dir() {
+        out.push((remote.to_string(), local.to_path_buf(), meta.size.unwrap_or(0)));
+        return Ok(());
+    }
+    tokio::fs::create_dir_all(local).await.map_err(|e| format!("{}: {e}", local.display()))?;
+    for e in s.read_dir(remote.to_string()).await.map_err(|e| e.to_string())? {
+        let name = e.file_name();
+        if name == "." || name == ".." || name.contains(['/', '\\']) {
+            continue;
+        }
+        Box::pin(plan_download(s, &join(remote, &name), &local.join(&name), out)).await?;
+    }
+    Ok(())
+}
+
+async fn plan_upload(s: &SftpSession, local: &std::path::Path, remote: &str, out: &mut Vec<(String, std::path::PathBuf, u64)>) -> Result<(), String> {
+    let meta = tokio::fs::metadata(local).await.map_err(|e| format!("{}: {e}", local.display()))?;
+    if !meta.is_dir() {
+        out.push((remote.to_string(), local.to_path_buf(), meta.len()));
+        return Ok(());
+    }
+    if s.metadata(remote.to_string()).await.is_err() {
+        s.create_dir(remote.to_string()).await.map_err(|e| format!("{remote}: {e}"))?;
+    }
+    let mut rd = tokio::fs::read_dir(local).await.map_err(|e| e.to_string())?;
+    while let Some(e) = rd.next_entry().await.map_err(|e| e.to_string())? {
+        let name = e.file_name().to_string_lossy().into_owned();
+        Box::pin(plan_upload(s, &e.path(), &join(remote, &name), out)).await?;
+    }
+    Ok(())
+}
+
+/// Pobiera albo wysyła plik lub cały folder strumieniowo, z łącznym postępem w zdarzeniu `sftp:progress`.
 #[tauri::command]
 pub async fn sftp_transfer(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, id: String, direction: String, remote: String, local: String) -> Result<(), String> {
     let s = sftp(&app, &state, &host).await?;
+    let down = direction == "download";
+    let mut files = Vec::new();
+    if down {
+        plan_download(&s, &remote, std::path::Path::new(&local), &mut files).await?;
+    } else {
+        plan_upload(&s, std::path::Path::new(&local), &remote, &mut files).await?;
+    }
+    let total: u64 = files.iter().map(|f| f.2).sum();
     let mut buf = vec![0u8; 256 * 1024];
     let mut done = 0u64;
     let mut last = std::time::Instant::now();
-    if direction == "download" {
-        let total = s.metadata(remote.clone()).await.map(|m| m.size.unwrap_or(0)).unwrap_or(0);
-        let mut src = s.open(remote).await.map_err(|e| e.to_string())?;
-        let mut dst = tokio::fs::File::create(&local).await.map_err(|e| format!("{local}: {e}"))?;
-        loop {
-            let n = src.read(&mut buf).await.map_err(|e| e.to_string())?;
-            if n == 0 { break; }
-            dst.write_all(&buf[..n]).await.map_err(|e| e.to_string())?;
-            done += n as u64;
-            if last.elapsed() > Duration::from_millis(200) { last = std::time::Instant::now(); let _ = app.emit("sftp:progress", Progress { id: id.clone(), done, total }); }
+    for (rpath, lpath, _) in files {
+        if down {
+            let mut src = s.open(rpath).await.map_err(|e| e.to_string())?;
+            let mut dst = tokio::fs::File::create(&lpath).await.map_err(|e| format!("{}: {e}", lpath.display()))?;
+            loop {
+                let n = src.read(&mut buf).await.map_err(|e| e.to_string())?;
+                if n == 0 { break; }
+                dst.write_all(&buf[..n]).await.map_err(|e| e.to_string())?;
+                done += n as u64;
+                if last.elapsed() > Duration::from_millis(200) { last = std::time::Instant::now(); let _ = app.emit("sftp:progress", Progress { id: id.clone(), done, total }); }
+            }
+            dst.flush().await.map_err(|e| e.to_string())?;
+        } else {
+            let mut src = tokio::fs::File::open(&lpath).await.map_err(|e| e.to_string())?;
+            let mut dst = s.create(rpath).await.map_err(|e| e.to_string())?;
+            loop {
+                let n = src.read(&mut buf).await.map_err(|e| e.to_string())?;
+                if n == 0 { break; }
+                dst.write_all(&buf[..n]).await.map_err(|e| e.to_string())?;
+                done += n as u64;
+                if last.elapsed() > Duration::from_millis(200) { last = std::time::Instant::now(); let _ = app.emit("sftp:progress", Progress { id: id.clone(), done, total }); }
+            }
+            dst.shutdown().await.map_err(|e| e.to_string())?;
         }
-        dst.flush().await.map_err(|e| e.to_string())?;
-        let _ = app.emit("sftp:progress", Progress { id, done, total });
-    } else {
-        let total = tokio::fs::metadata(&local).await.map(|m| m.len()).map_err(|e| format!("{local}: {e}"))?;
-        let mut src = tokio::fs::File::open(&local).await.map_err(|e| e.to_string())?;
-        let mut dst = s.create(remote).await.map_err(|e| e.to_string())?;
-        loop {
-            let n = src.read(&mut buf).await.map_err(|e| e.to_string())?;
-            if n == 0 { break; }
-            dst.write_all(&buf[..n]).await.map_err(|e| e.to_string())?;
-            done += n as u64;
-            if last.elapsed() > Duration::from_millis(200) { last = std::time::Instant::now(); let _ = app.emit("sftp:progress", Progress { id: id.clone(), done, total }); }
-        }
-        dst.shutdown().await.map_err(|e| e.to_string())?;
-        let _ = app.emit("sftp:progress", Progress { id, done, total });
     }
+    let _ = app.emit("sftp:progress", Progress { id, done, total });
     Ok(())
+}
+
+/// Usuwa folder razem z zawartością.
+async fn remove_tree(s: &SftpSession, path: &str) -> Result<(), String> {
+    for e in s.read_dir(path.to_string()).await.map_err(|e| e.to_string())? {
+        let name = e.file_name();
+        if name == "." || name == ".." {
+            continue;
+        }
+        let p = join(path, &name);
+        if e.metadata().is_dir() {
+            Box::pin(remove_tree(s, &p)).await?;
+        } else {
+            s.remove_file(p).await.map_err(|e| e.to_string())?;
+        }
+    }
+    s.remove_dir(path.to_string()).await.map_err(|e| e.to_string())
 }
 
 /* ---------- port forwarding ---------- */
