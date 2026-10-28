@@ -333,3 +333,25 @@ pub fn explorer_menu(enable: Option<bool>) -> Result<bool, String> {
         Err("Menu Eksploratora jest dostępne tylko w Windows".into())
     }
 }
+
+/// Język użytkownika do automatycznego wyboru języka interfejsu. W Windows format regionalny (np. pl-PL),
+/// bo WebView2 zgłasza język wyświetlania systemu, który często jest angielski mimo polskich ustawień.
+#[tauri::command]
+pub fn sys_locale() -> String {
+    #[cfg(windows)]
+    {
+        let mut cmd = Command::new("reg");
+        cmd.args(["query", r"HKCU\Control Panel\International", "/v", "LocaleName"]).stdout(Stdio::piped()).stderr(Stdio::null());
+        no_window(&mut cmd);
+        if let Ok(out) = cmd.output() {
+            if let Some(v) = String::from_utf8_lossy(&out.stdout).lines().find(|l| l.contains("LocaleName")).and_then(|l| l.split_whitespace().last()) {
+                return v.to_string();
+            }
+        }
+        String::new()
+    }
+    #[cfg(not(windows))]
+    {
+        ["LC_ALL", "LC_MESSAGES", "LANG"].iter().filter_map(|k| std::env::var(k).ok()).find(|v| !v.is_empty()).unwrap_or_default()
+    }
+}

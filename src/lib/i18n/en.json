@@ -705,7 +705,38 @@
     "Import": "Import",
     "Kod": "Code",
     "Workspace": "Workspace",
-    "Automatycznie (język systemu)": "Automatic (system language)"
+    "Automatycznie (język systemu)": "Automatic (system language)",
+    "0 = nie zamykaj": "0 = never close",
+    "auto (np. image_url, image_urls[])": "auto (e.g. image_url, image_urls[])",
+    "example.com albo 10.0.0.5": "example.com or 10.0.0.5",
+    "host docelowy": "target host",
+    "Jeden prompt w linii – każda linia to osobne uruchomienie ({{input}} w nodach startowych)": "One prompt per line – each line is a separate run ({{input}} in start nodes)",
+    "nazwa modelu": "model name",
+    "np. Anthropic praca": "e.g. Anthropic work",
+    "np. Logi kontenera": "e.g. Container logs",
+    "np. --lowvram": "e.g. --lowvram",
+    "np. Ocena PR": "e.g. PR review",
+    "np. Produkcja": "e.g. Production",
+    "np. VPS produkcja": "e.g. Production VPS",
+    "Wiadomość do agenta": "Message to the agent",
+    "Zamknij (Ctrl+Shift+W)": "Close (Ctrl+Shift+W)",
+    "Zamknij workspace": "Close workspace",
+    "Zleć coś agentowi…": "Give the agent a task…",
+    "Szybkie, realistyczne obrazy w 8 krokach. Dobry wybór na 8–12 GB.": "Fast, realistic images in 8 steps. A good pick for 8–12 GB.",
+    "Obrazy i edycja obrazu poleceniem („zmień kolor torby na niebieski”). 4 kroki.": "Images and editing by instruction (“make the bag blue”). 4 steps.",
+    "Klasyczny, lekki model obrazów z ogromną liczbą dodatków.": "A classic, light image model with a huge number of add-ons.",
+    "Szybkie klipy wideo z tekstu albo obrazu (768×512, do ok. 5 s).": "Fast video clips from text or an image (768×512, up to about 5 s).",
+    "Lekki model wideo z tekstu, 480p. Dobry ruch, wolniejszy niż LTX.": "A light text-to-video model, 480p. Good motion, slower than LTX.",
+    "Wideo 720p z tekstu albo obrazu. Przy 12 GB działa z odciążaniem pamięci, wolniej.": "720p video from text or an image. On 12 GB it offloads memory and runs slower.",
+    "Usuwanie tła (przezroczyste PNG). Bardzo lekki.": "Background removal (transparent PNG). Very light.",
+    "Powiększenie obrazu (domyślnie 2×) z odtworzeniem detali.": "Image upscaling (2× by default) with detail restoration.",
+    "Najwyższa jakość obrazów i napisów w obrazie. 4 kroki (Lightning). Mocny komputer.": "Top image quality and in-image text. 4 steps (Lightning). Needs a strong computer.",
+    "Najlepszy otwarty model wideo, 4 kroki (lightx2v). Karta 24 GB i 64 GB RAM.": "The best open video model, 4 steps (lightx2v). 24 GB GPU and 64 GB RAM.",
+    "Wan 2.2 14B tekst → wideo": "Wan 2.2 14B text → video",
+    "Wan 2.2 14B obraz → wideo": "Wan 2.2 14B image → video",
+    "pytaj przed komendą": "ask before commands",
+    "tylko odczyt": "read only",
+    "automatycznie": "automatic"
   },
   "patterns": [
     [
@@ -1039,6 +1070,26 @@
     [
       "Kod jest jednorazowy i ważny jeszcze {0}",
       "The code is single-use and valid for {0}"
+    ],
+    [
+      "{0}. Zalecane: {1} GB karty, {2} GB RAM.",
+      "{0}. Recommended: {1} GB GPU, {2} GB RAM."
+    ],
+    [
+      "{0} · pytaj przed komendą",
+      "{0} · ask before commands"
+    ],
+    [
+      "{0} · tylko odczyt",
+      "{0} · read only"
+    ],
+    [
+      "{0} · automatycznie",
+      "{0} · automatic"
+    ],
+    [
+      "Procesor: {0}\nPamięć: {1}",
+      "CPU: {0}\nMemory: {1}"
     ]
   ]
 }

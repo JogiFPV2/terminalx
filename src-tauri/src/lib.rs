@@ -101,13 +101,20 @@ pub fn run() {
             for dir in [media::media_root(app.handle()), media::fonts_root(app.handle())].into_iter().flatten() {
                 let _ = scope.allow_directory(&dir, true);
             }
-            tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.additional_browser_args(&args).build()?;
+            let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.additional_browser_args(&args);
+            // Tryb portable: także dane WebView2 w folderze `data` (nic w profilu użytkownika, a kopie
+            // z różnych folderów nie blokują sobie nawzajem wspólnego katalogu WebView2).
+            if let Some(d) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("data"))).filter(|d| d.is_dir()) {
+                win = win.data_directory(d.join("webview"));
+            }
+            win.build()?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             app_restart,
             cli_initial,
             sys::explorer_menu,
+            sys::sys_locale,
             monitor::mon_local,
             pty::pty_spawn,
             pty::pty_write,
