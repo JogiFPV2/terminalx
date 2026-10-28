@@ -10,12 +10,19 @@ mod sys;
 use std::sync::Arc;
 use tauri::Manager;
 
+/// Ponowne uruchomienie po zainstalowaniu aktualizacji (macOS, Linux; w Windows instalator robi to sam).
+#[tauri::command]
+fn app_restart(app: tauri::AppHandle) {
+    app.restart();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let ptys = Arc::new(pty::Ptys::default());
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(ptys)
         .manage(sys::SysState::default())
         .manage(Arc::new(ssh::SshState::default()))
@@ -50,6 +57,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            app_restart,
             pty::pty_spawn,
             pty::pty_write,
             pty::pty_resize,

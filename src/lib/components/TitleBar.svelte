@@ -6,6 +6,7 @@
   import { moveItem } from '../util';
   import { isTauri } from '../ipc';
   import { BRAND } from '../defaults';
+  import { upd, installUpdate } from '../update.svelte';
 
   let strip: HTMLDivElement;
   let maximized = $state(false);
@@ -53,6 +54,11 @@
   </div>
   <button class="icobtn" title="Nowy workspace (Ctrl+Shift+N)" onclick={addWorkspace}><Icon name="plus" /></button>
   <div class="spacer" data-tauri-drag-region></div>
+  {#if upd.version}
+    <button class="icobtn upd" disabled={upd.busy} title={upd.busy ? `Pobieram aktualizację… ${upd.pct}%` : `Dostępna wersja ${upd.version} – kliknij, aby zaktualizować`} onclick={installUpdate}>
+      {#if upd.busy}<span class="pct">{upd.pct}</span>{:else}<Icon name="download" />{/if}
+    </button>
+  {/if}
   <button class="icobtn" title="Paleta komend (Ctrl+K)" onclick={() => (ui.palette = true)}><Icon name="search" /></button>
   <button class="icobtn" class:on={app.layout.agentOpen} title="Panel agenta (Ctrl+Shift+A)" onclick={() => (app.layout.agentOpen = !app.layout.agentOpen)}><Icon name="sparks" /></button>
   <button class="icobtn" title="Ustawienia (Ctrl+,)" onclick={() => (ui.settingsOpen = true)}><Icon name="sliders" /></button>
@@ -77,6 +83,8 @@
   .wstab:hover .x, .wstab.on .x { opacity: .6; }
   .x:hover { opacity: 1; background: var(--accent); }
   .rename { font: inherit; width: 120px; background: var(--background); border: 1px solid var(--primary); border-radius: 4px; color: inherit; padding: 1px 5px; outline: none; }
+  .upd { color: var(--primary); }
+  .pct { font-size: 10px; font-variant-numeric: tabular-nums; }
   .winctl { display: flex; height: 100%; }
   .winctl button { width: 46px; display: grid; place-items: center; color: var(--muted-foreground); }
   .winctl button:hover { background: var(--accent); color: var(--foreground); }

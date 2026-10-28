@@ -16,6 +16,7 @@
   import * as sessions from './lib/terminal/sessions.svelte';
   import { loadPlugins, startHost, enabledPlugins, broadcastTheme, emitAll, plug, runCommand } from './lib/plugins/host.svelte';
   import { startScheduler } from './lib/workflow/engine.svelte';
+  import { startUpdates } from './lib/update.svelte';
   import { call, isTauri } from './lib/ipc';
   import { initHosts } from './lib/hosts.svelte';
   import { initRemote } from './lib/remote.svelte';
@@ -39,6 +40,7 @@
         await loadPlugins();
         startHost();
         startScheduler();
+        startUpdates();
         initRemote();
         const poll = async () => { try { ui.stats = await call('sys_stats'); } catch { /* ignore */ } };
         poll();

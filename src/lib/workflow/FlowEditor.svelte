@@ -108,8 +108,8 @@
     });
   }
 
-  async function run(only?: string) {
-    try { const out = await runFlow(flow, '', only); if (!flow.nodes.some((n) => flowRun.status[n.id] === 'err')) notify(only ? 'Node gotowy' : 'Workflow zakończony', 'success'); console.info(out); }
+  async function run(only?: string, force = false) {
+    try { const out = await runFlow(flow, '', only, force); if (!flow.nodes.some((n) => flowRun.status[n.id] === 'err')) notify(only ? 'Node gotowy' : 'Workflow zakończony', 'success'); console.info(out); }
     catch (e) { notify(String(e), 'error'); }
   }
 
@@ -198,7 +198,7 @@
           role="button" tabindex="0" onclick={() => { sel = n.id; reveal(n); }} onkeydown={(e) => { if (e.key === 'Delete' && sel === n.id) delNode(); }}>
           <header role="presentation" onpointerdown={(e) => !compact && dragNode(e, n)}>
             <Icon name={ty.icon} size={14} /><span>{n.label || ty.name}</span>
-            {#if flowRun.status[n.id] === 'run'}<span class="sub busy"></span>{:else if flowRun.status[n.id] === 'ok'}<Icon name="check" size={13} />{:else if flowRun.status[n.id] === 'err'}<Icon name="x" size={13} />{/if}
+            {#if flowRun.status[n.id] === 'run'}<span class="sub busy"></span>{:else if flowRun.status[n.id] === 'ok'}<span class="okmark" class:cached={flowRun.cached[n.id]} title={flowRun.cached[n.id] ? 'Bez zmian – wynik z poprzedniego uruchomienia' : null}><Icon name="check" size={13} /></span>{:else if flowRun.status[n.id] === 'err'}<Icon name="x" size={13} />{/if}
           </header>
           {#if vis}
             <div class="pv" style:aspect-ratio={ms.length ? null : ratio(n)}>
@@ -227,7 +227,7 @@
   </div>
 
   {#if !compact}
-    <div class="tools"><button class="fab" disabled={running} title={running ? 'Działa…' : 'Uruchom workflow'} onclick={() => run()}>{#if running}<span class="spin"></span>{:else}<Icon name="play" size={14} />{/if}</button></div>
+    <div class="tools"><button class="fab" disabled={running} title={running ? 'Działa…' : 'Uruchom workflow (z Shift: wszystko od nowa)'} onclick={(e) => run(undefined, e.shiftKey)}>{#if running}<span class="spin"></span>{:else}<Icon name="play" size={14} />{/if}</button></div>
   {/if}
 
   {#if selNode && selType && !compact}
@@ -447,4 +447,6 @@
   .lb img, .lb video { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 20px 60px -20px #000; }
   .lbbar { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; padding: 4px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); font-size: 12px; color: var(--muted-foreground); }
   .lbbar span { padding: 0 8px; font-variant-numeric: tabular-nums; }
+  .okmark { display: inline-flex; }
+  .okmark.cached { opacity: .45; }
 </style>

@@ -3,6 +3,7 @@
 import { call } from './ipc';
 import { app } from './state.svelte';
 import { isChat } from './defaults';
+import { onGpu } from './gpu';
 import type { Provider } from './types';
 
 export interface ToolDef { name: string; description: string; input_schema: Record<string, unknown> }
@@ -118,7 +119,8 @@ async function openai(p: Provider, model: string, o: CompleteOpts): Promise<Comp
 
 export async function complete(o: CompleteOpts): Promise<CompleteResult> {
   const { p, model } = resolveModel(o.providerId, o.model);
-  return p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o);
+  // Ollama liczy na tej samej karcie co ComfyUI: przez wspólną kolejkę GPU (agenci, nody, snippety).
+  return onGpu(p.type === 'ollama' ? `ollama:${model}` : '', () => (p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o)));
 }
 
 /** Jedno pytanie, jedna odpowiedź tekstowa. */

@@ -194,7 +194,11 @@ export interface AppState {
 /** Workflow ComfyUI zaimportowany przez użytkownika (format API). */
 export interface ComfyCustom { id: string; name: string; op: MediaOp; graph: Record<string, any>; created: number }
 /** Lokalne AI: ComfyUI uruchamiany na żądanie i zatrzymywany po bezczynności. */
-export interface LocalCfg { comfyDir: string; port: number; idleMin: number; args: string; custom: ComfyCustom[] }
+export interface LocalCfg {
+  comfyDir: string; port: number; idleMin: number; args: string; custom: ComfyCustom[];
+  /** Katalog modeli pobrany z repozytorium (aktualizowany raz na dobę). */
+  catalog?: { at: number; data: unknown };
+}
 
 export interface RemoteDevice { id: string; name: string; perm: 'view' | 'control' | 'full'; added: number; lastSeen?: number }
 export interface RemoteCfg { enabled: boolean; mode: 'lan' | 'tailscale'; port: number; devices: RemoteDevice[] }

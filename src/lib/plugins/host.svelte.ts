@@ -311,7 +311,7 @@ export function startHost() {
       case 'boot': {
         const lp = loaded(pluginId);
         if (!lp) return;
-        send(pluginId, { kind: 'init', code: lp.code, manifest: JSON.parse(JSON.stringify(lp.manifest)), config: configOf(pluginId), platform: { os: 'windows', appVersion: BRAND.version } });
+        send(pluginId, { kind: 'init', code: lp.code, manifest: JSON.parse(JSON.stringify(lp.manifest)), config: configOf(pluginId), platform: { os: /Mac/.test(navigator.userAgent) ? 'macos' : /Linux/.test(navigator.userAgent) ? 'linux' : 'windows', appVersion: BRAND.version } });
         return;
       }
       case 'ready': rt.ready = true; delete plug.crashed[pluginId]; return;

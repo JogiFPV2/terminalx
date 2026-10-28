@@ -1,7 +1,6 @@
 //! Lokalne AI: proces ComfyUI uruchamiany na żądanie, kanał postępu (WebSocket), pobieranie modeli
 //! i rozpoznanie sprzętu (karta graficzna, pamięć). Nic tu nie działa w tle, dopóki workflow tego nie potrzebuje.
 
-use base64::Engine;
 use futures_util::StreamExt;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
@@ -11,9 +10,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use sha2::{Digest, Sha256};
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::{AppHandle, Emitter};
-
-const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::STANDARD;
 
 struct ComfyProc {
     child: Child,
@@ -261,52 +260,38 @@ pub fn comfy_status(state: tauri::State<'_, LocalState>) -> ComfyStatus {
 
 /* ---------- kanał postępu ComfyUI (WebSocket) ---------- */
 
-#[derive(Serialize, Clone)]
-struct WsMsg {
-    id: String,
-    msg: serde_json::Value,
-}
-
-#[derive(Serialize, Clone)]
-struct WsPreview {
-    id: String,
-    data: String,
-}
-
-/// Łączy się z /ws ComfyUI i przekazuje komunikaty jako zdarzenia `comfy-ws` (JSON) i `comfy-preview` (podgląd, maks. 3 na sekundę).
+/// Łączy się z /ws ComfyUI i przekazuje komunikaty kanałem: JSON bez zmian, podgląd jako surowe bajty obrazu
+/// (bez base64, maks. 3 na sekundę). Na końcu wysyła {"type":"tx_closed"}.
 #[tauri::command]
-pub async fn comfy_ws(app: AppHandle, state: tauri::State<'_, LocalState>, url: String, id: String) -> Result<(), String> {
+pub async fn comfy_ws(state: tauri::State<'_, LocalState>, url: String, id: String, on: Channel<InvokeResponseBody>) -> Result<(), String> {
     if !url.starts_with("ws://") && !url.starts_with("wss://") {
         return Err("Niepoprawny adres WebSocket".into());
     }
     let (ws, _) = tokio_tungstenite::connect_async(&url).await.map_err(|e| format!("ComfyUI (WebSocket): {e}"))?;
     let stop = Arc::new(AtomicBool::new(false));
-    state.sockets.lock().unwrap().insert(id.clone(), stop.clone());
+    state.sockets.lock().unwrap().insert(id, stop.clone());
     tauri::async_runtime::spawn(async move {
+        use tokio_tungstenite::tungstenite::Message;
         let (_, mut read) = ws.split();
         let mut last_preview = Instant::now() - Duration::from_secs(1);
         loop {
             if stop.load(Ordering::Relaxed) {
                 break;
             }
-            let next = tokio::time::timeout(Duration::from_millis(500), read.next()).await;
-            let msg = match next {
+            let msg = match tokio::time::timeout(Duration::from_millis(500), read.next()).await {
                 Err(_) => continue,
                 Ok(None) | Ok(Some(Err(_))) => break,
                 Ok(Some(Ok(m))) => m,
             };
             match msg {
-                tokio_tungstenite::tungstenite::Message::Text(t) => {
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(t.as_str()) {
-                        let _ = app.emit("comfy-ws", WsMsg { id: id.clone(), msg: v });
-                    }
+                Message::Text(t) => {
+                    let _ = on.send(InvokeResponseBody::Json(t.as_str().to_owned()));
                 }
-                tokio_tungstenite::tungstenite::Message::Binary(b) => {
+                Message::Binary(b) => {
                     if b.len() < 8 || last_preview.elapsed() < Duration::from_millis(330) {
                         continue;
                     }
-                    let kind = u32::from_be_bytes([b[0], b[1], b[2], b[3]]);
-                    let img: &[u8] = match kind {
+                    let img: &[u8] = match u32::from_be_bytes([b[0], b[1], b[2], b[3]]) {
                         1 => &b[8..],
                         4 => {
                             let n = u32::from_be_bytes([b[4], b[5], b[6], b[7]]) as usize;
@@ -315,15 +300,14 @@ pub async fn comfy_ws(app: AppHandle, state: tauri::State<'_, LocalState>, url: 
                         }
                         _ => continue,
                     };
-                    let mime = if img.starts_with(&[0x89, b'P']) { "image/png" } else if img.starts_with(b"RIFF") { "image/webp" } else { "image/jpeg" };
                     last_preview = Instant::now();
-                    let _ = app.emit("comfy-preview", WsPreview { id: id.clone(), data: format!("data:{mime};base64,{}", B64.encode(img)) });
+                    let _ = on.send(InvokeResponseBody::Raw(img.to_vec()));
                 }
-                tokio_tungstenite::tungstenite::Message::Close(_) => break,
+                Message::Close(_) => break,
                 _ => {}
             }
         }
-        let _ = app.emit("comfy-ws", WsMsg { id, msg: serde_json::json!({ "type": "tx_closed" }) });
+        let _ = on.send(InvokeResponseBody::Json(r#"{"type":"tx_closed"}"#.into()));
     });
     Ok(())
 }
@@ -354,11 +338,27 @@ fn safe_dest(dest: &str) -> Result<PathBuf, String> {
     Ok(p)
 }
 
-async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, stop: &AtomicBool) -> Result<(), String> {
+/// Suma SHA-256 pliku z Hugging Face (nagłówek X-Linked-Etag przed przekierowaniem do CDN).
+async fn expected_sha(url: &str) -> Option<String> {
+    let client = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(15)).build().ok()?;
+    let res = client.head(url).header("user-agent", "TerminalX").send().await.ok()?;
+    let tag = res.headers().get("x-linked-etag")?.to_str().ok()?.trim_matches('"').to_lowercase();
+    (tag.len() == 64 && tag.bytes().all(|c| c.is_ascii_hexdigit())).then_some(tag)
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, sha256: Option<String>, stop: &AtomicBool) -> Result<(), String> {
     let part = dest.with_extension(format!("{}.part", dest.extension().and_then(|e| e.to_str()).unwrap_or("bin")));
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
+    let expected = match sha256 {
+        Some(s) => Some(s.to_lowercase()),
+        None => expected_sha(url).await,
+    };
     // Wznawianie przerwanego pobierania.
     let have = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
     let client = reqwest::Client::builder().connect_timeout(Duration::from_secs(30)).build().map_err(|e| e.to_string())?;
@@ -377,6 +377,12 @@ async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, stop: &Atom
     let resumed = status.as_u16() == 206;
     let mut done = if resumed { have } else { 0 };
     let total = res.content_length().map(|l| l + done).unwrap_or(0);
+    let mut hasher = Sha256::new();
+    if resumed && expected.is_some() {
+        // Suma obejmuje też część pobraną wcześniej.
+        let mut f = std::fs::File::open(&part).map_err(|e| e.to_string())?;
+        std::io::copy(&mut f, &mut hasher).map_err(|e| e.to_string())?;
+    }
     let mut file = std::fs::OpenOptions::new().create(true).write(true).append(resumed).truncate(!resumed).open(&part).map_err(|e| e.to_string())?;
     let mut last = Instant::now();
     while let Some(chunk) = res.chunk().await.map_err(|e| format!("Przerwane pobieranie: {e}"))? {
@@ -384,6 +390,9 @@ async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, stop: &Atom
             return Err("Anulowano".into());
         }
         std::io::Write::write_all(&mut file, &chunk).map_err(|e| e.to_string())?;
+        if expected.is_some() {
+            hasher.update(&chunk);
+        }
         done += chunk.len() as u64;
         if last.elapsed() > Duration::from_millis(300) {
             last = Instant::now();
@@ -394,12 +403,19 @@ async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, stop: &Atom
     if total > 0 && done < total {
         return Err("Pobieranie przerwane przed końcem pliku".into());
     }
+    if let Some(want) = expected {
+        if hex(&hasher.finalize()) != want {
+            let _ = std::fs::remove_file(&part);
+            return Err("Pobrany plik jest uszkodzony (suma SHA-256 się nie zgadza). Pobierz ponownie.".into());
+        }
+    }
     std::fs::rename(&part, dest).map_err(|e| e.to_string())
 }
 
-/// Pobiera plik w tle; postęp przychodzi zdarzeniami `dl`. Przerwane pobieranie wznawia się od miejsca przerwania.
+/// Pobiera plik w tle; postęp przychodzi zdarzeniami `dl`. Przerwane pobieranie wznawia się od miejsca przerwania,
+/// a gotowy plik jest sprawdzany sumą SHA-256 (podaną albo z Hugging Face).
 #[tauri::command]
-pub fn dl_start(app: AppHandle, state: tauri::State<'_, LocalState>, id: String, url: String, dest: String) -> Result<(), String> {
+pub fn dl_start(app: AppHandle, state: tauri::State<'_, LocalState>, id: String, url: String, dest: String, sha256: Option<String>) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("Pobieranie tylko przez https".into());
     }
@@ -413,7 +429,7 @@ pub fn dl_start(app: AppHandle, state: tauri::State<'_, LocalState>, id: String,
         dls.insert(id.clone(), stop.clone());
     }
     tauri::async_runtime::spawn(async move {
-        let r = download(&app, &id, &url, &dest, &stop).await;
+        let r = download(&app, &id, &url, &dest, sha256, &stop).await;
         if let Some(s) = tauri::Manager::try_state::<LocalState>(&app) {
             s.downloads.lock().unwrap().remove(&id);
         }
@@ -470,4 +486,29 @@ pub fn comfy_model_remove(dir: String, rel: String) -> Result<(), String> {
     }
     let path = Path::new(&inst.models).join(rel);
     std::fs::remove_file(&path).map_err(|e| format!("Nie mogę usunąć {}: {e}", path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rozpoznaje_producenta_karty() {
+        assert_eq!(vendor_of("NVIDIA GeForce RTX 3060"), "nvidia");
+        assert_eq!(vendor_of("AMD Radeon RX 7900 XTX"), "amd");
+        assert_eq!(vendor_of("Intel(R) Arc(TM) A770"), "intel");
+    }
+
+    #[test]
+    fn sciezka_docelowa_bez_wyjscia_poza_folder() {
+        assert!(safe_dest("relative/file.bin").is_err());
+        let base = std::env::temp_dir();
+        assert!(safe_dest(base.join("a").join("..").join("b").to_str().unwrap()).is_err());
+        assert!(safe_dest(base.join("models").join("x.safetensors").to_str().unwrap()).is_ok());
+    }
+
+    #[test]
+    fn sha256_hex() {
+        assert_eq!(hex(&Sha256::digest(b"abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    }
 }

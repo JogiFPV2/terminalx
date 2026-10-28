@@ -7,7 +7,7 @@ import { complete, stripAnsi } from '../ai';
 import * as sessions from '../terminal/sessions.svelte';
 import { fill, nid, sleep, slug } from '../util';
 import { MEDIA_DEFAULTS, generateOnce, kindOf, mediaFile, ffmpeg } from './media';
-import { localKey, withGpu, gpuSwitch } from './comfy.svelte';
+import { localKey } from '../gpu';
 import type { Flow, FlowNode, NodeTypeDef, AiCfg, Media, MediaCfg } from '../types';
 
 export const flowRun = $state({
@@ -20,6 +20,8 @@ export const flowRun = $state({
   /** Podgląd generowanego obrazu (modele lokalne). */
   preview: {} as Record<string, string>,
   running: {} as Record<string, boolean>,
+  /** Nody, których wynik wzięto z pamięci (nic się nie zmieniło od ostatniego uruchomienia). */
+  cached: {} as Record<string, boolean>,
 });
 
 export const allNodeTypes = (): NodeTypeDef[] => [...BUILTIN_NODES, ...app.nodeTypes];
@@ -37,6 +39,10 @@ export function makeNode(typeId: string, x: number, y: number, label = ''): Flow
 }
 
 type Result = { text: string; items?: string[]; stop?: boolean; exit?: number; media?: Media[] };
+
+/** Wyniki drogich nodów (AI, grafika, wideo) z ostatniego udanego uruchomienia. Ten sam node z tymi samymi
+ *  ustawieniami i wejściem nie liczy się drugi raz: zmiana na końcu grafu nie generuje ponownie obrazów na początku. */
+const memo = new Map<string, { key: string; res: Result }>();
 
 function findTabByName(name: string) {
   const n = name.trim().toLowerCase();
@@ -88,10 +94,10 @@ async function runAi(cfg: AiCfg, input: string, vars: Record<string, string>, me
     providerId: cfg.provider || null, model: cfg.model || null, messages: [{ role: 'user', content }],
     maxTokens: cfg.maxTokens || 2048, temperature: cfg.temperature, topP: cfg.topP, json: cfg.format === 'json',
   }).then((r) => r.text);
-  // Model lokalny (Ollama): przez kolejkę GPU, po zwolnieniu modeli ComfyUI.
-  const key = localKey(cfg, false);
-  const outs = key ? await withGpu(async () => { await gpuSwitch(key); const r: string[] = []; for (let i = 0; i < n; i++) r.push(await one()); return r; })
-    : await Promise.all(Array.from({ length: n }, one));
+  // Model lokalny (Ollama) i tak czeka w kolejce GPU, więc wyniki liczymy po kolei; chmurowe – równolegle.
+  const outs: string[] = [];
+  if (localKey(cfg, false)) for (let i = 0; i < n; i++) outs.push(await one());
+  else outs.push(...(await Promise.all(Array.from({ length: n }, one))));
   const text = n === 1 ? outs[0] : outs.map((o, i) => `--- wariant ${i + 1} ---\n${o}`).join('\n\n');
   return { text, items: cfg.format === 'list' ? outs.join('\n').split('\n').map((s) => s.trim()).filter(Boolean) : n > 1 ? outs : undefined };
 }
@@ -258,14 +264,14 @@ async function exec(node: FlowNode, input: string, exitIn: number | undefined, v
   }
 }
 
-/** Wykonuje cały workflow. Zwraca tekst wyników węzłów końcowych. */
-/** Wykonuje cały workflow albo (z `only`) jeden node: poprzedniki z udanym wynikiem nie są uruchamiane ponownie. */
-export async function runFlow(flow: Flow, initial = '', only?: string): Promise<string> {
+/** Wykonuje cały workflow albo (z `only`) jeden node: poprzedniki z udanym wynikiem nie są uruchamiane ponownie.
+ *  `force` liczy wszystko od nowa, bez wyników z pamięci. Zwraca tekst wyników węzłów końcowych. */
+export async function runFlow(flow: Flow, initial = '', only?: string, force = false): Promise<string> {
   if (flowRun.running[flow.id]) throw new Error('Ten workflow już działa');
   flowRun.running[flow.id] = true;
   const need = new Set<string>();
   if (only) { const up = (id: string) => { if (need.has(id)) return; need.add(id); for (const [a, b] of flow.edges) if (b === id) up(a); }; up(only); }
-  for (const n of flow.nodes) if (!only || n.id === only || (need.has(n.id) && flowRun.status[n.id] !== 'ok')) { delete flowRun.status[n.id]; delete flowRun.out[n.id]; delete flowRun.note[n.id]; delete flowRun.preview[n.id]; }
+  for (const n of flow.nodes) if (!only || n.id === only || (need.has(n.id) && flowRun.status[n.id] !== 'ok')) { delete flowRun.status[n.id]; delete flowRun.out[n.id]; delete flowRun.note[n.id]; delete flowRun.preview[n.id]; delete flowRun.cached[n.id]; }
   const indeg: Record<string, number> = Object.fromEntries(flow.nodes.map((n) => [n.id, 0]));
   for (const [, b] of flow.edges) if (b in indeg) indeg[b]++;
   const queue = flow.nodes.filter((n) => !indeg[n.id]).map((n) => n.id);
@@ -298,21 +304,27 @@ export async function runFlow(flow: Flow, initial = '', only?: string): Promise<
       const media = live.flatMap((r) => r.media || []);
       const exitIn = live.find((r) => r.exit !== undefined)?.exit;
       const items = live.length === 1 ? live[0].items : undefined;
+      const ty = nodeType(node.type);
+      const key = ty.ai || ty.media ? JSON.stringify([node.type, node.cfg, input, media.map((m) => m.path), items, exitIn, vars]) : '';
+      const hit = key && !force && id !== only ? memo.get(id) : undefined;
       flowRun.status[id] = 'run';
       try {
         let res: Result;
-        if (items && items.length && nodeType(node.type).id !== 'join' && nodeType(node.type).id !== 'merge') {
+        if (hit && hit.key === key) { res = hit.res; flowRun.cached[id] = true; }
+        else if (items && items.length && ty.id !== 'join' && ty.id !== 'merge') {
           const parts: string[] = [];
           const got: Media[] = [];
           for (const it of items) { const r = await exec(node, it, exitIn, vars, media); parts.push(r.text); got.push(...(r.media || [])); }
           res = { text: parts.join('\n'), media: got.length ? got : undefined };
         } else res = await exec(node, input, exitIn, vars, media);
+        if (key) memo.set(id, { key, res });
         results[id] = res;
         flowRun.out[id] = res.text;
         if (res.media?.length) flowRun.media[id] = res.media; else delete flowRun.media[id];
         flowRun.status[id] = res.stop ? 'skip' : 'ok';
       } catch (e) {
         results[id] = null;
+        memo.delete(id);
         delete flowRun.note[id];
         flowRun.out[id] = String(e).replace(/^Error: /, '');
         flowRun.status[id] = 'err';
@@ -339,16 +351,16 @@ async function tick() {
         if (n.type === 'cron') {
           const every = Math.max(1, +n.cfg.every || 60) * 60_000;
           lastRun[n.id] ??= Date.now();
-          if (Date.now() - lastRun[n.id] >= every) { lastRun[n.id] = Date.now(); runFlow(flow).catch(() => {}); }
+          if (Date.now() - lastRun[n.id] >= every) { lastRun[n.id] = Date.now(); runFlow(flow, '', undefined, true).catch(() => {}); }
         } else if (n.type === 'git_push' && n.cfg.repo) {
           const r: any = await call('sys_exec', { cmd: 'git', args: ['-C', n.cfg.repo, 'rev-parse', n.cfg.branch || 'HEAD'], cwd: null, timeoutMs: 10000 });
           const head = r.stdout.trim();
-          if (head && lastSeen[n.id] && lastSeen[n.id] !== head) runFlow(flow).catch(() => {});
+          if (head && lastSeen[n.id] && lastSeen[n.id] !== head) runFlow(flow, '', undefined, true).catch(() => {});
           if (head) lastSeen[n.id] = head;
         } else if (n.type === 'file_watch' && n.cfg.path) {
           const text = await call<string>('fs_read_text', { path: n.cfg.path }).catch(() => '');
           const h = `${text.length}:${text.slice(0, 64)}:${text.slice(-64)}`;
-          if (lastSeen[n.id] !== undefined && lastSeen[n.id] !== h) runFlow(flow).catch(() => {});
+          if (lastSeen[n.id] !== undefined && lastSeen[n.id] !== h) runFlow(flow, '', undefined, true).catch(() => {});
           lastSeen[n.id] = h;
         }
       } catch { /* sprawdzimy przy następnym takcie */ }

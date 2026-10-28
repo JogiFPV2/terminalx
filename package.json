@@ -10,12 +10,14 @@
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build",
-    "plugins:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-plugins.ps1"
+    "plugins:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-plugins.ps1",
+    "test": "node --test \"tests/*.test.ts\""
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
     "@tauri-apps/plugin-dialog": "^2.2.2",
     "@tauri-apps/plugin-opener": "^2.2.7",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-search": "^0.15.0",
     "@xterm/addon-unicode11": "^0.8.0",

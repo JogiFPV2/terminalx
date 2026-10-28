@@ -277,3 +277,15 @@ pub async fn http_request(method: String, url: String, headers: Option<HashMap<S
     let body = res.text().await.map_err(|e| e.to_string())?;
     Ok(HttpResult { status, body })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::decode;
+
+    #[test]
+    fn dekoduje_utf16_z_wsl() {
+        let utf16: Vec<u8> = "Ubuntu\r\n".encode_utf16().flat_map(|c| c.to_le_bytes()).collect();
+        assert_eq!(decode(&utf16), "Ubuntu\r\n");
+        assert_eq!(decode("zażółć".as_bytes()), "zażółć");
+    }
+}

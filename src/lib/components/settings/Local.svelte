@@ -3,7 +3,7 @@
   import { app, notify } from '../../state.svelte';
   import { call, isTauri } from '../../ipc';
   import { nid } from '../../util';
-  import { PRESETS, local, refreshLocal, fit, installed, presetSize, downloadPreset, removePreset, installComfy, startComfy, stopComfy, ensureProvider, inspectCustom, fileKey, GB } from '../../workflow/comfy.svelte';
+  import { catalogPresets, local, refreshLocal, fit, installed, presetSize, downloadPreset, removePreset, installComfy, startComfy, stopComfy, ensureProvider, inspectCustom, fileKey, GB } from '../../workflow/comfy.svelte';
   import type { MediaOp } from '../../types';
   import type { Preset } from '../../workflow/comfy.svelte';
 
@@ -18,8 +18,9 @@
   const gb = (b: number) => (b / GB < 10 ? (b / GB).toFixed(1) : Math.round(b / GB)).toString().replace('.', ',');
   const OPS: Record<MediaOp, [string, string]> = { image: ['image', 'Obraz'], edit: ['wand', 'Edycja'], video: ['film', 'Wideo'], i2v: ['clapper', 'Obraz → wideo'], upscale: ['maximize', 'Powiększenie'], rmbg: ['scissors', 'Usuwanie tła'] };
   const FIT = { ok: ['var(--chart-1)', 'Pasuje do tego komputera'], slow: ['var(--chart-3)', 'Zadziała wolniej (część modelu w RAM)'], no: ['var(--destructive)', 'Za mało pamięci na tym komputerze'], '?': ['var(--muted-foreground)', 'Nie znam wymagań'] } as const;
-  const shown = $derived(PRESETS.filter((p) => showAll || fit(p) !== 'no' || installed(p)));
-  const hidden = $derived(PRESETS.length - shown.length);
+  const all = $derived(catalogPresets());
+  const shown = $derived(all.filter((p) => showAll || fit(p) !== 'no' || installed(p)));
+  const hidden = $derived(all.length - shown.length);
   const progressOf = (p: Preset) => {
     const act = p.files.map((m) => local.dl[fileKey(m)]).filter(Boolean);
     if (!act.length) return null;
@@ -103,7 +104,7 @@
       {/if}
     </div>
   </div>
-  {#if busy && !PRESETS.some((p) => p.id === busy)}
+  {#if busy && !all.some((p) => p.id === busy)}
     <div class="prog"><span class="spin"></span>{busy === 'install' || busy === 'start' ? 'pracuję…' : busy}
       {#if local.dl.comfyui?.total}<progress max={local.dl.comfyui.total} value={local.dl.comfyui.done}></progress>{/if}</div>
   {/if}
