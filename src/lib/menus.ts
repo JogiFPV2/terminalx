@@ -1,5 +1,5 @@
 // Menu kontekstowe zakładki i menu „+” (nowa zakładka). Wspólne dla paska zakładek i okien.
-import { app, ui, curWs, newTab, closeTab, splitTab, duplicateTab, findTab, tabKind, notify, type MenuItem } from './state.svelte';
+import { app, ui, curWs, newTab, closeTab, splitTab, duplicateTab, findTab, tabKind, notify, unparkTab, stopParked, type MenuItem } from './state.svelte';
 import { tabMenuItems, emit } from './plugins/host.svelte';
 import { openSsh, openSftp, openVault, openMonitor, openGallery } from './hosts.svelte';
 import * as sessions from './terminal/sessions.svelte';
@@ -53,6 +53,7 @@ export function tabMenu(tabId: string, x: number, y: number) {
   if (t.kind === 'terminal') {
     items.push({ label: t.panes.length > 1 ? 'Scal panele' : 'Podziel w poziomie', icon: 'split', kbd: 'Ctrl+Shift+D', run: () => splitTab(t.id, 'col') });
     if (t.panes.length === 1) items.push({ label: 'Podziel w pionie', icon: 'splitv', run: () => splitTab(t.id, 'row') });
+    if (!t.panes[0].shell.startsWith('ssh:')) items.push({ label: t.files ? 'Ukryj pliki' : 'Pokaż pliki', icon: 'folder', run: () => (t.files = !t.files) });
     items.push({ label: 'Szukaj w terminalu', icon: 'search', kbd: 'Ctrl+Shift+F', run: () => (ui.searchPane = t.panes[0].id) });
     items.push({ label: 'Zapisz ekran do pliku', icon: 'save', run: () => saveScreen(t.panes[0].id, t.title) });
     items.push({ label: 'Uruchom ponownie powłokę', icon: 'refresh', run: () => t.panes.forEach((p) => sessions.restart(p.id)) });
@@ -66,6 +67,7 @@ export function tabMenu(tabId: string, x: number, y: number) {
     items.push({ sep: true });
     for (const m of plugItems) items.push({ label: m.title, icon: m.icon || 'puzzle', run: () => emit(m.pluginId, 'tabMenu', { itemId: m.id, tabId: t.id }) });
   }
+  if (!f.ws) items.push({ sep: true }, { label: 'Przywróć na pasek zakładek', icon: 'undo', run: () => unparkTab(t.id) }, { label: 'Zatrzymaj proces', icon: 'stop', run: () => stopParked(t.id, t.title) });
   if (f.ws) items.push({ sep: true }, { label: 'Zamknij', icon: 'x', kbd: 'Ctrl+Shift+W', run: () => closeTab(t.id) });
   openMenu(x, y, items);
 }

@@ -38,6 +38,9 @@ export interface Tab {
   subagent: string | null;
   win: WinGeom | null;
   flowId?: string;
+  /** Panel plików bieżącego katalogu (zakładki terminala) i jego szerokość. */
+  files?: boolean;
+  filesW?: number;
 }
 
 export interface ChatMsg {

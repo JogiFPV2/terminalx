@@ -736,7 +736,18 @@
     "Wan 2.2 14B obraz → wideo": "Wan 2.2 14B image → video",
     "pytaj przed komendą": "ask before commands",
     "tylko odczyt": "read only",
-    "automatycznie": "automatic"
+    "automatycznie": "automatic",
+    "Pliki w bieżącym katalogu": "Files in current folder",
+    "Ukryj pliki": "Hide files",
+    "Pokaż pliki": "Show files",
+    "Zamknij panel": "Close panel",
+    "Czekam, aż powłoka poda katalog…": "Waiting for the shell to report its folder…",
+    "Pusty katalog": "Empty folder",
+    "Zawartość katalogu": "Folder contents",
+    "Szerokość panelu plików": "File panel width",
+    "Przywróć na pasek zakładek": "Restore to tab bar",
+    "Zatrzymaj proces": "Stop process",
+    "Procesy w tle": "Background processes"
   },
   "patterns": [
     [
@@ -1090,6 +1101,10 @@
     [
       "Procesor: {0}\nPamięć: {1}",
       "CPU: {0}\nMemory: {1}"
+    ],
+    [
+      "{0} · w tle (dwuklik przywraca)",
+      "{0} · in background (double-click restores)"
     ]
   ]
 }

@@ -11,6 +11,7 @@ import '@xterm/xterm/css/xterm.css';
 import { call, ptySpawn, sshSpawn, isTauri } from '../ipc';
 import { terminalTheme, toHex } from '../theme';
 import type { Pane, Settings } from '../types';
+import { parseOsc7 } from './osc';
 
 interface Session {
   pane: Pane;
@@ -33,7 +34,8 @@ export function setSshHooks(resolve: typeof hostResolver, connected: typeof sshC
 const cmd = (s: Session, op: 'write' | 'resize' | 'kill') =>
   s.ssh ? ({ write: 'ssh_write', resize: 'ssh_resize', kill: 'ssh_close' } as const)[op] : ({ write: 'pty_write', resize: 'pty_resize', kill: 'pty_kill' } as const)[op];
 
-export const termStatus = $state<Record<string, { exited: boolean; code: number | null; title: string; cwd: string }>>({});
+/** cwd: katalog tak, jak widzi go powłoka (w WSL ścieżka Linuksa); dir: ta sama ścieżka do odczytu z Windows. */
+export const termStatus = $state<Record<string, { exited: boolean; code: number | null; title: string; cwd: string; dir: string; seq: number }>>({});
 
 const sessions = new Map<string, Session>();
 let park: HTMLDivElement | null = null;
@@ -103,7 +105,7 @@ export function ensureSession(pane: Pane): Session {
 
   const session: Session = { pane, term, fit, search, el, ptyId: null, started: Date.now(), ro: null, scanned: 0, ssh: pane.shell.startsWith('ssh:') };
   sessions.set(pane.id, session);
-  termStatus[pane.id] = { exited: false, code: null, title: '', cwd: pane.cwd || '' };
+  termStatus[pane.id] = { exited: false, code: null, title: '', cwd: pane.cwd || '', dir: '', seq: 0 };
 
   term.onData((d) => {
     const st = termStatus[pane.id];
@@ -112,9 +114,13 @@ export function ensureSession(pane: Pane): Session {
   });
   term.onResize(({ cols, rows }) => { if (session.ptyId != null) call(cmd(session, 'resize'), { id: session.ptyId, cols, rows }).catch(() => {}); });
   term.onTitleChange((t) => { if (termStatus[pane.id]) termStatus[pane.id].title = t; });
-  // OSC 7: powłoka zgłasza bieżący katalog (bash/zsh z odpowiednim promptem, pwsh z modułem).
-  term.parser.registerOscHandler(7, (data) => {
-    try { const u = new URL(data); if (termStatus[pane.id]) termStatus[pane.id].cwd = decodeURIComponent(u.pathname.replace(/^\/([A-Za-z]:)/, '$1')); } catch { /* ignore */ }
+  // Bieżący katalog zgłaszany przez powłokę (integracja ustawiana w pty.rs): OSC 7 i OSC 9;9.
+  const setDir = (d: { cwd: string; dir: string } | null) => { const st = termStatus[pane.id]; if (d && st) { st.cwd = d.cwd; st.dir = d.dir; st.seq++; } };
+  term.parser.registerOscHandler(7, (data) => { setDir(parseOsc7(data)); return true; });
+  term.parser.registerOscHandler(9, (data) => {
+    if (!data.startsWith('9;')) return false;
+    const p = data.slice(2).replace(/^"|"$/g, '');
+    if (p) setDir({ cwd: p, dir: p });
     return true;
   });
   term.attachCustomKeyEventHandler((e) => {
@@ -256,6 +262,23 @@ export function write(paneId: string, text: string) {
   const s = sessions.get(paneId);
   if (s?.ptyId != null) return call(cmd(s, 'write'), { id: s.ptyId, data: text });
   return Promise.reject(new Error('Terminal nie działa'));
+}
+
+/** Wpisuje w powłoce `cd` do podkatalogu (albo `..`). Najpierw czyści niedokończoną linię:
+ *  Esc w cmd i PowerShell, Ctrl+U w bashu (tam Esc to prefiks Meta). */
+export function changeDir(paneId: string, name: string) {
+  const s = sessions.get(paneId);
+  if (!s) return Promise.reject(new Error('Terminal nie działa'));
+  const sh = s.pane.shell;
+  if (sh === 'cmd') return clearThen(paneId, `cd "${name}"\r`);
+  if (sh === 'pwsh' || sh === 'powershell') return clearThen(paneId, `${/[[\]*?`]/.test(name) ? 'cd -LiteralPath' : 'cd'} '${name.replace(/'/g, "''")}'\r`);
+  return write(paneId, `\x15cd '${name.replace(/'/g, `'\\''`)}'\r`);
+}
+// Samotny Esc musi dojść osobno, inaczej ConPTY sklei go z następną literą w Alt+litera.
+async function clearThen(paneId: string, text: string) {
+  await write(paneId, '\x1b');
+  await new Promise((r) => setTimeout(r, 60));
+  return write(paneId, text);
 }
 
 export function paste(paneId: string, text: string) { sessions.get(paneId)?.term.paste(text); }

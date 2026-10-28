@@ -228,7 +228,7 @@ export async function expandSnippet(body: string, paneId: string | null): Promis
     else if (n === 'cwd') vars[n] = paneId ? sessions.termStatus[paneId]?.cwd || '' : '';
     else if (n.startsWith('last_output')) vars[n] = paneId ? sessions.tail(paneId, parseInt(n.split(':')[1] || '50', 10)).join('\n') : '';
     else if (n.startsWith('cmd:')) {
-      const r: any = await call('sys_run_script', { shell: 'pwsh', script: n.slice(4), cwd: (paneId && sessions.termStatus[paneId]?.cwd) || null, timeoutMs: 30000 }).catch((e) => ({ stdout: String(e), stderr: '' }));
+      const r: any = await call('sys_run_script', { shell: 'pwsh', script: n.slice(4), cwd: (paneId && (sessions.termStatus[paneId]?.dir || sessions.termStatus[paneId]?.cwd)) || null, timeoutMs: 30000 }).catch((e) => ({ stdout: String(e), stderr: '' }));
       vars[n] = `${r.stdout}${r.stderr ? '\n' + r.stderr : ''}`.trim();
     } else {
       const v = await askVar(n);

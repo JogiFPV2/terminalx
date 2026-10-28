@@ -66,6 +66,9 @@
         oncontextmenu={(e) => { e.preventDefault(); tabMenu(t.id, e.clientX, e.clientY); }}>
         <span class="ki" style:color={k.c} title={k.label}><Icon name={k.icon} size={13} /></span><b>{t.title}</b>
         <span class="spacer"></span>
+        {#if t.kind === 'terminal' && !t.panes[0]?.shell.startsWith('ssh:')}
+          <button class="icobtn" class:on={t.files} title={t.files ? 'Ukryj pliki' : 'Pliki w bieżącym katalogu'} onclick={() => (t.files = !t.files)}><Icon name="folder" size={12} /></button>
+        {/if}
         <button class="icobtn" title={t.win?.max ? 'Przywróć' : 'Maksymalizuj'} onclick={() => t.win && (t.win.max = !t.win.max)}><Icon name={t.win?.max ? 'restore' : 'max'} size={12} /></button>
         <button class="icobtn" title="Zamknij" onclick={() => closeTab(t.id)}><Icon name="x" size={12} /></button>
       </div>
@@ -100,4 +103,5 @@
   .rh.nw { top: -5px; left: -5px; cursor: nwse-resize; } .rh.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
   .rh.ne { top: -5px; right: -5px; cursor: nesw-resize; } .rh.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
   .empty { display: grid; place-items: center; height: 100%; color: var(--muted-foreground); }
+  .wt .icobtn.on { color: var(--primary); }
 </style>

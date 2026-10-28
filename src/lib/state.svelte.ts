@@ -29,6 +29,8 @@ export const ui = $state({
   renamingWs: null as string | null,
   focusedPane: null as string | null,
   dragTab: null as string | null,
+  /** Zaparkowana zakładka (Procesy w tle) podejrzana w głównym widoku bez zdejmowania z panelu. */
+  peek: null as string | null,
 });
 
 /* ---------- lookups ---------- */
@@ -115,6 +117,7 @@ export function newTab(kind: string, wsId = app.activeWs, cwd?: string): Tab {
 export function activateTab(id: string) {
   const f = findTab(id);
   if (!f || !f.ws) return;
+  ui.peek = null;
   f.ws.activeTab = id;
   f.ws.z = f.ws.z.filter((x) => x !== id).concat(id);
   app.activeWs = f.ws.id;

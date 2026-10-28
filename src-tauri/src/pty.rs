@@ -36,6 +36,28 @@ fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
+/// Integracja z powłoką: przy każdym prompcie powłoka zgłasza bieżący katalog sekwencją OSC
+/// (PowerShell: OSC 7 z zakodowaną ścieżką; cmd i Git Bash: OSC 9;9; WSL: OSC 7 z hostem
+/// wsl.localhost). Prompt użytkownika (profil, oh-my-posh) zostaje bez zmian.
+const PS_CWD: &str = r#"$global:__txPrompt = $function:prompt
+function global:prompt {
+  $l = $executionContext.SessionState.Path.CurrentLocation
+  if ($l.Provider.Name -eq 'FileSystem') {
+    $u = ($l.ProviderPath -split '\\' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
+    [Console]::Write("$([char]27)]7;file:///$u$([char]7)")
+  }
+  & $global:__txPrompt
+}"#;
+const BASH_WIN_CWD: &str = r#"printf '\033]9;9;%s\007' "$(cygpath -w "$PWD")""#;
+const WSL_CWD: &str = r#"printf '\033]7;file://wsl.localhost/%s%s\007' "$WSL_DISTRO_NAME" "$PWD""#;
+
+/// -EncodedCommand to Base64 z UTF-16LE: skrypt przechodzi bez kłopotów z cudzysłowami.
+fn encode_ps(script: &str) -> String {
+    use base64::Engine;
+    let bytes: Vec<u8> = script.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
 /// Zamienia identyfikator powłoki z UI na komendę.
 fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
     let mut cmd = if let Some(distro) = shell.strip_prefix("wsl:") {
@@ -43,25 +65,29 @@ fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
         if !distro.is_empty() {
             c.args(["-d", distro]);
         }
-        // Katalog Windows nie ma sensu w WSL; startujemy w katalogu domowym dystrybucji.
-        c.args(["--cd", "~"]);
+        // Ścieżka Windows nie ma sensu w WSL: startujemy w zapamiętanym katalogu Linuksa albo w domowym.
+        c.args(["--cd", cwd.filter(|d| d.starts_with('/')).unwrap_or("~")]);
+        c.env("PROMPT_COMMAND", WSL_CWD);
+        let wslenv = std::env::var("WSLENV").unwrap_or_default();
+        c.env("WSLENV", if wslenv.is_empty() { "PROMPT_COMMAND/u".to_string() } else { format!("{wslenv}:PROMPT_COMMAND/u") });
         c
     } else {
         match shell {
-            "pwsh" => {
-                let mut c = CommandBuilder::new("pwsh.exe");
-                c.arg("-NoLogo");
+            "pwsh" | "powershell" => {
+                let mut c = CommandBuilder::new(if shell == "pwsh" { "pwsh.exe" } else { "powershell.exe" });
+                c.args(["-NoLogo", "-NoExit", "-EncodedCommand", &encode_ps(PS_CWD)]);
                 c
             }
-            "powershell" => {
-                let mut c = CommandBuilder::new("powershell.exe");
-                c.arg("-NoLogo");
+            "cmd" => {
+                let mut c = CommandBuilder::new("cmd.exe");
+                let base = std::env::var("PROMPT").unwrap_or_else(|_| "$P$G".into());
+                c.env("PROMPT", format!("$E]9;9;$P$E\\{base}"));
                 c
             }
-            "cmd" => CommandBuilder::new("cmd.exe"),
             "gitbash" => {
                 let mut c = CommandBuilder::new(r"C:\Program Files\Git\bin\bash.exe");
                 c.args(["--login", "-i"]);
+                c.env("PROMPT_COMMAND", BASH_WIN_CWD);
                 c
             }
             other => CommandBuilder::new(other),

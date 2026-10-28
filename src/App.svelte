@@ -25,6 +25,7 @@
   let error = $state('');
   const ws = $derived(curWs());
   const tab = $derived(curTab());
+  const peek = $derived(ui.peek ? app.parked.find((p) => p.tab.id === ui.peek && p.wsId === ws.id)?.tab : undefined);
   const hiddenPlugins = $derived(enabledPlugins().filter((p) => !p.manifest.contributes?.sidebar?.length));
 
   onMount(() => {
@@ -149,7 +150,9 @@
         <TabBar />
         <div class="view">
           {#key ws.id}
-            {#if ws.mode === 'windows'}
+            {#if peek}
+              {#key peek.id}<TabContent tab={peek} autofocus={true} />{/key}
+            {:else if ws.mode === 'windows'}
               <Desk {ws} />
             {:else if tab}
               {#key tab.id}<TabContent {tab} autofocus={true} />{/key}
