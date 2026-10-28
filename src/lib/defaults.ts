@@ -174,7 +174,7 @@ export function initialState(defaultShell: string): AppState {
     settings: {
       undoSec: 20, inactiveDim: 0.6, themeName: 'Domyślny', themeMode: 'system', customThemes: {},
       fontSize: 13, fontFamily: '"Cascadia Mono", "JetBrains Mono", Consolas, monospace', lineHeight: 1.2, scrollback: 5000,
-      cursorBlink: true, lightMode: true, defaultShell, alwaysAsk: ['rm -rf', 'Remove-Item -Recurse', 'format', 'mkfs', 'dd if=', 'shutdown', 'git push --force', 'DROP TABLE'],
+      cursorBlink: true, lightMode: true, lang: 'auto', defaultShell, alwaysAsk: ['rm -rf', 'Remove-Item -Recurse', 'format', 'mkfs', 'dd if=', 'shutdown', 'git push --force', 'DROP TABLE'],
       keywords: [{ pattern: '\\b(ERROR|FAIL(ED)?|Exception)\\b', color: 'destructive' }, { pattern: '\\bWARN(ING)?\\b', color: 'chart-3' }],
     },
     providers: DEFAULT_PROVIDERS.map((p) => ({ ...p, models: [...p.models] })),

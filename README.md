@@ -1,6 +1,6 @@
 # TerminalX
 
-Lekki menedżer terminali i workflow z AI dla Windows (później Linux i macOS). Tauri 2 (Rust) + Svelte 5 + xterm.js.
+Lekki menedżer terminali i workflow z AI dla Windows, Linuksa i macOS. Tauri 2 (Rust) + Svelte 5 + xterm.js. Interfejs po polsku i angielsku.
 
 ## Uruchomienie
 
@@ -16,7 +16,12 @@ npm install
 npm run app:dev      # tryb deweloperski z przeładowaniem
 npm run app:build    # wersja release + instalator NSIS
 npm run plugins:pack # pluginy z plugins/ → release/plugins/*.zip
+npm test             # testy: przepisy modeli vs. definicje nodów ComfyUI, katalog, słowniki
 ```
+
+Lokalny build release z paczką aktualizacji potrzebuje klucza podpisu: `TAURI_SIGNING_PRIVATE_KEY` (ścieżka do `~/.tauri/terminalx.key` albo jego treść).
+
+**Wydanie**: tag `v*` (np. `git tag v0.2.0 && git push --tags`) uruchamia GitHub Actions, który buduje instalatory dla Windows, Linuksa (AppImage, deb) i macOS (Apple Silicon i Intel), podpisuje paczki aktualizacji i tworzy szkic wydania z `latest.json`. Zainstalowana aplikacja sprawdza aktualizacje po starcie i co 6 godzin; przycisk pojawia się w pasku tytułu. Wersja jest w jednym miejscu: `package.json`.
 
 Wymagania do budowania: Node.js 20+, Rust (rustup, toolchain MSVC), Visual Studio Build Tools z „Desktop development with C++”. WebView2 jest wbudowany w Windows 11.
 
@@ -36,26 +41,30 @@ Wymagania do budowania: Node.js 20+, Rust (rustup, toolchain MSVC), Visual Studi
 - **Snippety**: komendy i prompty AI ze zmiennymi oraz własnym providerem i modelem (albo domyślnym). Dostępne z Ustawień i z palety komend.
 - **Biblioteka promptów**: foldery w folderach, prompty bazowe.
 - **Grafika i wideo w workflow** (jak we Florze): nody Generuj obraz, Edytuj obraz, Powiększ, Usuń tło, Generuj wideo, Obraz → wideo, Plik z dysku, Ostatnia klatka i Połącz klipy (te dwa wymagają ffmpeg), Zapisz media. Podgląd wyników w nodzie, podgląd pełnoekranowy, uruchamianie pojedynczego noda. Providerzy: fal.ai i Replicate (setki modeli: Flux, Imagen, Kling, Veo, Seedance, Hailuo…), OpenAI (gpt-image-1, Sora) i Google (Gemini, Imagen, Veo). Każdy node AI widzi obrazy z wejścia (np. „Opisz obraz”). Wyniki trafiają do folderu `media` w danych aplikacji.
-- **Lokalne AI** (Ustawienia → Lokalne AI): grafika i wideo na własnej karcie graficznej przez ComfyUI, bez opłat. Instalacja jednym kliknięciem (wersja przenośna dla NVIDIA, AMD i Intel) albo wskazanie istniejącego ComfyUI. Katalog modeli z oceną, czy pasują do komputera (pamięć karty i RAM): Z-Image Turbo, FLUX.2 Klein 4B (także edycja obrazu), SDXL, LTX-Video 2B, Wan 2.1 1.3B, Wan 2.2 5B, BiRefNet (usuwanie tła), SeedVR2 (powiększanie), a dla mocniejszych komputerów Qwen-Image 2512 i Wan 2.2 14B. Pobieranie z postępem i wznawianiem, wspólne pliki pobierają się raz. Własne workflow z ComfyUI (Export (API)) z podstawianiem promptu, obrazu, seeda, proporcji i długości klipu. ComfyUI startuje dopiero, gdy workflow go potrzebuje, i zamyka się po bezczynności (domyślnie 5 min). Zadania lokalne idą przez jedną kolejkę: na karcie jest zawsze jeden model, przed grafiką aplikacja zwalnia modele Ollamy, a przy zmianie modelu pamięć ComfyUI. Kolejność nodów jest układana tak, żeby model zmieniał się jak najrzadziej. W nodzie widać kroki i podgląd generowanego obrazu na żywo.
-- **Workflow**: 50 nodów w 10 kategoriach i własne nody (także graficzne i wideo), połączenia przeciągane z kropki, ustawienia noda AI (prompt bazowy, prompt dodatkowy, provider i model, tokeny, liczba wyników, format), uruchamianie z podglądem wyników, wyzwalacze cron, git i zmiana pliku działające w tle.
+- **Lokalne AI** (Ustawienia → Lokalne AI): grafika i wideo na własnej karcie graficznej przez ComfyUI, bez opłat. Instalacja jednym kliknięciem (wersja przenośna dla NVIDIA, AMD i Intel) albo wskazanie istniejącego ComfyUI. Katalog modeli z oceną, czy pasują do komputera (pamięć karty i RAM): Z-Image Turbo, FLUX.2 Klein 4B (także edycja obrazu), SDXL, LTX-Video 2B, Wan 2.1 1.3B, Wan 2.2 5B, BiRefNet (usuwanie tła), SeedVR2 (powiększanie), a dla mocniejszych komputerów Qwen-Image 2512 i Wan 2.2 14B. Pobieranie z postępem i wznawianiem, wspólne pliki pobierają się raz. Własne workflow z ComfyUI (Export (API)) z podstawianiem promptu, obrazu, seeda, proporcji i długości klipu. ComfyUI startuje dopiero, gdy workflow go potrzebuje, i zamyka się po bezczynności (domyślnie 5 min). Zadania lokalne idą przez jedną kolejkę: na karcie jest zawsze jeden model, przed grafiką aplikacja zwalnia modele Ollamy, a przy zmianie modelu pamięć ComfyUI. Kolejność nodów jest układana tak, żeby model zmieniał się jak najrzadziej. W nodzie widać kroki i podgląd generowanego obrazu na żywo. Na Linuksie i macOS instalacja idzie przez `uv` (kod ComfyUI, Python 3.12 i PyTorch dla CUDA, ROCm albo Metal). Zdalny ComfyUI: mocniejszy komputer w sieci albo serwer z GPU w chmurze jako osobny provider. Katalog modeli aktualizuje się z repozytorium (`catalog/models.json`), a pobrane pliki są sprawdzane sumą SHA-256. Ollama (agenci, snippety, nody) i ComfyUI dzielą jedną kolejkę GPU.
+- **Workflow**: 50 nodów w 10 kategoriach. Niezmienione nody AI, grafiki i wideo biorą wynik z poprzedniego uruchomienia (Shift + uruchom liczy wszystko od nowa). **Partia**: ten sam workflow dla listy promptów albo folderu obrazów i wideo, po kolei. **Galeria** wyników z promptem, modelem i seedem („powtórz z tym seedem”). Agent workspace'u buduje workflow z opisu słownego (narzędzia `list_node_types` i `build_workflow`). Dalej: i własne nody (także graficzne i wideo), połączenia przeciągane z kropki, ustawienia noda AI (prompt bazowy, prompt dodatkowy, provider i model, tokeny, liczba wyników, format), uruchamianie z podglądem wyników, wyzwalacze cron, git i zmiana pliku działające w tle.
 - **Pluginy**: izolowane iframe z uprawnieniami z `plugin.json`, import .zip z przeglądem uprawnień, włączanie i wyłączanie, konfiguracja. Wbudowane: Notatki, Procesy w tle, Monitor zasobów, Porty, Pomodoro. Specyfikacja: [docs/PLUGINS.md](docs/PLUGINS.md).
-- **SSH i Vault hostów** (pasek boczny → Hosty): siatka, lista i drzewo grup, wyszukiwarka, tagi, wykrywanie dystrybucji. Logowanie hasłem albo kluczem (hasła w Menedżerze poświadczeń), generator kluczy ed25519, potwierdzenie odcisku klucza hosta przy pierwszym połączeniu i ostrzeżenie przy jego zmianie. Zakładka SSH działa jak terminal, więc agent, snippety, podział i Procesy w tle obsługują też SSH.
-- **SFTP**: dwa panele (komputer i serwer), przeciąganie między nimi, postęp transferu, nowy folder, zmiana nazwy, usuwanie, edycja plików tekstowych na serwerze.
+- **SSH i Vault hostów** (pasek boczny → Hosty): siatka, lista i drzewo grup, wyszukiwarka, tagi, wykrywanie dystrybucji. Logowanie hasłem, kluczem (hasła w Menedżerze poświadczeń) albo przez agenta SSH (OpenSSH agent, Pageant, `SSH_AUTH_SOCK`), generator kluczy ed25519, potwierdzenie odcisku klucza hosta przy pierwszym połączeniu i ostrzeżenie przy jego zmianie. Zakładka SSH działa jak terminal, więc agent, snippety, podział i Procesy w tle obsługują też SSH.
+- **SFTP**: dwa panele (komputer i serwer), przeciąganie plików i całych folderów między nimi, postęp transferu, nowy folder, zmiana nazwy, usuwanie (foldery z zawartością), edycja plików tekstowych na serwerze.
 - **Przekierowania portów**: lokalne (-L), zdalne (-R) i SOCKS (-D), z automatycznym startem przy połączeniu.
 - **Zdalny dostęp z telefonu** (Ustawienia → Zdalny dostęp): w sieci Wi-Fi albo przez Tailscale (z dowolnego miejsca, bez publicznego IP). Parowanie kodem QR z potwierdzeniem na komputerze, szyfrowanie każdej wiadomości kluczem urządzenia, uprawnienia per urządzenie (podgląd, sterowanie, pełny). Telefon w przeglądarce: terminale na żywo z paskiem klawiszy, czat z agentem i zatwierdzanie komend, Procesy w tle.
+- **Monitoring** (pasek boczny): CPU z wykresem, RAM, dysk, sieć, GPU (NVIDIA) i opóźnienie dla tego komputera i wybranych hostów SSH (Linux, odczyt `/proc` przez istniejące połączenie, bez agenta na serwerze). Kolumny i odświeżanie do wyboru; odpytuje tylko przy otwartej zakładce.
+- **Eksplorator i wiersz poleceń**: „Otwórz w TerminalX” w menu folderu (instalator; w wersji portable przełącznik w Ustawienia → Ogólne), `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`. Kolejne uruchomienie otwiera terminal w działającej kopii.
+- **Język**: polski albo angielski (automatycznie z systemu, zmiana w Ustawienia → Ogólne). Słowniki w `src/lib/i18n/`.
 - **Paleta komend** (Ctrl+K), zapamiętywanie układu i sesji, tryb portable (folder `data` obok exe).
 
 ## Zużycie zasobów
 
-Instalator ma 2 MB, a plik exe 4,9 MB. Pamięć (prywatna, rdzeń i WebView2, bez samych powłok) wynosi około 95 MB z jednym terminalem i około 150 MB z trzema. Domyślny „Tryb lekki” (Ustawienia → Ogólne) wyłącza GPU w WebView2. Bez niego zużycie rośnie do około 210 MB, w zamian za płynniejsze przewijanie bardzo dużego wyjścia.
+Instalator ma około 3 MB, a plik exe 8,5 MB. Pamięć (prywatna, rdzeń i WebView2, bez samych powłok) wynosi około 95 MB z jednym terminalem i około 150 MB z trzema. Domyślny „Tryb lekki” (Ustawienia → Ogólne) wyłącza GPU w WebView2. Bez niego zużycie rośnie do około 210 MB, w zamian za płynniejsze przewijanie bardzo dużego wyjścia.
 
 ## Czego jeszcze nie ma
 
-- **Monitoring hostów** (faza 6).
 - **Grafika i wideo**: adaptery providerów są sprawdzone na atrapie API, nie na prawdziwych kluczach. Nazwy pól wejściowych różnią się między modelami; gdy model nie przyjmie obrazu, ustaw „Pole obrazu wejściowego” albo „Parametry modelu (JSON)” w zaawansowanych ustawieniach noda.
-- **Lokalne AI**: przepisy modeli są sprawdzone względem definicji nodów ComfyUI 0.43 i na atrapie serwera (kolejka, podgląd, błędy, zwalnianie pamięci), ale nie były jeszcze uruchomione na prawdziwych modelach. Czasy generowania zależą od karty; przy 16 GB RAM większe modele wideo mocno korzystają z dysku. Automatyczna instalacja ComfyUI jest tylko dla Windows (na Linuksie i macOS wskaż własną instalację). Agenci korzystający z Ollamy nie czekają w kolejce GPU (tylko nody workflow).
+- **Lokalne AI**: przepisy modeli są sprawdzone względem definicji nodów ComfyUI 0.43 i na atrapie serwera (kolejka, podgląd, błędy, zwalnianie pamięci), ale nie były jeszcze uruchomione na prawdziwych modelach. Czasy generowania zależą od karty; przy 16 GB RAM większe modele wideo mocno korzystają z dysku. Instalacja przez `uv` na Linuksie i macOS nie była jeszcze uruchomiona na tych systemach.
 - **Zdalny dostęp P2P bez Tailscale** (iroh): wymaga natywnej aplikacji mobilnej (Tauri 2 na Android/iOS), której tu nie zbudowano.
-- **SFTP**: przenoszenie całych folderów (pliki pojedynczo działają). Uwierzytelnianie przez agenta SSH (Pageant/OpenSSH agent).
+- **Agent SSH**: zaimplementowany, ale nie testowany z prawdziwym agentem (Pageant, OpenSSH).
+- **Tłumaczenie**: teksty składane w kodzie z wielu części mogą zostać po polsku; słownik uzupełnia się w `src/lib/i18n/en.json`.
+- **Podpis kodu Windows**: instalator nie ma certyfikatu, więc SmartScreen pokaże ostrzeżenie przy pierwszym uruchomieniu.
 - Zdalny dostęp w sieci Wi-Fi działa po HTTP (treść jest szyfrowana kluczem urządzenia, ale strona klienta przychodzi bez TLS, więc ktoś w tej samej sieci mógłby ją podmienić przy kolejnym otwarciu). W Tailscale ruch jest dodatkowo szyfrowany przez WireGuard.
 - Paleta komend nie ma jeszcze edycji skrótów, a po restarcie aplikacji zakładki uruchamiają świeże powłoki (historia ekranu nie jest zapisywana).
 
@@ -65,9 +74,14 @@ Instalator ma 2 MB, a plik exe 4,9 MB. Pamięć (prywatna, rdzeń i WebView2, be
 src/                 interfejs (Svelte 5)
   lib/terminal/      sesje xterm.js + PTY
   lib/plugins/       host pluginów i środowisko w iframe
-  lib/workflow/      edytor i silnik workflow
+  lib/workflow/      edytor i silnik workflow, przepisy modeli (presets.ts), ComfyUI, budowanie przez agenta
+  lib/gpu.ts         kolejka GPU (ComfyUI + Ollama)
+  lib/i18n/          słowniki tłumaczeń
   lib/components/    widoki, ustawienia
-src-tauri/src/       rdzeń w Ruście: pty.rs, sys.rs, store.rs, ai.rs, media.rs, local.rs (ComfyUI, pobieranie, sprzęt)
+src-tauri/src/       rdzeń w Ruście: pty.rs, sys.rs, store.rs, ai.rs, media.rs, local.rs (ComfyUI, pobieranie, sprzęt), monitor.rs, ssh.rs
+catalog/             katalog modeli lokalnych pobierany przez aplikację
+tests/               testy (npm test)
+.github/workflows/   CI i wydania
 plugins/             wbudowane pluginy + sdk/terminalx-plugin.d.ts
 docs/PLUGINS.md      specyfikacja pluginów
 PLAN.md              plan i architektura

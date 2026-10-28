@@ -131,9 +131,14 @@ export async function removePreset(p: Preset) {
   }
 }
 
-/** Instaluje przenośną wersję ComfyUI dla Windows z najnowszego wydania na GitHubie. */
+const UA = navigator.userAgent;
+const OS = /Windows/.test(UA) ? 'windows' : /Mac/.test(UA) ? 'macos' : 'linux';
+
+/** Instaluje ComfyUI: w Windows wersję przenośną z wydania na GitHubie, w Linux i macOS kod źródłowy
+ *  z PyTorch dobranym do karty (przez uv, bez systemowego Pythona). */
 export async function installComfy(progress: (s: string) => void) {
   const dir = app.local.comfyDir || await call<string>('comfy_default_dir');
+  if (OS !== 'windows') return installWithUv(dir, progress);
   const rel: any = await call('http_request', { method: 'GET', url: 'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest', headers: { 'user-agent': 'TerminalX', accept: 'application/vnd.github+json' }, body: null });
   const assets: { name: string; browser_download_url: string }[] = JSON.parse(rel.body).assets || [];
   const vendor = local.hw?.gpus[0]?.vendor || 'nvidia';
@@ -146,6 +151,38 @@ export async function installComfy(progress: (s: string) => void) {
   await download('comfyui', asset.browser_download_url, archive);
   progress('rozpakowuję');
   await call('archive_extract', { archive, dest: dir });
+  app.local.comfyDir = dir;
+  ensureProvider();
+  await refreshLocal();
+}
+
+const sh = async (cmd: string, args: string[], cwd: string | null, what: string) => {
+  const r = await call<{ code: number; stdout: string; stderr: string }>('sys_exec', { cmd, args, cwd, timeoutMs: 3_600_000 });
+  if (r.code !== 0) throw new Error(`${what}: ${(r.stderr || r.stdout).trim().split('\n').slice(-4).join(' ').slice(0, 400)}`);
+};
+
+async function installWithUv(dir: string, progress: (s: string) => void) {
+  const arch = /arm64|aarch64/i.test(UA) || (OS === 'macos' && local.hw?.unified) ? 'aarch64' : 'x86_64';
+  const target = OS === 'macos' ? `${arch}-apple-darwin` : `${arch}-unknown-linux-gnu`;
+  progress('pobieram uv');
+  const uvArchive = `${dir}/uv-${target}.tar.gz`;
+  await download('comfyui', `https://github.com/astral-sh/uv/releases/latest/download/uv-${target}.tar.gz`, uvArchive);
+  await call('archive_extract', { archive: uvArchive, dest: dir });
+  const uv = `${dir}/uv-${target}/uv`;
+  progress('pobieram ComfyUI');
+  const src = `${dir}/comfyui-src.tar.gz`;
+  await download('comfyui', 'https://github.com/Comfy-Org/ComfyUI/archive/refs/heads/master.tar.gz', src);
+  await call('archive_extract', { archive: src, dest: dir });
+  const root = `${dir}/ComfyUI-master`;
+  progress('przygotowuję Pythona 3.12');
+  await sh(uv, ['venv', '--python', '3.12', '.venv'], root, 'Środowisko Pythona');
+  // PyTorch: CUDA dla NVIDIA, ROCm dla AMD (Linux), Metal (MPS) w macOS ze zwykłego PyPI.
+  const vendor = local.hw?.gpus[0]?.vendor;
+  const index = OS === 'macos' ? null : vendor === 'nvidia' ? 'https://download.pytorch.org/whl/cu128' : vendor === 'amd' ? 'https://download.pytorch.org/whl/rocm6.4' : 'https://download.pytorch.org/whl/cpu';
+  progress('instaluję PyTorch (kilka minut)');
+  await sh(uv, ['pip', 'install', '--python', '.venv', 'torch', 'torchvision', 'torchaudio', ...(index ? ['--index-url', index] : [])], root, 'PyTorch');
+  progress('instaluję zależności ComfyUI');
+  await sh(uv, ['pip', 'install', '--python', '.venv', '-r', 'requirements.txt'], root, 'Zależności ComfyUI');
   app.local.comfyDir = dir;
   ensureProvider();
   await refreshLocal();

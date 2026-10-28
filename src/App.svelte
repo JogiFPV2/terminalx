@@ -17,6 +17,7 @@
   import { loadPlugins, startHost, enabledPlugins, broadcastTheme, emitAll, plug, runCommand } from './lib/plugins/host.svelte';
   import { startScheduler } from './lib/workflow/engine.svelte';
   import { startUpdates } from './lib/update.svelte';
+  import { startI18n } from './lib/i18n';
   import { call, isTauri } from './lib/ipc';
   import { initHosts } from './lib/hosts.svelte';
   import { initRemote } from './lib/remote.svelte';
@@ -37,6 +38,7 @@
       try {
         initHosts();
         await loadState();
+        await startI18n(app.settings.lang);
         theme();
         await loadPlugins();
         startHost();

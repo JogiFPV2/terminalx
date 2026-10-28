@@ -153,6 +153,8 @@ export interface ThemeVars { [k: string]: string }
 export interface ThemeDef { light?: ThemeVars | null; dark?: ThemeVars | null; imported?: boolean; /** Czcionki z Google Fonts (z layout.tsx albo zmiennych --font-*). */ fonts?: string[] }
 
 export interface Settings {
+  /** Język interfejsu: auto (z systemu), pl, en. */
+  lang: string;
   undoSec: number;
   inactiveDim: number;
   themeName: string;

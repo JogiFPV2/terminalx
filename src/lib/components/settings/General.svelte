@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { app, ui, notify } from '../../state.svelte';
+  import { app, ui, notify, saveNow } from '../../state.svelte';
   import { BRAND } from '../../defaults';
   import { call, isTauri } from '../../ipc';
   import { checkUpdate, upd } from '../../update.svelte';
@@ -14,6 +14,14 @@
 </script>
 
 <h2>Ogólne</h2>
+<div class="field" style="max-width:420px">
+  <label for="lang">Język interfejsu</label>
+  <select class="inp" id="lang" value={app.settings.lang || 'auto'} onchange={async (e) => { app.settings.lang = e.currentTarget.value; await saveNow(); location.reload(); }}>
+    <option value="auto">Automatycznie (język systemu)</option>
+    <option value="pl">Polski</option>
+    <option value="en">English</option>
+  </select>
+</div>
 <div class="field" style="max-width:420px">
   <label for="defShell">Domyślna powłoka (Ctrl+T)</label>
   <select class="inp" id="defShell" bind:value={app.settings.defaultShell}>

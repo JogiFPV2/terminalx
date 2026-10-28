@@ -18,9 +18,9 @@ Zbudowana i przetestowana wersja 0.1.0: `release/TerminalX.exe` (4,9 MB) i insta
 | 3. AI (providerzy, agent i podagenci, prompty, snippety) | gotowe; przetestowane bez klucza API (ścieżka błędu), rozmowy z modelem nie testowano |
 | 4. SSH, SFTP, Vault, port forwarding | gotowe (przetestowane na testowym serwerze russh) |
 | 5. Workflow | gotowe (39 nodów, własne nody, wyzwalacze cron/git/plik) |
-| 6. Monitoring hostów | do zrobienia |
+| 6. Monitoring hostów | gotowe (ten komputer i hosty SSH z Linuksem) |
 | 7. Zdalny dostęp z telefonu | gotowe w trybach Wi-Fi i Tailscale; P2P (iroh) czeka na aplikację mobilną |
-| 8. Dystrybucja (auto-update, Eksplorator, Linux/macOS) | częściowo: instalator NSIS i tryb portable gotowe |
+| 8. Dystrybucja (auto-update, Eksplorator, Linux/macOS) | gotowe w kodzie: aktualizator, menu Eksploratora, flagi CLI, buildy Linux/macOS w GitHub Actions (czekają na działające Actions) |
 
 **Odstępstwa od planu**
 - Zamiast Tailwind i shadcn-svelte jest czysty CSS z tymi samymi tokenami (tweakcn działa bez zmian).
