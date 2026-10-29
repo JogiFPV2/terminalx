@@ -3,12 +3,45 @@
   import { app, ui, curWs, tabKind, findTab } from '../state.svelte';
   import { agentState, sendToAgent, stopAgent, resolveApproval, clearChat } from '../agent.svelte';
   import { track, clamp } from '../util';
-  import { PERM_LABEL } from '../defaults';
+  import { PERM_LABEL, PROVIDER_TYPES, isChat } from '../defaults';
+  import { resolveModel, listModels } from '../ai';
+  import Combo from './Combo.svelte';
 
   const ws = $derived(curWs());
   const agent = $derived(app.agents.find((a) => a.id === ws.agentId) || app.agents.find((a) => a.kind === 'agent'));
   const subs = $derived(ws.tabs.filter((t) => t.subagent));
   let text = $state('');
+
+  // Provider i model rozmowy: wybór w panelu (per workspace) albo ustawienia profilu agenta.
+  const chatProviders = $derived(app.providers.filter(isChat));
+  const eff = $derived.by(() => {
+    try { return resolveModel(ws.chatModel?.provider || agent?.provider, ws.chatModel?.model || agent?.model); } catch { return null; }
+  });
+  // Podpowiedź: typ providera, a przy powtórzonej nazwie adres, żeby dało się je odróżnić.
+  const providerItems = $derived(chatProviders.map((p) => {
+    const twin = chatProviders.some((x) => x !== p && x.name === p.name);
+    const type = PROVIDER_TYPES[p.type]?.label;
+    return { value: p.id, label: p.name, hint: twin ? p.url.replace(/^https?:\/\//, '') : type === p.name ? '' : type };
+  }));
+  const fetched = $state<Record<string, string[]>>({});
+  let loadingModels = $state(false);
+  const modelItems = $derived.by(() => {
+    const p = eff?.p;
+    if (!p) return [];
+    const all = [...new Set([...(p.models || []), ...(fetched[p.id] || []), ...(p.id === app.defModel.provider ? [app.defModel.model] : [])])].filter(Boolean);
+    return all.map((m) => ({ value: m, hint: p.models.includes(m) ? 'zapisany' : '' }));
+  });
+  async function loadModels() {
+    const p = eff?.p;
+    if (!p || fetched[p.id] || loadingModels) return;
+    loadingModels = true;
+    try { fetched[p.id] = await listModels(p); } catch { fetched[p.id] = []; } finally { loadingModels = false; }
+  }
+  function pickProvider(id: string) {
+    const r = resolveModel(id, null);
+    ws.chatModel = { provider: r.p.id, model: r.model };
+  }
+  function pickModel(m: string) { if (eff) ws.chatModel = { provider: eff.p.id, model: m }; }
   let chatEl: HTMLDivElement;
 
   $effect(() => { void ws.chat.length; if (chatEl) requestAnimationFrame(() => (chatEl.scrollTop = chatEl.scrollHeight)); });
@@ -35,7 +68,7 @@
   <div class="gutter" role="separator" aria-label="Szerokość panelu agenta" onpointerdown={gutter} ondblclick={() => (app.layout.agent = 320)}></div>
   <div class="head">
     <span class="ico"><Icon name="spark" /></span>
-    <div class="who" title="{agent?.model} · {agent ? PERM_LABEL[agent.perm].toLowerCase() : ''}"><b>{agent?.name}</b></div>
+    <div class="who" title="{eff?.model || agent?.model} · {agent ? PERM_LABEL[agent.perm].toLowerCase() : ''}"><b>{agent?.name}</b></div>
     <button class="icobtn" title="Wyczyść rozmowę" onclick={() => clearChat(ws)}><Icon name="trash" size={14} /></button>
     <button class="icobtn" title="Konfiguracja agentów" onclick={() => { ui.settingsPage = 'agents'; ui.settingsOpen = true; }}><Icon name="sliders" size={14} /></button>
   </div>
@@ -83,12 +116,22 @@
         <button class="icobtn" title="Wyślij (Enter)" onclick={send}><Icon name="send" /></button>
       {/if}
     </div>
+    <div class="pick">
+      <Combo value={eff?.p.id || ''} label={eff?.p.name || 'Brak providera'} icon="bot" title="Provider" placeholder="Szukaj providera…"
+        items={providerItems}
+        onpick={pickProvider} />
+      <Combo value={eff?.model || ''} label={eff?.model || '—'} icon="spark" title="Model" placeholder="Szukaj albo wpisz model…" custom={true}
+        items={modelItems} loading={loadingModels} onopen={loadModels} onpick={pickModel} />
+      {#if ws.chatModel}
+        <button class="icobtn reset" title="Wróć do ustawień agenta ({agent?.model || 'domyślny'})" onclick={() => (ws.chatModel = null)}><Icon name="undo" size={12} /></button>
+      {/if}
+    </div>
   </div>
 </aside>
 
 <style>
   .ki { display: grid; flex: none; }
-  .agent { border-left: 1px solid var(--border); display: grid; grid-template-rows: auto auto 1fr auto; min-height: 0; background: var(--background); position: relative; flex: none; }
+  .agent { border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; background: var(--background); position: relative; flex: none; }
   .gutter { position: absolute; top: 0; bottom: 0; left: -4px; width: 7px; z-index: 6; cursor: col-resize; }
   .gutter:hover { background: linear-gradient(90deg, transparent 2px, var(--primary) 2px, var(--primary) 4px, transparent 4px); }
   .head { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 12px; border-bottom: 1px solid var(--border); min-width: 0; }
@@ -100,7 +143,7 @@
   .subrow.muted { color: var(--muted-foreground); }
   .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .st { margin-left: auto; color: var(--muted-foreground); font-size: 11px; white-space: nowrap; }
-  .chat { overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+  .chat { flex: 1; overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; min-height: 0; }
   .intro { color: var(--muted-foreground); font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
   .intro p { margin: 0; }
   .msg { font-size: 12.5px; line-height: 1.5; min-width: 0; }
@@ -118,6 +161,9 @@
   .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted-foreground); animation: pulse 1s infinite; }
   .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
   .composer { border-top: 1px solid var(--border); padding: 10px; }
+  .pick { display: flex; align-items: center; gap: 2px; margin-top: 4px; min-width: 0; }
+  .pick :global(.combo) { flex: 0 1 auto; }
+  .reset { width: 22px; height: 22px; color: var(--muted-foreground); }
   .box { display: flex; align-items: flex-end; gap: 6px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 6px 6px 10px; background: var(--card); }
   textarea { flex: 1; min-width: 0; background: none; border: 0; color: inherit; font: inherit; outline: none; resize: none; max-height: 140px; field-sizing: content; padding: 3px 0; }
 </style>

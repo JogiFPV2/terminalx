@@ -62,6 +62,8 @@ export interface Workspace {
   activeTab: string | null;
   z: string[];
   chat: ChatMsg[];
+  /** Provider i model wybrane w panelu czatu; bez nich obowiązują ustawienia profilu agenta. */
+  chatModel?: { provider: string; model: string } | null;
 }
 
 export type ProviderType = 'anthropic' | 'openai' | 'compat' | 'ollama' | 'google' | 'fal' | 'replicate' | 'comfy';

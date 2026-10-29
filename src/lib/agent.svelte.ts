@@ -166,7 +166,7 @@ export async function sendToAgent(ws: Workspace, text: string) {
   try {
     for (let step = 0; step < 16 && !signal.aborted; step++) {
       const system = `${p.prompt}\n\nSystem: Windows. Workspace „${ws.name}”. Zakładki:\n${tabsSummary(ws)}\n\nUżywaj identyfikatorów zakładek z listy. Pracę w konkretnym terminalu deleguj podagentom, gdy zakładka ma podagenta albo zadanie wymaga kilku kroków.`;
-      const r = await complete({ providerId: p.provider, model: p.model, system, messages: history, tools, maxTokens: 16000, signal });
+      const r = await complete({ providerId: ws.chatModel?.provider || p.provider, model: ws.chatModel?.model || p.model, system, messages: history, tools, maxTokens: 16000, signal });
       history.push({ role: 'assistant', content: r.content });
       if (r.text) post(ws, { role: 'agent', who: p.name, text: r.text });
       if (!r.toolCalls.length) break;

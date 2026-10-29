@@ -764,7 +764,14 @@
     "Provider nie ma kluczy.": "The provider has no keys.",
     "Sejf kluczy API (tylko wbudowane)": "API key vault (built-in only)",
     "Klucze API: nowy provider": "API keys: new provider",
-    "Nie skopiowano": "Not copied"
+    "Nie skopiowano": "Not copied",
+    "Szukaj providera…": "Search providers…",
+    "Szukaj albo wpisz model…": "Search or type a model…",
+    "Brak providera": "No provider",
+    "Brak wyników": "No results",
+    "Pobieranie…": "Loading…",
+    "Pobieranie listy…": "Loading list…",
+    "zapisany": "saved"
   },
   "patterns": [
     [
@@ -1154,6 +1161,14 @@
     [
       "Razem z providerem z sejfu znikną jego klucze ({0}). Tego nie da się cofnąć.",
       "The provider's keys ({0}) will be removed from the vault too. This can't be undone."
+    ],
+    [
+      "Użyj „{0}”",
+      "Use “{0}”"
+    ],
+    [
+      "Wróć do ustawień agenta ({0})",
+      "Back to agent settings ({0})"
     ]
   ]
 }
