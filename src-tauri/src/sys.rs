@@ -54,7 +54,7 @@ pub struct Stats {
     app_mem: u64,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sys_stats(state: tauri::State<'_, SysState>) -> Stats {
     let mut sys = state.0.lock().unwrap();
     sys.refresh_cpu_usage();
@@ -201,12 +201,12 @@ pub async fn sys_shells() -> Vec<ShellInfo> {
 
 /// Pliki użytkownika dla nodów workflow „Czytaj / Zapisz / Lista plików”. Workflow uruchamia użytkownik,
 /// więc ma te same prawa co on; pluginy nie mają dostępu do tych komend.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_read_text(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_write_text(path: String, data: String) -> Result<(), String> {
     if let Some(parent) = std::path::Path::new(&path).parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
@@ -214,7 +214,7 @@ pub fn fs_write_text(path: String, data: String) -> Result<(), String> {
     std::fs::write(&path, data).map_err(|e| format!("{path}: {e}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_list(dir: String) -> Result<Vec<String>, String> {
     let mut out: Vec<String> = std::fs::read_dir(&dir)
         .map_err(|e| format!("{dir}: {e}"))?
@@ -230,7 +230,7 @@ pub fn fs_list(dir: String) -> Result<Vec<String>, String> {
 pub struct LocalEntry { name: String, path: String, is_dir: bool, size: u64, modified: u64 }
 
 /// Lokalny katalog dla panelu SFTP: foldery najpierw, potem pliki.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_list_detail(dir: String) -> Result<(String, Vec<LocalEntry>), String> {
     let base = if dir.is_empty() {
         std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")).unwrap_or_else(|_| ".".into())
@@ -292,7 +292,7 @@ mod tests {
 
 /// „Otwórz w TerminalX” w menu Eksploratora (Windows, wpisy użytkownika w HKCU). Instalator dodaje je sam;
 /// to polecenie służy wersji portable i wyłączeniu wpisu.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn explorer_menu(enable: Option<bool>) -> Result<bool, String> {
     #[cfg(windows)]
     {
@@ -336,7 +336,7 @@ pub fn explorer_menu(enable: Option<bool>) -> Result<bool, String> {
 
 /// Język użytkownika do automatycznego wyboru języka interfejsu. W Windows format regionalny (np. pl-PL),
 /// bo WebView2 zgłasza język wyświetlania systemu, który często jest angielski mimo polskich ustawień.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sys_locale() -> String {
     #[cfg(windows)]
     {

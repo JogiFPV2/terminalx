@@ -11,17 +11,17 @@ fn entry(key_ref: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(SERVICE, key_ref).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secret_set(key_ref: String, value: String) -> Result<(), String> {
     entry(&key_ref)?.set_password(&value).map_err(|e| format!("Nie udało się zapisać klucza: {e}"))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secret_has(key_ref: String) -> bool {
     entry(&key_ref).and_then(|e| e.get_password().map_err(|e| e.to_string())).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn secret_delete(key_ref: String) -> Result<(), String> {
     match entry(&key_ref)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
@@ -52,7 +52,7 @@ pub(crate) fn mask(key: &str) -> String {
     format!("{}••••••••{}", c[..4].iter().collect::<String>(), c[c.len() - 4..].iter().collect::<String>())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn keyvault_set(key_ref: String, value: String) -> Result<String, String> {
     let v = value.trim();
     if v.is_empty() {
@@ -62,7 +62,7 @@ pub fn keyvault_set(key_ref: String, value: String) -> Result<String, String> {
     Ok(mask(v))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn keyvault_masked(refs: Vec<String>) -> std::collections::HashMap<String, String> {
     refs.into_iter()
         .filter_map(|r| {
@@ -72,12 +72,12 @@ pub fn keyvault_masked(refs: Vec<String>) -> std::collections::HashMap<String, S
         .collect()
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn keyvault_get(key_ref: String) -> Result<String, String> {
     vault_entry(&key_ref)?.get_password().map_err(|_| "Nie ma takiego klucza w sejfie".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn keyvault_delete(key_ref: String) -> Result<(), String> {
     match vault_entry(&key_ref)?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),

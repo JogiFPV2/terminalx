@@ -5757,6 +5757,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "tokio-tungstenite",
+ "webview2-com",
  "zip 2.6.1",
 ]
 

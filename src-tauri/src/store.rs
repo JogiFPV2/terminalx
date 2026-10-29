@@ -31,7 +31,7 @@ fn write_atomic(path: &Path, data: &[u8]) -> Result<(), String> {
     fs::rename(&tmp, path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn state_load(app: AppHandle) -> Result<Option<String>, String> {
     let path = data_dir(&app)?.join("state.json");
     if !path.exists() {
@@ -40,7 +40,7 @@ pub fn state_load(app: AppHandle) -> Result<Option<String>, String> {
     fs::read_to_string(&path).map(Some).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn state_save(app: AppHandle, json: String) -> Result<(), String> {
     let path = data_dir(&app)?.join("state.json");
     if path.exists() {
@@ -85,7 +85,7 @@ pub struct FsEntry {
     modified: u64,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn plugin_fs(app: AppHandle, plugin: String, op: String, path: String, data: Option<String>, to: Option<String>) -> Result<serde_json::Value, String> {
     let base = plugin_data(&app, &plugin)?;
     let target = safe_join(&base, &path)?;
@@ -137,7 +137,7 @@ pub struct InstalledPlugin {
 }
 
 /// Zainstalowane (zaimportowane) pluginy: `plugins/<id>/code/plugin.json` + plik main.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn plugins_installed(app: AppHandle) -> Result<Vec<InstalledPlugin>, String> {
     let dir = data_dir(&app)?.join("plugins");
     let mut out = Vec::new();
@@ -183,7 +183,7 @@ pub struct Inspected {
     has_main: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn plugin_inspect(path: String) -> Result<Inspected, String> {
     let file = fs::File::open(&path).map_err(|e| format!("Nie można otworzyć pliku: {e}"))?;
     let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("To nie jest poprawne archiwum .zip: {e}"))?;
@@ -196,7 +196,7 @@ pub fn plugin_inspect(path: String) -> Result<Inspected, String> {
     Ok(Inspected { manifest, files, has_main })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn plugin_install(app: AppHandle, path: String, id: String) -> Result<(), String> {
     if !valid_plugin_id(&id) {
         return Err("Niepoprawny identyfikator pluginu".into());
@@ -224,7 +224,7 @@ pub fn plugin_install(app: AppHandle, path: String, id: String) -> Result<(), St
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn plugin_uninstall(app: AppHandle, id: String, keep_data: bool) -> Result<(), String> {
     if !valid_plugin_id(&id) {
         return Err("Niepoprawny identyfikator pluginu".into());

@@ -57,7 +57,8 @@ async function waitInTab(tabName: string, pattern: string, timeoutSec: number) {
   let re: RegExp;
   try { re = new RegExp(pattern); } catch { throw new Error(`Niepoprawny regex: ${pattern}`); }
   let buf = '';
-  const off = sessions.onOutput((id, d) => { if (id === pane.id) buf += d; });
+  // Ostatni 1 MB wyjścia wystarczy do szukania wzorca, a nie rośnie bez końca.
+  const off = sessions.onOutput((id, d) => { if (id === pane.id) { buf += d; if (buf.length > 1 << 20) buf = buf.slice(-(1 << 19)); } });
   const start = Date.now();
   try {
     while (Date.now() - start < timeoutSec * 1000) {

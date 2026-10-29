@@ -24,12 +24,18 @@ interface Session {
   ro: ResizeObserver | null;
   scanned: number;
   ssh: boolean;
+  /** Spełnia się, gdy proces w PTY wystartował (albo start się nie udał). */
+  ready: Promise<void>;
 }
 
 /** Konfiguracja hosta SSH dla `ssh:<id>`; ustawia ją warstwa stanu (Vault). */
 let hostResolver: ((id: string) => Record<string, unknown> | null) | null = null;
 let sshConnected: ((hostId: string) => void) | null = null;
 export function setSshHooks(resolve: typeof hostResolver, connected: typeof sshConnected) { hostResolver = resolve; sshConnected = connected; }
+
+/** Panel po id; daje uruchomić powłokę zakładki, której jeszcze nikt nie otworzył (patrz write). */
+let paneResolver: ((id: string) => Pane | null) | null = null;
+export function setPaneResolver(f: typeof paneResolver) { paneResolver = f; }
 
 const cmd = (s: Session, op: 'write' | 'resize' | 'kill') =>
   s.ssh ? ({ write: 'ssh_write', resize: 'ssh_resize', kill: 'ssh_close' } as const)[op] : ({ write: 'pty_write', resize: 'pty_resize', kill: 'pty_kill' } as const)[op];
@@ -103,7 +109,7 @@ export function ensureSession(pane: Pane): Session {
     } catch { /* zostaje renderer DOM */ }
   }
 
-  const session: Session = { pane, term, fit, search, el, ptyId: null, started: Date.now(), ro: null, scanned: 0, ssh: pane.shell.startsWith('ssh:') };
+  const session: Session = { pane, term, fit, search, el, ptyId: null, started: Date.now(), ro: null, scanned: 0, ssh: pane.shell.startsWith('ssh:'), ready: Promise.resolve() };
   sessions.set(pane.id, session);
   termStatus[pane.id] = { exited: false, code: null, title: '', cwd: pane.cwd || '', dir: '', seq: 0 };
 
@@ -156,8 +162,22 @@ export function ensureSession(pane: Pane): Session {
 
 function spawn(session: Session) {
   const { pane, term } = session;
+  // Bajty z lokalnego PTY: xterm sam składa znaki wielobajtowe, a potwierdzenie (ack) wraca po
+  // przetworzeniu paczki, więc szybki program w powłoce czeka na interfejs zamiast zapychać pamięć.
+  // Tekst dla słuchaczy (agent, pluginy, telefon) dekodujemy tylko, gdy ktoś słucha.
+  const dec = new TextDecoder();
+  let pendingAck = 0, ackTimer = 0;
+  const ack = (n: number) => {
+    pendingAck += n;
+    const flush = () => { clearTimeout(ackTimer); ackTimer = 0; if (session.ptyId != null && pendingAck) call('pty_ack', { id: session.ptyId, bytes: pendingAck }).catch(() => {}); pendingAck = 0; };
+    if (pendingAck >= 256 * 1024) flush(); else if (!ackTimer) ackTimer = window.setTimeout(flush, 50);
+  };
   const onEvent = (ev: import('../ipc').PtyEvent) => {
-    if (ev.type === 'data') {
+    if (ev instanceof ArrayBuffer) {
+      const bytes = new Uint8Array(ev);
+      term.write(bytes, () => ack(bytes.length));
+      if (listeners.size) { const text = dec.decode(bytes, { stream: true }); for (const cb of listeners) cb(pane.id, text); }
+    } else if (ev.type === 'data') {
       term.write(ev.data);
       for (const cb of listeners) cb(pane.id, ev.data);
     } else {
@@ -175,7 +195,7 @@ function spawn(session: Session) {
       start = sshSpawn(host, term.cols, term.rows, onEvent).then((id) => { sshConnected?.(pane.shell.slice(4)); return id; });
     }
   } else start = ptySpawn(pane.shell, pane.cwd, term.cols, term.rows, onEvent);
-  start.then((id) => { session.ptyId = id; session.started = Date.now(); })
+  session.ready = start.then((id) => { session.ptyId = id; session.started = Date.now(); })
     .catch((err) => {
       if (termStatus[pane.id]) termStatus[pane.id].exited = true;
       term.write(`\x1b[31m${String(err).replace(/^Error: /, '')}\x1b[0m\r\n\x1b[2mEnter: spróbuj ponownie\x1b[0m\r\n`);
@@ -193,8 +213,23 @@ export function restart(paneId: string) {
 
 /* ---------- keyword highlighting ---------- */
 
-function highlight(s: Session) {
+// Reguły podświetlania skompilowane raz (na zmianę listy albo motywu), nie przy każdej paczce wyjścia.
+let compiled: { key: string; theme: number; list: { re: RegExp; color: string }[] } = { key: '', theme: -1, list: [] };
+let themeGen = 0;
+function rulesNow() {
   const rules = settingsRef?.keywords || [];
+  const key = rules.map((r) => r.pattern + '' + r.color).join('');
+  if (compiled.key !== key || compiled.theme !== themeGen) {
+    const cs = getComputedStyle(document.documentElement);
+    const list: { re: RegExp; color: string }[] = [];
+    for (const r of rules) { try { list.push({ re: new RegExp(r.pattern, 'g'), color: toHex(cs.getPropertyValue('--' + r.color).trim() || r.color, '#ff5555') }); } catch { /* zła reguła */ } }
+    compiled = { key, theme: themeGen, list };
+  }
+  return compiled.list;
+}
+
+function highlight(s: Session) {
+  const rules = rulesNow();
   if (!rules.length) return;
   const buf = s.term.buffer.active;
   const end = buf.baseY + buf.cursorY;
@@ -202,19 +237,15 @@ function highlight(s: Session) {
   // Tylko linie zakończone (powyżej kursora): są już ostateczne, więc każdą dekorujemy raz.
   const start = Math.max(s.scanned, end - 200);
   if (start >= end) return;
-  const cs = getComputedStyle(document.documentElement);
   for (let y = start; y < end; y++) {
     const line = buf.getLine(y)?.translateToString(true);
     if (!line) continue;
     for (const r of rules) {
-      let re: RegExp;
-      try { re = new RegExp(r.pattern, 'g'); } catch { continue; }
-      for (const m of line.matchAll(re)) {
+      for (const m of line.matchAll(r.re)) {
         if (!m[0]) continue;
         const marker = s.term.registerMarker(y - (buf.baseY + buf.cursorY));
         if (!marker) continue;
-        const color = toHex(cs.getPropertyValue('--' + r.color).trim() || r.color, '#ff5555');
-        s.term.registerDecoration({ marker, x: m.index!, width: m[0].length, foregroundColor: color, layer: 'top' });
+        s.term.registerDecoration({ marker, x: m.index!, width: m[0].length, foregroundColor: r.color, layer: 'top' });
       }
     }
   }
@@ -258,10 +289,14 @@ export function dispose(paneId: string) {
   delete termStatus[paneId];
 }
 
-export function write(paneId: string, text: string) {
-  const s = sessions.get(paneId);
+/** Zapis do powłoki. Zakładka przywrócona po restarcie, której jeszcze nikt nie otworzył, nie ma
+ *  procesu (oszczędność pamięci); pierwszy zapis (agent, telefon, workflow, plugin) go uruchamia. */
+export async function write(paneId: string, text: string) {
+  let s = sessions.get(paneId);
+  if (!s) { const pane = paneResolver?.(paneId); if (pane) s = ensureSession(pane); }
+  if (s && s.ptyId == null) await s.ready;
   if (s?.ptyId != null) return call(cmd(s, 'write'), { id: s.ptyId, data: text });
-  return Promise.reject(new Error('Terminal nie działa'));
+  throw new Error('Terminal nie działa');
 }
 
 /** Wpisuje w powłoce `cd` do podkatalogu (albo `..`). Najpierw czyści niedokończoną linię:
@@ -333,6 +368,7 @@ export function startedAt(paneId: string) { return sessions.get(paneId)?.started
 
 /** Po zmianie motywu albo ustawień terminala. */
 export function refreshAll() {
+  themeGen++;
   const theme = terminalTheme();
   for (const s of sessions.values()) {
     s.term.options.theme = theme;

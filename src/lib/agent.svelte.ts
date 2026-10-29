@@ -52,6 +52,8 @@ async function askUser(ws: Workspace, p: AgentProfile, who: string, text: string
 }
 
 /** Uruchamia komendę w zakładce (po zgodzie, jeśli trzeba) i zwraca wyjście po ustaniu. */
+const cap = (s: string, max = 256 * 1024) => (s.length > max ? s.slice(-max) : s);
+
 async function runInTab(ws: Workspace, p: AgentProfile, tab: Tab, command: string, who: string, signal: { aborted: boolean }) {
   if (p.perm === 'read') return 'Odmowa: ten profil ma uprawnienia tylko do odczytu.';
   const pane = tab.panes[0];
@@ -62,7 +64,8 @@ async function runInTab(ws: Workspace, p: AgentProfile, tab: Tab, command: strin
   if (signal.aborted) return 'Przerwano.';
   let out = '';
   let last = Date.now();
-  const off = sessions.onOutput((id, data) => { if (id === pane.id) { out += data; last = Date.now(); } });
+  // Do modelu i tak trafia koniec wyjścia; limit chroni pamięć przy komendzie, która sypie megabajtami.
+  const off = sessions.onOutput((id, data) => { if (id === pane.id) { out = cap(out + data); last = Date.now(); } });
   try {
     await sessions.write(pane.id, command.replace(/\r?\n/g, '\r') + '\r');
     const start = Date.now();
@@ -176,7 +179,7 @@ async function waitFor(tab: Tab, seconds: number, pattern: string | undefined, s
   let out = '';
   let re: RegExp | null = null;
   try { re = pattern ? new RegExp(pattern) : null; } catch { re = null; }
-  const off = sessions.onOutput((id, d) => { if (id === pane.id) out += d; });
+  const off = sessions.onOutput((id, d) => { if (id === pane.id) out = cap(out + d); });
   const start = Date.now();
   try {
     while (Date.now() - start < seconds * 1000 && !signal.aborted) {

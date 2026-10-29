@@ -43,7 +43,7 @@ fn write_index(root: &std::path::Path, idx: &Map<String, Value>) -> Result<(), S
 }
 
 /// Zapisuje rozmowę i jej opis w indeksie (tytuł, workspace, uczestnicy, daty, liczba wiadomości).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn chat_save(app: AppHandle, id: String, meta: Value, json: String) -> Result<(), String> {
     valid_id(&id)?;
     let root = chats_root(&app)?;
@@ -57,7 +57,7 @@ pub fn chat_save(app: AppHandle, id: String, meta: Value, json: String) -> Resul
 }
 
 /// Lista rozmów od najnowszej. Z `query` przeszukuje też treść (bez względu na wielkość liter).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn chat_list(app: AppHandle, query: Option<String>) -> Result<Vec<Value>, String> {
     let root = chats_root(&app)?;
     let idx = {
@@ -85,13 +85,13 @@ pub fn chat_list(app: AppHandle, query: Option<String>) -> Result<Vec<Value>, St
     Ok(out)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn chat_load(app: AppHandle, id: String) -> Result<String, String> {
     valid_id(&id)?;
     fs::read_to_string(chats_root(&app)?.join(format!("{id}.json"))).map_err(|_| "Nie ma już tej rozmowy".to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn chat_delete(app: AppHandle, id: String) -> Result<(), String> {
     valid_id(&id)?;
     let root = chats_root(&app)?;
@@ -104,7 +104,7 @@ pub fn chat_delete(app: AppHandle, id: String) -> Result<(), String> {
 }
 
 /// Zapisuje załącznik rozmowy (base64) i zwraca ścieżkę. Nazwa pliku zostaje czytelna dla agenta.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn att_save(app: AppHandle, chat: String, name: String, data: String) -> Result<String, String> {
     valid_id(&chat)?;
     let bytes = B64.decode(data.trim()).map_err(|e| e.to_string())?;

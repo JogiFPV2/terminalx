@@ -111,9 +111,40 @@ pub fn run() {
             if let Some(d) = std::env::current_exe().ok().and_then(|e| e.parent().map(|p| p.join("data"))).filter(|d| d.is_dir()) {
                 win = win.data_directory(d.join("webview"));
             }
-            win.build()?;
+            let win = win.build()?;
+            // Awaria procesu WebView2 (padł renderer, zabrakło pamięci): bez tego zostaje puste okno,
+            // a powłoki działają dalej w tle. Przeładowanie odtwarza interfejs ze stanu zapisanego
+            // na dysku; frontend przy starcie zamyka stare sesje (pty_reset), więc nic nie wisi w tle.
+            #[cfg(windows)]
+            {
+                let handle = app.handle().clone();
+                let _ = win.with_webview(move |pw| unsafe {
+                    use webview2_com::Microsoft::Web::WebView2::Win32::*;
+                    let Ok(core) = pw.controller().CoreWebView2() else { return };
+                    let mut token = Default::default();
+                    let _ = core.add_ProcessFailed(
+                        &webview2_com::ProcessFailedEventHandler::create(Box::new(move |wv, args| {
+                            let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
+                            if let Some(a) = args {
+                                let _ = a.ProcessFailedKind(&mut kind);
+                            }
+                            if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED {
+                                handle.restart();
+                            } else if kind == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED {
+                                if let Some(wv) = wv {
+                                    let _ = wv.Reload();
+                                }
+                            }
+                            Ok(())
+                        })),
+                        &mut token,
+                    );
+                });
+            }
             Ok(())
         })
+        // Komendy synchroniczne mają #[tauri::command(async)]: bez tego Tauri wykonuje je w głównym
+        // wątku okna, a wtedy każda wolniejsza (dysk, sejf, lista procesów) wstrzymuje całe IPC.
         .invoke_handler(tauri::generate_handler![
             app_restart,
             cli_initial,
@@ -124,6 +155,8 @@ pub fn run() {
             pty::pty_write,
             pty::pty_resize,
             pty::pty_kill,
+            pty::pty_ack,
+            pty::pty_reset,
             pty::pty_info,
             sys::sys_stats,
             sys::sys_exec,

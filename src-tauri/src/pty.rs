@@ -1,35 +1,126 @@
 //! Sesje terminala na ConPTY (Windows) / openpty (Unix) przez portable-pty.
-//! Wyjście idzie do frontendu kanałem Tauri jako tekst UTF-8; niepełne sekwencje bajtów
-//! z końca paczki czekają na następną, żeby nie rozbijać znaków wielobajtowych.
+//! Wyjście idzie do frontendu jako surowe bajty (xterm sam składa znaki wielobajtowe).
+//! Jeden wątek „wysyłacz” zbiera wyjście wszystkich sesji w paczki, więc zalew danych to kilka
+//! dużych wiadomości zamiast tysięcy małych. Kontrola przepływu: frontend potwierdza (`pty_ack`)
+//! przetworzone bajty; gdy zaległość przekroczy HIGH, czytanie staje, a program w powłoce czeka
+//! na zapis jak w zwykłym terminalu. Pamięć nie rośnie nawet przy zawieszonym interfejsie.
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
-use tauri::ipc::Channel;
+use std::sync::{Arc, Condvar, Mutex, OnceLock};
+use std::time::Duration;
+use tauri::ipc::{Channel, InvokeResponseBody};
 use tauri::State;
+
+/// Zaległość (wysłane, a niepotwierdzone bajty), po której czytanie z PTY czeka.
+const HIGH: usize = 2 * 1024 * 1024;
+/// Największa paczka w jednej wiadomości.
+const MAX_CHUNK: usize = 512 * 1024;
 
 struct Session {
     master: Box<dyn MasterPty + Send>,
-    writer: Box<dyn Write + Send>,
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
     child: Box<dyn Child + Send + Sync>,
+    out: Arc<Output>,
     command: String,
     started: u64,
+}
+
+#[derive(Default)]
+struct OutState {
+    buf: Vec<u8>,
+    unacked: usize,
+    eof: bool,
+    closed: bool,
+}
+
+struct Output {
+    id: u32,
+    state: Mutex<OutState>,
+    /// Budzi czytający wątek po potwierdzeniu albo zamknięciu.
+    acked: Condvar,
+    channel: Channel<InvokeResponseBody>,
 }
 
 #[derive(Default)]
 pub struct Ptys {
     next: AtomicU32,
     sessions: Mutex<HashMap<u32, Session>>,
+    dirty: Mutex<Vec<Arc<Output>>>,
+    wake: Condvar,
+    flusher: OnceLock<()>,
 }
 
+/// Zdarzenia sesji SSH (ssh.rs); terminal lokalny wysyła dane jako bajty, a koniec jako `Exit`.
 #[derive(Clone, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum PtyEvent {
     Data { data: String },
     Exit { code: Option<u32> },
+}
+
+impl Ptys {
+    fn mark(&self, out: &Arc<Output>) {
+        self.dirty.lock().unwrap().push(out.clone());
+        self.wake.notify_one();
+    }
+
+    /// Wątek wysyłający: czeka na dane, chwilę zbiera kolejne (paczka zamiast okruchów) i wysyła.
+    fn flush_loop(self: Arc<Self>) {
+        loop {
+            {
+                let mut d = self.dirty.lock().unwrap();
+                while d.is_empty() {
+                    d = self.wake.wait(d).unwrap();
+                }
+            }
+            std::thread::sleep(Duration::from_millis(4));
+            let list = std::mem::take(&mut *self.dirty.lock().unwrap());
+            let mut seen: Vec<u32> = Vec::with_capacity(list.len());
+            for out in list {
+                if seen.contains(&out.id) {
+                    continue;
+                }
+                seen.push(out.id);
+                self.drain(&out);
+            }
+        }
+    }
+
+    fn drain(&self, out: &Output) {
+        loop {
+            let (data, eof, more) = {
+                let mut st = out.state.lock().unwrap();
+                let n = st.buf.len().min(MAX_CHUNK);
+                let data: Vec<u8> = st.buf.drain(..n).collect();
+                st.unacked += data.len();
+                (data, st.eof && st.buf.is_empty(), !st.buf.is_empty())
+            };
+            if !data.is_empty() && out.channel.send(InvokeResponseBody::Raw(data)).is_err() {
+                out.state.lock().unwrap().closed = true;
+                out.acked.notify_all();
+                return;
+            }
+            if eof {
+                let code = self
+                    .sessions
+                    .lock()
+                    .unwrap()
+                    .get_mut(&out.id)
+                    .and_then(|s| s.child.try_wait().ok().flatten())
+                    .map(|st| st.exit_code());
+                let ev = serde_json::to_string(&PtyEvent::Exit { code }).unwrap_or_default();
+                let _ = out.channel.send(InvokeResponseBody::Json(ev));
+                return;
+            }
+            if !more {
+                return;
+            }
+        }
+    }
 }
 
 fn now_ms() -> u64 {
@@ -106,14 +197,14 @@ fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
     cmd
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn pty_spawn(
     state: State<'_, Arc<Ptys>>,
     shell: String,
     cwd: Option<String>,
     cols: u16,
     rows: u16,
-    on_event: Channel<PtyEvent>,
+    on_event: Channel<InvokeResponseBody>,
 ) -> Result<u32, String> {
     let pair = native_pty_system()
         .openpty(PtySize { rows: rows.max(2), cols: cols.max(10), pixel_width: 0, pixel_height: 0 })
@@ -127,59 +218,72 @@ pub fn pty_spawn(
     let mut reader = pair.master.try_clone_reader().map_err(|e| e.to_string())?;
     let writer = pair.master.take_writer().map_err(|e| e.to_string())?;
     let id = state.next.fetch_add(1, Ordering::Relaxed) + 1;
-
-    state.sessions.lock().unwrap().insert(
-        id,
-        Session { master: pair.master, writer, child, command: shell.clone(), started: now_ms() },
-    );
+    let out = Arc::new(Output { id, state: Mutex::new(OutState::default()), acked: Condvar::new(), channel: on_event });
 
     let ptys = state.inner().clone();
+    ptys.flusher.get_or_init(|| {
+        let p = ptys.clone();
+        std::thread::spawn(move || p.flush_loop());
+    });
+    state.sessions.lock().unwrap().insert(
+        id,
+        Session { master: pair.master, writer: Arc::new(Mutex::new(writer)), child, out: out.clone(), command: shell.clone(), started: now_ms() },
+    );
+
     std::thread::spawn(move || {
-        let mut buf = [0u8; 16 * 1024];
-        let mut carry: Vec<u8> = Vec::new();
+        let mut buf = vec![0u8; 64 * 1024];
         loop {
-            match reader.read(&mut buf) {
+            let n = match reader.read(&mut buf) {
                 Ok(0) | Err(_) => break,
-                Ok(n) => {
-                    carry.extend_from_slice(&buf[..n]);
-                    let valid = match std::str::from_utf8(&carry) {
-                        Ok(_) => carry.len(),
-                        Err(e) if e.error_len().is_none() => e.valid_up_to(), // niepełny znak na końcu
-                        Err(_) => carry.len(),                                  // śmieci: zamień na U+FFFD
-                    };
-                    if valid == 0 {
-                        continue;
-                    }
-                    let text = String::from_utf8_lossy(&carry[..valid]).into_owned();
-                    carry.drain(..valid);
-                    if on_event.send(PtyEvent::Data { data: text }).is_err() {
-                        break;
-                    }
-                }
+                Ok(n) => n,
+            };
+            let mut st = out.state.lock().unwrap();
+            if st.closed {
+                return;
+            }
+            let was_empty = st.buf.is_empty();
+            st.buf.extend_from_slice(&buf[..n]);
+            if was_empty {
+                ptys.mark(&out);
+            }
+            // Kontrola przepływu: interfejs nie nadąża (albo stoi), więc na razie nie czytamy.
+            while st.unacked + st.buf.len() > HIGH && !st.closed {
+                st = out.acked.wait(st).unwrap();
             }
         }
-        let code = ptys
-            .sessions
-            .lock()
-            .unwrap()
-            .get_mut(&id)
-            .and_then(|s| s.child.try_wait().ok().flatten())
-            .map(|st| st.exit_code());
-        let _ = on_event.send(PtyEvent::Exit { code });
+        out.state.lock().unwrap().eof = true;
+        ptys.mark(&out);
     });
 
     Ok(id)
 }
 
-#[tauri::command]
-pub fn pty_write(state: State<'_, Arc<Ptys>>, id: u32, data: String) -> Result<(), String> {
-    let mut map = state.sessions.lock().unwrap();
-    let s = map.get_mut(&id).ok_or("Sesja nie istnieje")?;
-    s.writer.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
-    s.writer.flush().map_err(|e| e.to_string())
+/// Frontend przetworzył `bytes` bajtów wyjścia.
+#[tauri::command(async)]
+pub fn pty_ack(state: State<'_, Arc<Ptys>>, id: u32, bytes: usize) {
+    let out = state.sessions.lock().unwrap().get(&id).map(|s| s.out.clone());
+    if let Some(out) = out {
+        let mut st = out.state.lock().unwrap();
+        st.unacked = st.unacked.saturating_sub(bytes);
+        out.acked.notify_all();
+    }
 }
 
+/// Zapis w osobnym wątku i poza wspólną blokadą: duże wklejenie do programu, który nie czyta
+/// wejścia, czeka samo, a nie zatrzymuje głównego wątku ani innych terminali.
 #[tauri::command]
+pub async fn pty_write(state: State<'_, Arc<Ptys>>, id: u32, data: String) -> Result<(), String> {
+    let writer = state.sessions.lock().unwrap().get(&id).map(|s| s.writer.clone()).ok_or("Sesja nie istnieje")?;
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut w = writer.lock().unwrap();
+        w.write_all(data.as_bytes()).map_err(|e| e.to_string())?;
+        w.flush().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command(async)]
 pub fn pty_resize(state: State<'_, Arc<Ptys>>, id: u32, cols: u16, rows: u16) -> Result<(), String> {
     let map = state.sessions.lock().unwrap();
     let s = map.get(&id).ok_or("Sesja nie istnieje")?;
@@ -188,10 +292,17 @@ pub fn pty_resize(state: State<'_, Arc<Ptys>>, id: u32, cols: u16, rows: u16) ->
         .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+fn close(mut s: Session) {
+    s.out.state.lock().unwrap().closed = true;
+    s.out.acked.notify_all();
+    let _ = s.child.kill();
+}
+
+#[tauri::command(async)]
 pub fn pty_kill(state: State<'_, Arc<Ptys>>, id: u32) -> Result<(), String> {
-    if let Some(mut s) = state.sessions.lock().unwrap().remove(&id) {
-        let _ = s.child.kill();
+    let s = state.sessions.lock().unwrap().remove(&id);
+    if let Some(s) = s {
+        close(s);
     }
     Ok(())
 }
@@ -206,7 +317,7 @@ pub struct PtyInfo {
     children: Vec<String>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn pty_info(state: State<'_, Arc<Ptys>>, sys: State<'_, crate::sys::SysState>, id: u32) -> Result<PtyInfo, String> {
     let (pid, shell, started) = {
         let map = state.sessions.lock().unwrap();
@@ -217,8 +328,13 @@ pub fn pty_info(state: State<'_, Arc<Ptys>>, sys: State<'_, crate::sys::SysState
     Ok(PtyInfo { pid, shell, started, children })
 }
 
+/// Start (albo przeładowanie) interfejsu: sesje z poprzedniej strony nie mają już odbiorcy.
+#[tauri::command(async)]
+pub fn pty_reset(state: State<'_, Arc<Ptys>>) {
+    kill_all(&state);
+}
+
 pub fn kill_all(state: &Ptys) {
-    for (_, mut s) in state.sessions.lock().unwrap().drain() {
-        let _ = s.child.kill();
-    }
+    let all: Vec<Session> = state.sessions.lock().unwrap().drain().map(|(_, s)| s).collect();
+    all.into_iter().for_each(close);
 }

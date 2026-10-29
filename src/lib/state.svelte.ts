@@ -269,9 +269,30 @@ export function snapshot(): string {
 let saveTimer = 0;
 export function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => { call('state_save', { json: snapshot() }).catch((e) => console.error('zapis stanu', e)); }, 700);
+  saveTimer = window.setTimeout(() => {
+    call('state_save', { json: snapshot() }).catch((e) => console.error('zapis stanu', e));
+    rearm();
+  }, 700);
 }
-export async function saveNow() { clearTimeout(saveTimer); await call('state_save', { json: snapshot() }).catch(() => {}); }
+export async function saveNow() { clearTimeout(saveTimer); const json = snapshot(); rearm(); await call('state_save', { json }).catch(() => {}); }
+
+// Autozapis. Śledzenie zmian wymaga odczytania całego stanu, co przy długim czacie trwa kilka ms,
+// więc robimy to najwyżej raz na cykl zapisu, a nie przy każdej zmianie (np. każdym tokenie agenta):
+// pierwsza zmiana planuje zapis i „rozbraja” efekt; zapis i tak bierze cały aktualny stan, potem
+// efekt znów się uzbraja i czyta stan raz.
+let armed = $state(true);
+let arming = true;
+function rearm() { if (!armed) { arming = true; armed = true; } }
+export function watchSave() {
+  $effect.root(() => {
+    $effect(() => {
+      if (!armed) return;
+      if (arming) { arming = false; JSON.stringify(app); return; }
+      armed = false;
+      scheduleSave();
+    });
+  });
+}
 
 export async function loadState() {
   ui.shells = await call<ShellInfo[]>('sys_shells').catch(() => [] as ShellInfo[]);
@@ -305,6 +326,14 @@ export async function loadState() {
   }
   Object.assign(app, merged);
   sessions.configure(app.settings);
-  for (const ws of app.workspaces) for (const t of ws.tabs) for (const p of t.panes) sessions.ensureSession(p);
+  // Po przeładowaniu strony (zmiana języka, awaria WebView) w rdzeniu mogą żyć powłoki poprzedniej strony.
+  await call('pty_reset').catch(() => {});
+  // Powłoki przywróconych zakładek startują dopiero przy pierwszym pokazaniu (TerminalPane) albo zapisie
+  // (sessions.write): i tak byłyby świeże i puste, a 20 zakładek PowerShell to około 1 GB pamięci.
+  sessions.setPaneResolver((id) => {
+    for (const ws of app.workspaces) for (const t of ws.tabs) { const p = t.panes.find((x) => x.id === id); if (p) return p; }
+    for (const k of app.parked) { const p = k.tab.panes.find((x) => x.id === id); if (p) return p; }
+    return null;
+  });
   ui.ready = true;
 }

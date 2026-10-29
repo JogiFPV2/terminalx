@@ -3,7 +3,8 @@
   import { ui, undo } from '../state.svelte';
 
   let now = $state(Date.now());
-  $effect(() => { const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
+  // Zegar odliczania tylko wtedy, gdy coś czeka na cofnięcie.
+  $effect(() => { if (!ui.pending.length) return; now = Date.now(); const t = setInterval(() => (now = Date.now()), 500); return () => clearInterval(t); });
 
   let menuEl: HTMLDivElement | undefined = $state();
   let pos = $state({ x: 0, y: 0 });

@@ -217,7 +217,7 @@ pub async fn media_download(app: AppHandle, provider: Option<MediaProvider>, url
 }
 
 /// Zapisuje dane base64 (bez prefiksu `data:`) jako nowy plik w folderze media.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn media_save_b64(app: AppHandle, data: String, ext: String) -> Result<String, String> {
     let bytes = B64.decode(data.trim()).map_err(|e| e.to_string())?;
     let path = new_file(&app, &ext)?;
@@ -226,7 +226,7 @@ pub fn media_save_b64(app: AppHandle, data: String, ext: String) -> Result<Strin
 }
 
 /// Kopiuje plik z dysku do folderu media (wejście workflow), żeby dało się go pokazać w aplikacji.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn media_import(app: AppHandle, path: String) -> Result<String, String> {
     let ext = Path::new(&path).extension().and_then(|e| e.to_str()).unwrap_or("bin").to_lowercase();
     let dst = new_file(&app, &ext)?;
@@ -234,18 +234,18 @@ pub fn media_import(app: AppHandle, path: String) -> Result<String, String> {
     Ok(dst.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn media_dir(app: AppHandle) -> Result<String, String> {
     Ok(media_root(&app)?.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fonts_dir(app: AppHandle) -> Result<String, String> {
     Ok(fonts_root(&app)?.to_string_lossy().into_owned())
 }
 
 /// Plik jako base64 (obrazy wejściowe dla providerów, którzy chcą danych w JSON). Limit 40 MB.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_read_b64(path: String) -> Result<String, String> {
     let meta = std::fs::metadata(&path).map_err(|e| e.to_string())?;
     if meta.len() > 40 * 1024 * 1024 {
@@ -254,7 +254,7 @@ pub fn fs_read_b64(path: String) -> Result<String, String> {
     Ok(B64.encode(std::fs::read(&path).map_err(|e| e.to_string())?))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_copy(src: String, dst: String) -> Result<(), String> {
     if let Some(dir) = Path::new(&dst).parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -329,7 +329,7 @@ fn gallery_file(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Dopisuje wpisy (jeden JSON w linii). Plik rośnie tylko o metadane, same media już są w folderze.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn gallery_add(app: AppHandle, entries: Vec<serde_json::Value>) -> Result<(), String> {
     use std::io::Write;
     let mut f = std::fs::OpenOptions::new().create(true).append(true).open(gallery_file(&app)?).map_err(|e| e.to_string())?;
@@ -340,7 +340,7 @@ pub fn gallery_add(app: AppHandle, entries: Vec<serde_json::Value>) -> Result<()
 }
 
 /// Wpisy galerii, których pliki nadal istnieją (najnowsze na końcu).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn gallery_list(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let text = std::fs::read_to_string(gallery_file(&app)?).unwrap_or_default();
     Ok(text
@@ -351,7 +351,7 @@ pub fn gallery_list(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
 }
 
 /// Usuwa pliki z folderu media i ich wpisy. Ścieżki spoza folderu media są tylko wypisywane z galerii.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn gallery_remove(app: AppHandle, paths: Vec<String>) -> Result<(), String> {
     let root = media_root(&app)?.canonicalize().map_err(|e| e.to_string())?;
     for p in &paths {

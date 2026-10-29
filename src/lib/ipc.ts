@@ -4,7 +4,8 @@ import { invoke, Channel } from '@tauri-apps/api/core';
 
 export const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
-export type PtyEvent = { type: 'data'; data: string } | { type: 'exit'; code: number | null };
+/** Lokalny terminal wysyła wyjście jako surowe bajty (ArrayBuffer), SSH jako tekst. */
+export type PtyEvent = ArrayBuffer | { type: 'data'; data: string } | { type: 'exit'; code: number | null };
 
 export function call<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   if (!isTauri) return mock(cmd, args || {}) as Promise<T>;
@@ -52,7 +53,7 @@ async function mock(cmd: string, a: Record<string, any>): Promise<unknown> {
       }
       return null;
     }
-    case 'pty_resize': case 'pty_kill': return null;
+    case 'pty_resize': case 'pty_kill': case 'pty_ack': case 'pty_reset': return null;
     case 'pty_info': return { pid: 1, shell: 'mock', started: Date.now(), children: [] };
     case 'state_load': try { return localStorage.getItem('tx-state'); } catch { return null; }
     case 'state_save': try { localStorage.setItem('tx-state', a.json); } catch { /* ignore */ } return null;

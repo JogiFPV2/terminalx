@@ -148,13 +148,13 @@ fn find_install(dir: &Path) -> Option<ComfyInstall> {
     None
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_find(dir: String) -> Option<ComfyInstall> {
     if dir.trim().is_empty() { None } else { find_install(Path::new(&dir)) }
 }
 
 /// Domyślny folder instalacji: obok exe w trybie portable, inaczej w danych lokalnych użytkownika.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_default_dir(app: AppHandle) -> Result<String, String> {
     let data = crate::store::data_dir(&app)?;
     let portable = std::env::current_exe().ok().and_then(|e| e.parent().map(|d| d.join("data"))).is_some_and(|d| d == data);
@@ -179,7 +179,7 @@ fn alive(p: &mut ComfyProc) -> bool {
     matches!(p.child.try_wait(), Ok(None))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_start(state: tauri::State<'_, LocalState>, dir: String, port: u16, args: Vec<String>) -> Result<u32, String> {
     let mut guard = state.comfy.lock().unwrap();
     if let Some(p) = guard.as_mut() {
@@ -229,7 +229,7 @@ fn kill_tree(p: &mut ComfyProc) {
     let _ = p.child.wait();
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_stop(state: tauri::State<'_, LocalState>) {
     if let Some(mut p) = state.comfy.lock().unwrap().take() {
         kill_tree(&mut p);
@@ -245,7 +245,7 @@ pub fn stop_all(state: &LocalState) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_status(state: tauri::State<'_, LocalState>) -> ComfyStatus {
     let mut guard = state.comfy.lock().unwrap();
     match guard.as_mut() {
@@ -312,7 +312,7 @@ pub async fn comfy_ws(state: tauri::State<'_, LocalState>, url: String, id: Stri
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_ws_close(state: tauri::State<'_, LocalState>, id: String) {
     if let Some(flag) = state.sockets.lock().unwrap().remove(&id) {
         flag.store(true, Ordering::Relaxed);
@@ -414,7 +414,7 @@ async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, sha256: Opt
 
 /// Pobiera plik w tle; postęp przychodzi zdarzeniami `dl`. Przerwane pobieranie wznawia się od miejsca przerwania,
 /// a gotowy plik jest sprawdzany sumą SHA-256 (podaną albo z Hugging Face).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn dl_start(app: AppHandle, state: tauri::State<'_, LocalState>, id: String, url: String, dest: String, sha256: Option<String>) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("Pobieranie tylko przez https".into());
@@ -442,7 +442,7 @@ pub fn dl_start(app: AppHandle, state: tauri::State<'_, LocalState>, id: String,
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn dl_cancel(state: tauri::State<'_, LocalState>, id: String) {
     if let Some(flag) = state.downloads.lock().unwrap().get(&id) {
         flag.store(true, Ordering::Relaxed);
@@ -471,13 +471,13 @@ pub async fn archive_extract(archive: String, dest: String) -> Result<(), String
 }
 
 /// Rozmiary plików (None, gdy brak). Do sprawdzania, które modele są już pobrane.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fs_sizes(paths: Vec<String>) -> Vec<Option<u64>> {
     paths.iter().map(|p| std::fs::metadata(p).ok().filter(|m| m.is_file()).map(|m| m.len())).collect()
 }
 
 /// Usuwa plik modelu; tylko wewnątrz folderu models wskazanej instalacji ComfyUI.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn comfy_model_remove(dir: String, rel: String) -> Result<(), String> {
     let inst = find_install(Path::new(&dir)).ok_or("Nie znaleziono ComfyUI")?;
     let rel = Path::new(&rel);

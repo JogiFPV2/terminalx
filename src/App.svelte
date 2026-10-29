@@ -11,7 +11,7 @@
   import CommandPalette from './lib/components/CommandPalette.svelte';
   import Settings from './lib/components/settings/Settings.svelte';
   import PluginFrame from './lib/components/PluginFrame.svelte';
-  import { app, ui, curWs, curTab, loadState, scheduleSave, saveNow, finalizeAll, newTab, closeTab, undo, splitTab, addWorkspace, activateTab } from './lib/state.svelte';
+  import { app, ui, curWs, curTab, loadState, watchSave, saveNow, finalizeAll, newTab, closeTab, undo, splitTab, addWorkspace, activateTab } from './lib/state.svelte';
   import { applyTheme, BUILTIN } from './lib/theme';
   import * as sessions from './lib/terminal/sessions.svelte';
   import { loadPlugins, startHost, enabledPlugins, broadcastTheme, emitAll, plug, runCommand } from './lib/plugins/host.svelte';
@@ -39,6 +39,7 @@
       try {
         initHosts();
         await loadState();
+        watchSave();
         await startI18n(app.settings.lang);
         theme();
         await loadPlugins();
@@ -86,11 +87,6 @@
   $effect(() => {
     void app.settings.fontSize; void app.settings.fontFamily; void app.settings.lineHeight; void app.settings.cursorBlink; void app.settings.scrollback;
     if (ui.ready) sessions.refreshAll();
-  });
-  // Autozapis całego stanu (z opóźnieniem).
-  $effect(() => {
-    void JSON.stringify(app);
-    if (ui.ready) scheduleSave();
   });
   // Pluginy z tabs:manage dostają zdarzenie przy każdej zmianie zakładek.
   $effect(() => {

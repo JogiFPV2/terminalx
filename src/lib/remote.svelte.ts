@@ -160,14 +160,16 @@ export function initRemote() {
   });
   // Stan zakładek i czat agenta trafiają do telefonów na bieżąco.
   $effect.root(() => {
+    // Bez podłączonego telefonu efekty nic nie czytają (i nie liczą), więc nie kosztują.
     $effect(() => {
-      const sig = JSON.stringify(snapshot());
-      if (remote.clients.length && sig) send(null, { t: 'ev', e: 'state', d: JSON.parse(sig) });
+      if (!remote.clients.length) return;
+      send(null, { t: 'ev', e: 'state', d: snapshot() });
     });
     $effect(() => {
+      if (!remote.clients.length) return;
       for (const w of app.workspaces) {
         void w.chat.length; void w.chat.map((m) => m.approve?.state).join();
-        if (remote.clients.length) send(null, { t: 'ev', e: 'chat', d: { ws: w.id, messages: chatOf(w.id) } });
+        send(null, { t: 'ev', e: 'chat', d: { ws: w.id, messages: chatOf(w.id) } });
       }
     });
   });

@@ -360,10 +360,10 @@ pub async fn remote_pair_decision(state: State<'_, Arc<RemoteState>>, pair_id: S
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remote_devices(app: AppHandle) -> Vec<Device> { load_devices(&app) }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn remote_set_perm(app: AppHandle, device_id: String, perm: String) -> Result<(), String> {
     if !["view", "control", "full"].contains(&perm.as_str()) { return Err("Nieznane uprawnienie".into()); }
     let mut list = load_devices(&app);

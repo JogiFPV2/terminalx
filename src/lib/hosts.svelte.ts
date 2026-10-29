@@ -60,7 +60,7 @@ export function initHosts() {
       };
     });
   });
-  setInterval(refresh, 5000);
+  setInterval(() => { if (app.hosts.length) refresh(); }, 5000);
 }
 
 export async function refresh() {
