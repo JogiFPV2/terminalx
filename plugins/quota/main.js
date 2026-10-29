@@ -1,14 +1,29 @@
-// Quota: ile tokenów zostało do zużycia u wybranych providerów, na górnym albo dolnym pasku.
-// Źródła (w tej kolejności): własny limit tokenów na dzień/miesiąc liczony z zużycia w aplikacji,
+// Quota: zużycie planów subskrypcji i tokenów u wybranych usług, na górnym albo dolnym pasku.
+// Plany (Claude, Codex, Gemini, Cursor, z.ai, OpenCode Go, OpenRouter): procent zużycia i czas do resetu
+// z logowania danego narzędzia na tym komputerze (czyta rdzeń, plugin dostaje tylko liczby).
+// Providerzy API, źródła w tej kolejności: własny limit tokenów na dzień/miesiąc liczony z zużycia w aplikacji,
 // limit z nagłówków ostatniej odpowiedzi (Anthropic, OpenAI), saldo konta (OpenRouter, DeepSeek), samo zużycie.
-// Ustawienia w `quota.json`: { place: 'top' | 'bottom', providers: { [id]: { show, budget, period } } }.
+// Ustawienia w `quota.json`: { place: 'top' | 'bottom', plans: { [usługa]: true }, providers: { [id]: { show, budget, period } } }.
 
 const FILE = 'quota.json';
 const BALANCE_MS = 5 * 60_000;
+const PLAN_MS = 5 * 60_000;
+const SERVICES = [
+  { id: 'claude', name: 'Claude', from: 'konto Pro/Max zalogowane w Claude Code' },
+  { id: 'codex', name: 'Codex', from: 'konto ChatGPT zalogowane w Codex CLI' },
+  { id: 'gemini', name: 'Gemini', from: 'konto Google (Google AI Pro/Ultra) zalogowane w Gemini CLI' },
+  { id: 'cursor', name: 'Cursor', from: 'konto zalogowane w aplikacji Cursor' },
+  { id: 'zai', name: 'z.ai', from: 'GLM Coding Plan, klucz providera z.ai z Ustawień' },
+  { id: 'opencode', name: 'OpenCode Go', from: 'logowanie OpenCode (Zen/Go)' },
+  { id: 'openrouter', name: 'OpenRouter', from: 'kredyty, klucz providera OpenRouter z Ustawień' },
+];
 
 /** @type {import('../sdk/terminalx-plugin').TxApi} */
 let tx;
-let cfg = { place: 'bottom', providers: {} };
+let cfg = { place: 'bottom', plans: {}, providers: {} };
+const plans = {};              // usługa → { data, error, at }
+let plansBusy = false;
+let settingsEl = null;
 let info = { providers: [], usage: {} };
 const items = new Map();       // id providera → element paska
 const balances = {};           // id providera → { text, at } | null
@@ -16,11 +31,12 @@ let timer = null;
 
 export async function activate(api) {
   tx = api;
-  cfg = { place: 'bottom', providers: {}, ...(await tx.storage.readJson(FILE, {})) };
+  cfg = { place: 'bottom', plans: {}, providers: {}, ...(await tx.storage.readJson(FILE, {})) };
   tx.ui.commands.register('quota.settings', 'Quota: ustawienia', openSettings);
   tx.ai.onUsage(() => update());
-  timer = setInterval(() => update(), 15_000);   // odliczanie do resetu limitów
+  timer = setInterval(() => { update(); refreshPlans(); }, 15_000);   // odliczanie do resetu; plany co 5 min
   await update();
+  refreshPlans();
 }
 
 export function deactivate() {
@@ -103,7 +119,24 @@ function view(p, u, c, bal) {
 async function update() {
   info = await tx.ai.usage();
   const shown = info.providers.filter((p) => pc(p.id).show);
-  for (const [id, it] of items) if (!shown.some((p) => p.id === id)) { it.dispose(); items.delete(id); }
+  // Plany: element tylko wtedy, gdy są dane; usługa, której nie da się odczytać, znika z paska (powód w ustawieniach).
+  const planShown = SERVICES.filter((s) => cfg.plans[s.id] && plans[s.id]?.data);
+  for (const [id, it] of items) {
+    const keep = id.startsWith('plan:') ? planShown.some((s) => 'plan:' + s.id === id) : shown.some((p) => p.id === id);
+    if (!keep) { it.dispose(); items.delete(id); }
+  }
+  for (const [i, s] of planShown.entries()) {
+    let it = items.get('plan:' + s.id);
+    if (!it) {
+      it = tx.ui.statusBar.createItem({ id: `plan-${s.id}`, alignment: 'right', priority: 70 - i / 100 });
+      it.icon = 'activity';
+      it.onClick = openSettings;
+      items.set('plan:' + s.id, it);
+    }
+    Object.assign(it, planView(s, plans[s.id].data));
+    it.place = cfg.place;
+    it.show();
+  }
   for (const [i, p] of shown.entries()) {
     let it = items.get(p.id);
     if (!it) {
@@ -120,6 +153,61 @@ async function update() {
   }
 }
 
+/* ---------- plany subskrypcji ---------- */
+
+/** Czas do resetu jak w Orca: „18m”, „3d 13h”, „2h 5m”. */
+function left(ms) {
+  if (!ms) return '';
+  const m = Math.max(0, Math.round((ms - Date.now()) / 60000));
+  return m >= 1440 ? `${Math.floor(m / 1440)}d ${Math.floor((m % 1440) / 60)}h` : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
+}
+const winText = (w) => `${Math.round(w.usedPercent)}%${w.resetsAt ? ' ' + left(w.resetsAt) : ''}`;
+
+async function refreshPlans(force = false) {
+  if (plansBusy) return;
+  plansBusy = true;
+  try {
+    for (const s of SERVICES) {
+      if (!cfg.plans[s.id]) continue;
+      const st = plans[s.id];
+      if (!force && st && Date.now() - st.at < PLAN_MS) continue;
+      try { plans[s.id] = { data: await tx.ai.plan(s.id), error: '', at: Date.now() }; }
+      catch (e) { plans[s.id] = { data: st?.data && Date.now() - st.at < 30 * 60_000 ? st.data : null, error: String(e?.message || e), at: Date.now() }; }
+      renderPlans();
+    }
+  } finally { plansBusy = false; }
+  await update();
+}
+
+function planView(s, d) {
+  const w = d.windows.slice(0, 2);
+  const text = `${s.name} ${[d.text, ...w.map(winText)].filter(Boolean).join(' · ')}`.trim();
+  const max = Math.max(0, ...d.windows.map((x) => x.usedPercent));
+  const tip = [`${s.name}${d.plan ? ` (${d.plan})` : ''}`];
+  for (const x of d.windows) tip.push(`${x.label}: zużyto ${Math.round(x.usedPercent)}%${x.resetsAt ? `, reset za ${left(x.resetsAt)}` : ''}`);
+  if (d.text) tip.push(d.text);
+  const at = plans[s.id]?.at;
+  if (at) { const t = new Date(at); tip.push(`Odczyt: ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`); }
+  tip.push('Kliknij: ustawienia Quota');
+  return { text, tooltip: tip.join('\n'), variant: max >= 95 ? 'error' : max >= 80 ? 'warning' : 'default' };
+}
+
+function renderPlans() {
+  const box = settingsEl?.querySelector('.qplans');
+  if (!box) return;
+  box.innerHTML = SERVICES.map((s) => {
+    const st = plans[s.id], on = !!cfg.plans[s.id];
+    let status = esc(s.from);
+    if (on && st?.error && !st.data) status = `<span class="qerr">${esc(st.error)}</span>`;
+    else if (on && st?.data) status = esc(`${st.data.plan ? st.data.plan + ' · ' : ''}${st.data.windows.map((w) => `${w.label} ${winText(w)}`).join(', ') || st.data.text || ''}`) + (st.error ? ` <span class="qerr">(${esc(st.error)})</span>` : '');
+    else if (on) status = 'Sprawdzam…';
+    return `<div class="qr qp" data-svc="${s.id}">
+      <label class="qs" title="Pokaż na pasku"><input type="checkbox" data-f="plan" ${on ? 'checked' : ''}></label>
+      <div class="qn"><b>${esc(s.name)}</b><small title="${esc(st?.error || '')}">${status}</small></div>
+    </div>`;
+  }).join('');
+}
+
 /* ---------- ustawienia ---------- */
 
 async function openSettings() {
@@ -127,8 +215,10 @@ async function openSettings() {
   tx.ui.dialog.open({
     title: 'Quota',
     width: 560,
+    onClose() { settingsEl = null; },
     render(el) {
       injectStyles(el.ownerDocument);
+      settingsEl = el;
       const rows = info.providers.map((p) => {
         const c = pc(p.id), u = info.usage[p.id];
         return `<div class="qr" data-id="${p.id}">
@@ -141,9 +231,15 @@ async function openSettings() {
       el.innerHTML = `
         <div class="qplace"><span>Gdzie pokazywać</span>
           <div class="qseg"><button data-place="top" class="${cfg.place === 'top' ? 'on' : ''}">Górny pasek</button><button data-place="bottom" class="${cfg.place !== 'top' ? 'on' : ''}">Dolny pasek</button></div></div>
+        <div class="qhead"><b>Plany subskrypcji</b><button class="qref" data-act="refresh" title="Odśwież teraz">Odśwież</button></div>
+        <div class="qlist qplans"></div>
+        <p class="qhint">Zaznaczone usługi pokazują procent zużycia i czas do resetu z konta, na które jesteś zalogowany w danym narzędziu na tym komputerze. Logowanie odczytuje tylko rdzeń aplikacji. Usługa, której nie da się odczytać, znika z paska, a powód widać tutaj.</p>
+        <div class="qhead"><b>Providerzy API</b></div>
         <div class="qlist">${rows || '<p class="qhint">Brak providerów czatu. Dodaj je w Ustawienia → Providerzy.</p>'}</div>
         <p class="qhint">Zaznacz providerów widocznych na pasku. Z limitem tokenów pasek pokazuje, ile z niego zostało (liczone z zapytań wysłanych z aplikacji). Bez limitu: limit API z ostatniej odpowiedzi (Anthropic, OpenAI), saldo konta (OpenRouter, DeepSeek) albo samo zużycie.</p>`;
+      renderPlans();
       el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-act=refresh]')) { refreshPlans(true); return; }
         const b = e.target.closest('[data-place]');
         if (!b) return;
         cfg.place = b.dataset.place;
@@ -151,6 +247,14 @@ async function openSettings() {
         save(); update();
       });
       el.addEventListener('change', (e) => {
+        const prow = e.target.closest('.qp');
+        if (prow) {
+          cfg.plans[prow.dataset.svc] = e.target.checked;
+          save();
+          renderPlans();
+          if (e.target.checked) refreshPlans(true); else update();
+          return;
+        }
         const row = e.target.closest('.qr');
         if (!row) return;
         const c = (cfg.providers[row.dataset.id] = pc(row.dataset.id));
@@ -184,6 +288,12 @@ function injectStyles(doc) {
     .qn small{color:var(--muted-foreground);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .qi{font:inherit;font-size:12px;color:var(--foreground);background:var(--background);border:1px solid var(--border);border-radius:6px;padding:4px 7px;outline:none;min-width:0}
     .qi:focus{border-color:var(--primary)}
+    .qhead{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;margin-top:4px}
+    .qhead b{font-weight:600}
+    .qref{font:inherit;font-size:11.5px;border:1px solid var(--border);background:none;color:var(--muted-foreground);border-radius:6px;padding:3px 8px;cursor:pointer}
+    .qref:hover{color:var(--foreground)}
+    .qp{grid-template-columns:auto 1fr}
+    .qn small .qerr,.qerr{color:var(--destructive)}
     .qhint{margin:0;color:var(--muted-foreground);font-size:11.5px;line-height:1.5}`;
   doc.head.appendChild(style);
 }

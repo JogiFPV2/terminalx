@@ -2,6 +2,7 @@ mod ai;
 mod local;
 mod media;
 mod monitor;
+mod plans;
 mod pty;
 mod remote;
 mod ssh;
@@ -138,6 +139,7 @@ pub fn run() {
             store::plugin_install,
             store::plugin_uninstall,
             ai::secret_set,
+            plans::plan_usage,
             ai::keyvault_set,
             ai::keyvault_masked,
             ai::keyvault_get,

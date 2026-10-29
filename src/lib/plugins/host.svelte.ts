@@ -22,6 +22,7 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'tabs:manage': { label: 'Przenoszenie zakładek', risk: 1 },
   'ai:invoke': { label: 'Wywołania AI (przez providerów)', risk: 1 },
   'ai:usage': { label: 'Zużycie tokenów i limity providerów (bez kluczy i treści)', risk: 0 },
+  'ai:plans': { label: 'Limity planów subskrypcji z logowań narzędzi (tylko wbudowane)', risk: 2 },
   'net:localhost': { label: 'Sieć: tylko localhost', risk: 1 },
   'terminal:write': { label: 'Pisanie do terminali', risk: 2 },
   'net:*': { label: 'Sieć: dowolne adresy', risk: 2 },
@@ -30,7 +31,7 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'shell:exec': { label: 'Uruchamianie procesów', risk: 2 },
   'vault:keys': { label: 'Sejf kluczy API (tylko wbudowane)', risk: 2 },
 };
-export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:'];
+export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:', 'ai:plans'];
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
@@ -148,7 +149,7 @@ export function broadcastTheme() { const css = themeCss(); for (const id of runt
 function hasPerm(pluginId: string, perm: string) {
   const lp = loaded(pluginId), perms = lp?.manifest.permissions || [];
   // Sejf kluczy: tylko pluginy dostarczone z aplikacją (import .zip i tak odrzuca to uprawnienie).
-  if (perm === 'vault:keys') return !!lp?.builtin && perms.includes(perm);
+  if (perm === 'vault:keys' || perm === 'ai:plans') return !!lp?.builtin && perms.includes(perm);
   if (perm === 'net:localhost') return perms.includes('net:localhost') || perms.includes('net:*');
   return perms.includes(perm);
 }
@@ -191,7 +192,7 @@ const NEEDS: Record<string, string | null> = {
   'system.stats': 'system:info', 'shell.exec': 'shell:exec', 'net.fetch': 'net:localhost',
   'terminal.list': 'terminal:read', 'terminal.subscribe': 'terminal:read', 'terminal.unsubscribe': 'terminal:read', 'terminal.write': 'terminal:write',
   'tabs.list': 'tabs:manage', 'tabs.get': 'tabs:manage', 'tabs.park': 'tabs:manage', 'tabs.unpark': 'tabs:manage', 'tabs.close': 'tabs:manage', 'tabs.tail': 'terminal:read',
-  'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage',
+  'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage', 'ai.plan': 'ai:plans',
   'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
 };
 
@@ -331,6 +332,19 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
     case 'keys.delete': await call('keyvault_delete', { keyRef: vaultRef(pluginId, a.id) }); return null;
     case 'ai.usage':
       return { providers: app.providers.filter(isChat).map((p) => ({ id: p.id, name: p.name, type: p.type, host: p.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '') })), usage: app.usage };
+    case 'ai.plan': {
+      // Logowanie narzędzia czyta rdzeń; tu wracają tylko procenty i czasy resetu.
+      const svc = String(a.service || '');
+      if (svc === 'openrouter') {
+        const p = app.providers.find((x) => /openrouter\.ai/.test(x.url));
+        if (!p) throw new Error('Dodaj providera OpenRouter z kluczem w Ustawienia → Providerzy.');
+        const b = await balanceOf(p);
+        if (!b) throw new Error('OpenRouter nie zwrócił salda.');
+        return { plan: b.limit != null ? `limit $${b.limit}` : 'kredyty', text: b.text, windows: b.limit ? [{ label: 'kredyty', usedPercent: Math.min(100, Math.max(0, (1 - (b.remaining ?? 0) / b.limit) * 100)), resetsAt: 0 }] : [] };
+      }
+      const z = svc === 'zai' ? app.providers.find((x) => /z\.ai|bigmodel\.cn/.test(x.url)) : undefined;
+      return call('plan_usage', { service: svc, keyRef: z?.keyRef || null, url: z?.url || null });
+    }
     case 'ai.balance': {
       const p = app.providers.find((x) => x.id === a.id);
       return p ? balanceOf(p) : null;

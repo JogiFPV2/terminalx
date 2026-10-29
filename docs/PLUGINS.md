@@ -49,6 +49,7 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 | `net:*` | Sieć do dowolnych adresów | wysokie |
 | `fs:read`, `fs:write` | Pliki użytkownika poza katalogiem pluginu (wybrane przez użytkownika foldery) | wysokie |
 | `shell:exec` | Uruchamianie procesów | wysokie |
+| `ai:plans` | Zużycie planów subskrypcji (Claude, Codex, Gemini CLI, Cursor, z.ai, OpenCode Go, OpenRouter) z logowania danego narzędzia na tym komputerze. Token czyta tylko rdzeń, plugin dostaje procenty i czasy resetu. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
 | `vault:keys` | Sejf kluczy API (`tx.keys`): zapis klucza wpisanego w oknie hosta, wersje zamaskowane, kopiowanie do schowka przez host. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
 
 Uprawnienia wysokiego ryzyka są oznaczone przy imporcie i na liście pluginów.
@@ -124,7 +125,7 @@ export function activate(tx) {
 | Notatki (`tx.notes`) | Sekcja „Notatki” nad Ustawieniami: foldery w folderach, przeciąganie, każda notatka to plik `.md` z opcjonalnym tytułem w front matter | `storage`, `ui:sidebar`, `ui:commands` |
 | Procesy w tle (`tx.bcgrnd_process`) | Sekcja na zakładki z działającym procesem: przeciągnij zakładkę na sekcję albo PPM → „Przenieś do Procesy w tle”. Proces działa dalej, „Przywróć” odkłada zakładkę na jej miejsce, wykrywa też długo działające procesy | `tabs:manage`, `terminal:read`, `ui:sidebar`, `ui:tabmenu` |
 | Klucze API (`tx.keys`) | Sekcja z providerami (nazwa i opcjonalny link) i ich kluczami. Klucze są w magazynie poświadczeń systemu, na liście widać pierwsze i ostatnie 4 znaki, ikona obok kopiuje pełny klucz (schowek czyści się po 45 s, jeśli nadal go zawiera). Plugin nie widzi pełnych kluczy | `storage`, `ui:sidebar`, `ui:commands`, `vault:keys` |
-| Quota (`tx.quota`) | Ile tokenów zostało u providerów zaznaczonych w ustawieniach pluginu (Ustawienia → Pluginy → Quota → Ustawienia albo klik w element paska). Własny limit na dzień lub miesiąc, a bez niego limit API z nagłówków (Anthropic, OpenAI), saldo (OpenRouter, DeepSeek) albo samo zużycie. Górny albo dolny pasek | `storage`, `ui:statusbar`, `ui:commands`, `ai:usage` |
+| Quota (`tx.quota`) | Plany subskrypcji jak w Orca: procent zużycia i czas do resetu dla zaznaczonych usług (Claude Pro/Max z Claude Code, Codex z Codex CLI, Gemini z Gemini CLI, Cursor, z.ai GLM Coding Plan, OpenCode Go, kredyty OpenRouter); usługa, której nie da się odczytać, znika z paska, a powód widać w ustawieniach. Do tego ile tokenów zostało u providerów zaznaczonych w ustawieniach pluginu (Ustawienia → Pluginy → Quota → Ustawienia albo klik w element paska). Własny limit na dzień lub miesiąc, a bez niego limit API z nagłówków (Anthropic, OpenAI), saldo (OpenRouter, DeepSeek) albo samo zużycie. Górny albo dolny pasek | `storage`, `ui:statusbar`, `ui:commands`, `ai:usage`, `ai:plans` |
 | Monitor zasobów (`tx.sysmon`) | CPU i RAM na pasku statusu | `system:info`, `ui:statusbar` |
 | Porty (`tx.ports`) | Nasłuchujące porty, otwieranie w przeglądarce, zatrzymywanie procesu | `shell:exec`, `net:localhost`, `ui:sidebar` |
 | Pomodoro (`tx.pomodoro`) | Licznik pracy i przerw z powiadomieniem | `ui:statusbar`, `ui:commands`, `notifications` |

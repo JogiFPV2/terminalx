@@ -16,6 +16,7 @@ export type Permission =
   | 'system:info'
   | 'terminal:read' | 'terminal:write'
   | 'ai:invoke' | 'ai:usage'
+  | 'ai:plans'                  // tylko pluginy wbudowane
   | 'net:localhost' | 'net:*'
   | 'fs:read' | 'fs:write'
   | 'shell:exec'
@@ -193,6 +194,9 @@ export interface TxApi {
     /** 'ai:usage': saldo konta (OpenRouter, DeepSeek) albo null. */
     balance(providerId: string): Promise<{ text: string; remaining: number | null; limit: number | null; currency: string } | null>;
     onUsage(cb: () => void): Disposable;
+    /** 'ai:plans' (tylko wbudowane): zużycie planu subskrypcji z logowania narzędzia na tym komputerze.
+     *  Usługi: claude, codex, gemini, cursor, zai, opencode, openrouter. Błąd = nie da się teraz odczytać (powód w treści). */
+    plan(service: string): Promise<{ plan: string; text?: string; windows: { label: string; usedPercent: number; resetsAt: number }[] }>;
   };
   /** Sejf kluczy ('vault:keys', tylko wbudowane): klucz wpisuje się w oknie hosta i trafia do magazynu
    *  poświadczeń systemu. Plugin dostaje tylko wersję zamaskowaną; kopiowanie robi host. */
