@@ -156,8 +156,18 @@ pub async fn ai_request(
 
     let res = req.send().await.map_err(|e| format!("Błąd połączenia z {url}: {e}"))?;
     let status = res.status();
+    // Limity z nagłówków (Anthropic: anthropic-ratelimit-*, OpenAI i zgodni: x-ratelimit-*) dla licznika zużycia.
+    let limits: serde_json::Map<String, serde_json::Value> = res
+        .headers()
+        .iter()
+        .filter(|(k, _)| k.as_str().starts_with("anthropic-ratelimit-") || k.as_str().starts_with("x-ratelimit-"))
+        .filter_map(|(k, v)| Some((k.as_str().to_string(), serde_json::Value::String(v.to_str().ok()?.to_string()))))
+        .collect();
     let text = res.text().await.map_err(|e| e.to_string())?;
-    let json: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::String(text.clone()));
+    let mut json: serde_json::Value = serde_json::from_str(&text).unwrap_or(serde_json::Value::String(text.clone()));
+    if let (Some(obj), false) = (json.as_object_mut(), limits.is_empty()) {
+        obj.insert("__ratelimit".into(), serde_json::Value::Object(limits));
+    }
     if !status.is_success() {
         let msg = json
             .pointer("/error/message")

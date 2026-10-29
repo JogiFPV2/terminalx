@@ -771,7 +771,9 @@
     "Brak wyników": "No results",
     "Pobieranie…": "Loading…",
     "Pobieranie listy…": "Loading list…",
-    "zapisany": "saved"
+    "zapisany": "saved",
+    "Zużycie tokenów i limity providerów (bez kluczy i treści)": "Token usage and provider limits (no keys or content)",
+    "Quota: ustawienia": "Quota: settings"
   },
   "patterns": [
     [

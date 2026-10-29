@@ -5,6 +5,20 @@ import { app } from './state.svelte';
 import { isChat } from './defaults';
 import { onGpu } from './gpu';
 import type { Provider } from './types';
+import { emptyUsage, addUsage, tokensOf, parseLimits } from './usage';
+
+const usageListeners = new Set<(providerId: string) => void>();
+export function onUsage(cb: (providerId: string) => void) { usageListeners.add(cb); return () => usageListeners.delete(cb); }
+
+/** Dolicza tokeny z odpowiedzi i zapamiętuje limity z nagłówków (bez treści i kluczy). */
+function recordUsage(p: Provider, res: any) {
+  const t = tokensOf(res?.usage), lim = parseLimits(res?.__ratelimit);
+  if (!t && !lim) return;
+  const u = (app.usage[p.id] ||= emptyUsage());
+  if (t) addUsage(u, t);
+  if (lim) u.limits = lim;
+  for (const cb of usageListeners) cb(p.id);
+}
 
 export interface ToolDef { name: string; description: string; input_schema: Record<string, unknown> }
 export interface ToolCall { id: string; name: string; input: any }
@@ -63,6 +77,7 @@ async function anthropic(p: Provider, model: string, o: CompleteOpts): Promise<C
       res = await call('ai_request', { provider: ref(p), method: 'POST', path: '/v1/messages', body, headers: null });
     } else throw e;
   }
+  recordUsage(p, res);
   const content: Block[] = res.content || [];
   const text = content.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
   const toolCalls = content.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, name: b.name, input: b.input || {} }));
@@ -104,6 +119,7 @@ async function openai(p: Provider, model: string, o: CompleteOpts): Promise<Comp
   if (o.json) body.response_format = { type: 'json_object' };
   if (o.tools?.length) body.tools = o.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
   const res: any = await call('ai_request', { provider: ref(p), method: 'POST', path: openaiPath(p), body, headers: null });
+  recordUsage(p, res);
   const msg = res.choices?.[0]?.message || {};
   const text = (msg.content || '').trim();
   const toolCalls: ToolCall[] = (msg.tool_calls || []).map((c: any) => {
@@ -155,6 +171,22 @@ export async function listModels(p: Provider): Promise<string[]> {
   }
   const r: any = await call('ai_request', { provider: ref(p), method: 'GET', path: '/models', body: null, headers: null });
   return (r.data || []).map((m: any) => m.id).sort();
+}
+
+/** Saldo konta tam, gdzie provider je udostępnia (OpenRouter: kredyty klucza, DeepSeek: saldo). */
+export async function balanceOf(p: Provider): Promise<{ text: string; remaining: number | null; limit: number | null; currency: string } | null> {
+  if (/openrouter\.ai/.test(p.url)) {
+    const r: any = await call('ai_request', { provider: ref(p), method: 'GET', path: '/key', body: null, headers: null });
+    const d = r.data || {};
+    const rem = d.limit_remaining ?? (d.limit != null ? d.limit - (d.usage || 0) : null);
+    return { text: rem != null ? `$${Number(rem).toFixed(2)}` : `zużyto $${Number(d.usage || 0).toFixed(2)}`, remaining: rem, limit: d.limit ?? null, currency: 'USD' };
+  }
+  if (/deepseek\.com/.test(p.url)) {
+    const r: any = await call('ai_request', { provider: ref(p), method: 'GET', path: '/user/balance', body: null, headers: null });
+    const b = (r.balance_infos || [])[0];
+    return b ? { text: `${Number(b.total_balance).toFixed(2)} ${b.currency}`, remaining: Number(b.total_balance), limit: null, currency: b.currency } : null;
+  }
+  return null;
 }
 
 export const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '').replace(/\r/g, '');

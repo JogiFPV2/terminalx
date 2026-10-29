@@ -287,6 +287,7 @@ export async function loadState() {
     settings: { ...fresh.settings, ...(saved.settings || {}) },
     flows: saved.flows || {},
     parked: [],
+    usage: saved.usage || {},
     hosts: saved.hosts || [],
     remote: { ...fresh.remote, ...(saved.remote || {}) },
     local: { ...fresh.local, ...(saved.local || {}) },

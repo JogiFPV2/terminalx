@@ -15,7 +15,7 @@ export type Permission =
   | 'notifications'
   | 'system:info'
   | 'terminal:read' | 'terminal:write'
-  | 'ai:invoke'
+  | 'ai:invoke' | 'ai:usage'
   | 'net:localhost' | 'net:*'
   | 'fs:read' | 'fs:write'
   | 'shell:exec'
@@ -24,6 +24,14 @@ export type Permission =
   | 'vault:keys';               // tylko pluginy wbudowane w aplikację; import .zip je odrzuca
 
 export interface Disposable { dispose(): void }
+
+export interface Limit { limit: number; remaining: number; reset: number }
+export interface ProviderUsage {
+  day: string; dayIn: number; dayOut: number;
+  month: string; monthIn: number; monthOut: number;
+  totalIn: number; totalOut: number; calls: number; last: number;
+  limits?: { tokens?: Limit; input?: Limit; output?: Limit; requests?: Limit; at: number };
+}
 
 export interface PluginManifest {
   id: string;                 // odwrócona domena, np. "acme.hello"
@@ -94,6 +102,8 @@ export interface StatusBarItem extends Disposable {
   tooltip?: string;
   icon?: string;
   variant?: 'default' | 'warning' | 'error';
+  /** Gdzie widać element: dolny pasek statusu (domyślnie) albo górny pasek okna. */
+  place?: 'top' | 'bottom';
   onClick?: () => void;
   show(): void;
   hide(): void;
@@ -178,6 +188,11 @@ export interface TxApi {
   tabs: PluginTabs;                                                                   // 'tabs:manage'
   ai: {                                                                               // 'ai:invoke'
     complete(opts: { prompt: string; system?: string; provider?: string; model?: string; maxTokens?: number }): Promise<string>;
+    /** 'ai:usage': zużycie tokenów i limity z nagłówków per provider (bez kluczy i treści). */
+    usage(): Promise<{ providers: { id: string; name: string; type: string; host: string }[]; usage: Record<string, ProviderUsage> }>;
+    /** 'ai:usage': saldo konta (OpenRouter, DeepSeek) albo null. */
+    balance(providerId: string): Promise<{ text: string; remaining: number | null; limit: number | null; currency: string } | null>;
+    onUsage(cb: () => void): Disposable;
   };
   /** Sejf kluczy ('vault:keys', tylko wbudowane): klucz wpisuje się w oknie hosta i trafia do magazynu
    *  poświadczeń systemu. Plugin dostaje tylko wersję zamaskowaną; kopiowanie robi host. */

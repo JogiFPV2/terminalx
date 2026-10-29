@@ -27,7 +27,7 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 | `apiVersion` | tak | Na razie `1`. |
 | `main` | tak | Ścieżka do modułu ES z `activate(tx)`. |
 | `permissions` | tak | Lista uprawnień (niżej). Pusta lista oznacza plugin bez dostępu do czegokolwiek poza własnym UI. |
-| `contributes` | nie | Co plugin dodaje: `sidebar`, `statusBar`, `commands`, `tabTypes`, `tabMenu` (pozycje w menu PPM zakładki). |
+| `contributes` | nie | Co plugin dodaje: `sidebar`, `statusBar`, `commands`, `tabTypes`, `tabMenu` (pozycje w menu PPM zakładki), `settingsCommand` (komenda otwierająca własne okno ustawień; w Ustawienia → Pluginy pojawia się przycisk „Ustawienia”). Element paska ma pole `place`: `bottom` (pasek statusu) albo `top` (górny pasek okna). |
 | `config` | nie | Domyślna konfiguracja. Typy wartości (tekst, liczba, tak/nie) wyznaczają formularz w Ustawieniach. Użytkownik może ją zmienić i przywrócić domyślną. |
 | `author`, `description`, `icon`, `homepage`, `minAppVersion` | nie | Metadane. |
 
@@ -43,6 +43,7 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 | `terminal:read` | Wyjście terminali (linie z monitami o hasło są wycinane przez host) | średnie |
 | `tabs:manage` | Lista zakładek, parkowanie i przywracanie zakładek, zamykanie z cofnięciem, przyjmowanie zakładek upuszczonych na sekcję | średnie |
 | `ai:invoke` | Zapytania do AI przez skonfigurowanych providerów | średnie |
+| `ai:usage` | Zużycie tokenów per provider (dzień, miesiąc, łącznie), limity z nagłówków ostatniej odpowiedzi i saldo konta (OpenRouter, DeepSeek). Bez kluczy i treści rozmów | niskie |
 | `net:localhost` | Sieć tylko do localhost | średnie |
 | `terminal:write` | Wpisywanie do terminali | wysokie |
 | `net:*` | Sieć do dowolnych adresów | wysokie |
@@ -123,6 +124,7 @@ export function activate(tx) {
 | Notatki (`tx.notes`) | Sekcja „Notatki” nad Ustawieniami: foldery w folderach, przeciąganie, każda notatka to plik `.md` z opcjonalnym tytułem w front matter | `storage`, `ui:sidebar`, `ui:commands` |
 | Procesy w tle (`tx.bcgrnd_process`) | Sekcja na zakładki z działającym procesem: przeciągnij zakładkę na sekcję albo PPM → „Przenieś do Procesy w tle”. Proces działa dalej, „Przywróć” odkłada zakładkę na jej miejsce, wykrywa też długo działające procesy | `tabs:manage`, `terminal:read`, `ui:sidebar`, `ui:tabmenu` |
 | Klucze API (`tx.keys`) | Sekcja z providerami (nazwa i opcjonalny link) i ich kluczami. Klucze są w magazynie poświadczeń systemu, na liście widać pierwsze i ostatnie 4 znaki, ikona obok kopiuje pełny klucz (schowek czyści się po 45 s, jeśli nadal go zawiera). Plugin nie widzi pełnych kluczy | `storage`, `ui:sidebar`, `ui:commands`, `vault:keys` |
+| Quota (`tx.quota`) | Ile tokenów zostało u providerów zaznaczonych w ustawieniach pluginu (Ustawienia → Pluginy → Quota → Ustawienia albo klik w element paska). Własny limit na dzień lub miesiąc, a bez niego limit API z nagłówków (Anthropic, OpenAI), saldo (OpenRouter, DeepSeek) albo samo zużycie. Górny albo dolny pasek | `storage`, `ui:statusbar`, `ui:commands`, `ai:usage` |
 | Monitor zasobów (`tx.sysmon`) | CPU i RAM na pasku statusu | `system:info`, `ui:statusbar` |
 | Porty (`tx.ports`) | Nasłuchujące porty, otwieranie w przeglądarce, zatrzymywanie procesu | `shell:exec`, `net:localhost`, `ui:sidebar` |
 | Pomodoro (`tx.pomodoro`) | Licznik pracy i przerw z powiadomieniem | `ui:statusbar`, `ui:commands`, `notifications` |

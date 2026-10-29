@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../../Icon.svelte';
-  import { app } from '../../state.svelte';
-  import { plug, record, configOf, setEnabled, setConfig, resetConfig, pickAndInspect, install, uninstall, KNOWN_PERMS, type ImportReview } from '../../plugins/host.svelte';
+  import { app, ui } from '../../state.svelte';
+  import { plug, record, configOf, setEnabled, setConfig, resetConfig, pickAndInspect, install, uninstall, isEnabled, emit, KNOWN_PERMS, type ImportReview } from '../../plugins/host.svelte';
   import { notify } from '../../state.svelte';
 
   let review = $state<ImportReview | null>(null);
@@ -55,6 +55,7 @@
         {#if plug.crashed[p.manifest.id]}<span class="chip bad" title={plug.crashed[p.manifest.id]}>błąd</span>{/if}</b>
         <small>{p.manifest.description || ''}</small></div>
       <div class="acts">
+        {#if p.manifest.contributes?.settingsCommand && isEnabled(p.manifest.id)}<button class="btn ghost" onclick={() => { ui.settingsOpen = false; emit(p.manifest.id, 'command', { id: p.manifest.contributes!.settingsCommand }); }}>Ustawienia</button>{/if}
         {#if Object.keys(p.manifest.config || {}).length}<button class="btn ghost" onclick={() => (cfgOpen = cfgOpen === p.manifest.id ? null : p.manifest.id)}>{cfgOpen === p.manifest.id ? 'Zwiń' : 'Konfiguracja'}</button>{/if}
         {#if !p.builtin}<button class="icobtn del" title="Odinstaluj (dane zostają)" onclick={() => uninstall(p.manifest.id)}><Icon name="trash" size={14} /></button>{/if}
         <button class="switch" class:on={r?.enabled} role="switch" aria-checked={!!r?.enabled} aria-label="Włącz {p.manifest.name}" onclick={() => setEnabled(p.manifest.id, !r?.enabled)}></button>

@@ -3,7 +3,8 @@
 import { call, isTauri } from '../ipc';
 import { app, ui, notify, findTab, parkTab, unparkTab, stopParked, closeTab, deferClose, activateTab, shellName } from '../state.svelte';
 import * as sessions from '../terminal/sessions.svelte';
-import { complete } from '../ai';
+import { complete, onUsage, balanceOf } from '../ai';
+import { isChat } from '../defaults';
 import { BRAND } from '../defaults';
 import type { PluginManifest, PluginRecord } from '../types';
 import shimCode from './shim.js?raw';
@@ -20,6 +21,7 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'terminal:read': { label: 'Odczyt wyjścia terminali', risk: 1 },
   'tabs:manage': { label: 'Przenoszenie zakładek', risk: 1 },
   'ai:invoke': { label: 'Wywołania AI (przez providerów)', risk: 1 },
+  'ai:usage': { label: 'Zużycie tokenów i limity providerów (bez kluczy i treści)', risk: 0 },
   'net:localhost': { label: 'Sieć: tylko localhost', risk: 1 },
   'terminal:write': { label: 'Pisanie do terminali', risk: 2 },
   'net:*': { label: 'Sieć: dowolne adresy', risk: 2 },
@@ -32,7 +34,7 @@ export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'c
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
-export interface StatusReg { pluginId: string; id: string; text: string; tooltip: string; icon: string; variant: string; visible: boolean; clickable: boolean; priority: number }
+export interface StatusReg { pluginId: string; id: string; text: string; tooltip: string; icon: string; variant: string; visible: boolean; clickable: boolean; priority: number; place: 'top' | 'bottom' }
 export interface CommandReg { pluginId: string; id: string; title: string; keybinding: string }
 
 export const plug = $state({
@@ -69,7 +71,7 @@ export async function loadPlugins() {
     } catch { /* uszkodzony manifest pomijamy */ }
   }
   // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów i Pomodoro).
-  const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
+  const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.quota', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
   list.sort((a, b) => (order.indexOf(a.manifest.id) + 1 || 999) - (order.indexOf(b.manifest.id) + 1 || 999));
   for (const p of list) {
     if (!app.plugins.some((r) => r.id === p.manifest.id)) {
@@ -189,7 +191,7 @@ const NEEDS: Record<string, string | null> = {
   'system.stats': 'system:info', 'shell.exec': 'shell:exec', 'net.fetch': 'net:localhost',
   'terminal.list': 'terminal:read', 'terminal.subscribe': 'terminal:read', 'terminal.unsubscribe': 'terminal:read', 'terminal.write': 'terminal:write',
   'tabs.list': 'tabs:manage', 'tabs.get': 'tabs:manage', 'tabs.park': 'tabs:manage', 'tabs.unpark': 'tabs:manage', 'tabs.close': 'tabs:manage', 'tabs.tail': 'terminal:read',
-  'ai.complete': 'ai:invoke',
+  'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage',
   'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
 };
 
@@ -240,9 +242,9 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
     case 'sidebar.reveal': { delete app.layout.collapsed[pluginId]; if (app.layout.side < 140) app.layout.side = 240; return null; }
     case 'sidebar.remove': plug.sections = plug.sections.filter((s) => !(s.pluginId === pluginId && s.id === a.id)); return null;
     case 'status.create':
-      if (!plug.status.some((s) => s.pluginId === pluginId && s.id === a.id)) plug.status.push({ pluginId, id: a.id, text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false, priority: a.priority || 0 });
+      if (!plug.status.some((s) => s.pluginId === pluginId && s.id === a.id)) plug.status.push({ pluginId, id: a.id, text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false, priority: a.priority || 0, place: 'bottom' });
       return null;
-    case 'status.update': { const s = plug.status.find((x) => x.pluginId === pluginId && x.id === a.id); if (s) Object.assign(s, { text: a.text, tooltip: a.tooltip, icon: a.icon, variant: a.variant, visible: a.visible, clickable: a.clickable }); return null; }
+    case 'status.update': { const s = plug.status.find((x) => x.pluginId === pluginId && x.id === a.id); if (s) Object.assign(s, { text: a.text, tooltip: a.tooltip, icon: a.icon, variant: a.variant, visible: a.visible, clickable: a.clickable, place: a.place === 'top' ? 'top' : 'bottom' }); return null; }
     case 'status.remove': plug.status = plug.status.filter((s) => !(s.pluginId === pluginId && s.id === a.id)); return null;
     case 'command.register':
       plug.commands = plug.commands.filter((c) => !(c.pluginId === pluginId && c.id === a.id));
@@ -327,6 +329,12 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
     }
     case 'keys.copy': await copyKey(vaultRef(pluginId, a.id), String(a.label || '')); return null;
     case 'keys.delete': await call('keyvault_delete', { keyRef: vaultRef(pluginId, a.id) }); return null;
+    case 'ai.usage':
+      return { providers: app.providers.filter(isChat).map((p) => ({ id: p.id, name: p.name, type: p.type, host: p.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '') })), usage: app.usage };
+    case 'ai.balance': {
+      const p = app.providers.find((x) => x.id === a.id);
+      return p ? balanceOf(p) : null;
+    }
     case 'ai.complete': {
       const r = await complete({ providerId: a.provider || null, model: a.model || null, system: a.system, messages: [{ role: 'user', content: String(a.prompt || '') }], maxTokens: a.maxTokens || 4000 });
       return r.text;
@@ -336,9 +344,12 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
 }
 
 let listening = false;
+let usageTimer = 0;
 export function startHost() {
   if (listening) return;
   listening = true;
+  // Zmiana licznika tokenów: jedno zdarzenie na pół sekundy, tylko dla pluginów z ai:usage.
+  onUsage(() => { if (!usageTimer) usageTimer = window.setTimeout(() => { usageTimer = 0; emitAll('usage', null, 'ai:usage'); }, 500); });
   window.addEventListener('message', async (ev) => {
     const msg = ev.data;
     if (!msg || !msg.__tx) return;

@@ -54,7 +54,7 @@
   };
 
   const makeStatusItem = (opts) => {
-    const state = { text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false };
+    const state = { text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false, place: 'bottom' };
     let onClick = null;
     let queued = false;
     const flush = () => { queued = false; rpc('status.update', { id: opts.id, ...state, clickable: !!onClick }); };
@@ -64,6 +64,7 @@
       get tooltip() { return state.tooltip; }, set tooltip(v) { state.tooltip = String(v || ''); schedule(); },
       get icon() { return state.icon; }, set icon(v) { state.icon = String(v || ''); schedule(); },
       get variant() { return state.variant; }, set variant(v) { state.variant = v || 'default'; schedule(); },
+      get place() { return state.place; }, set place(v) { state.place = v === 'top' ? 'top' : 'bottom'; schedule(); },
       get onClick() { return onClick; }, set onClick(fn) { onClick = fn; schedule(); },
       show() { state.visible = true; schedule(); },
       hide() { state.visible = false; schedule(); },
@@ -178,7 +179,12 @@
       tail: (id, lines) => rpc('tabs.tail', { id, lines }),
       onChanged(cb) { return on('tabsChanged', async () => cb(await rpc('tabs.list', {}))); },
     },
-    ai: { complete: (o) => rpc('ai.complete', o) },
+    ai: {
+      complete: (o) => rpc('ai.complete', o),
+      usage: () => rpc('ai.usage', {}),
+      balance: (id) => rpc('ai.balance', { id }),
+      onUsage: (cb) => on('usage', cb),
+    },
     keys: {
       add: (id, opts) => rpc('keys.add', { id, title: opts?.title, message: opts?.message }),
       masked: (ids) => rpc('keys.masked', { ids }),

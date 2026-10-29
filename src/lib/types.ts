@@ -193,6 +193,8 @@ export interface AppState {
   flows: Record<string, Flow>;
   plugins: PluginRecord[];
   parked: ParkedTab[];
+  /** Zużycie tokenów i ostatnie limity per provider (licznik w ai.ts, czyta je plugin Quota). */
+  usage: Record<string, import('./usage').ProviderUsage>;
   hosts: Host[];
   remote: RemoteCfg;
   local: LocalCfg;
@@ -229,6 +231,8 @@ export interface PluginManifest {
     statusBar?: { id: string; alignment?: string; priority?: number }[];
     commands?: { id: string; title: string; keybinding?: string }[];
     tabMenu?: { id: string; title: string; icon?: string; when?: string }[];
+    /** Komenda pluginu otwierająca jego własne okno ustawień (przycisk w Ustawienia → Pluginy). */
+    settingsCommand?: string;
   };
   config?: Record<string, string | number | boolean>;
 }

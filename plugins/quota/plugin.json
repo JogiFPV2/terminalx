@@ -1,0 +1,16 @@
+{
+  "id": "tx.quota",
+  "name": "Quota",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "Ile tokenów zostało do zużycia u wybranych providerów: własny limit dzienny albo miesięczny, limity z nagłówków API (Anthropic, OpenAI) i saldo konta (OpenRouter, DeepSeek). Na górnym albo dolnym pasku.",
+  "icon": "activity",
+  "permissions": ["storage", "ui:statusbar", "ui:commands", "ai:usage"],
+  "contributes": {
+    "commands": [{ "id": "quota.settings", "title": "Quota: ustawienia" }],
+    "settingsCommand": "quota.settings"
+  },
+  "config": {}
+}

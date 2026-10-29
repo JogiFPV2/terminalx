@@ -11,7 +11,7 @@
   const tab = $derived(curTab());
   const pane = $derived(tab?.panes.find((p) => p.id === ui.focusedPane) || tab?.panes[0]);
   const st = $derived(pane ? sessions.termStatus[pane.id] : undefined);
-  const items = $derived(plug.status.filter((s) => s.visible).sort((a, b) => b.priority - a.priority));
+  const items = $derived(plug.status.filter((s) => s.visible && s.place !== 'top').sort((a, b) => b.priority - a.priority));
   const mb = (n: number) => `${Math.round(n / 1024 / 1024)} MB`;
 </script>
 
