@@ -43,12 +43,25 @@ export interface Tab {
   filesW?: number;
 }
 
+/** Załącznik wiadomości zapisany w `attachments/<rozmowa>/` (wideo jako klatki, plik binarny tylko ze ścieżką). */
+export interface Att {
+  kind: 'image' | 'video' | 'pdf' | 'text' | 'file';
+  name: string;
+  path: string;
+  size: number;
+  mime?: string;
+  frames?: { path: string; t: number }[];
+  duration?: number;
+}
+
 export interface ChatMsg {
   id: string;
   role: 'user' | 'agent' | 'sub' | 'system' | 'error';
   who: string;
   text: string;
-  approve?: { tabId: string; command: string; state: 'pending' | 'approved' | 'rejected' };
+  att?: Att[];
+  /** Zgoda na komendę w zakładce (tabId) albo na wywołanie narzędzia MCP (label). */
+  approve?: { tabId?: string; label?: string; command: string; state: 'pending' | 'approved' | 'rejected' };
 }
 
 export interface Workspace {
@@ -64,6 +77,9 @@ export interface Workspace {
   chat: ChatMsg[];
   /** Provider i model wybrane w panelu czatu; bez nich obowiązują ustawienia profilu agenta. */
   chatModel?: { provider: string; model: string } | null;
+  /** Bieżąca rozmowa w historii (chats/<id>.json) i czas jej rozpoczęcia. */
+  chatId?: string;
+  chatCreated?: number;
 }
 
 export type ProviderType = 'anthropic' | 'openai' | 'compat' | 'ollama' | 'google' | 'fal' | 'replicate' | 'comfy';
@@ -88,6 +104,26 @@ export interface AgentProfile {
   tools: string[];
   prompt: string;
   parallel?: number;
+  /** Serwery MCP dostępne dla profilu; brak = wszystkie włączone. */
+  mcp?: string[] | null;
+}
+
+/** Serwer MCP: lokalny proces (stdio) albo adres HTTP. Token leży w Menedżerze poświadczeń pod `keyRef`. */
+export interface McpServer {
+  id: string;
+  name: string;
+  kind: 'stdio' | 'http';
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  cwd: string;
+  url: string;
+  headers: Record<string, string>;
+  keyRef: string;
+  hasKey: boolean;
+  /** Zmienna środowiskowa, do której trafia token serwera stdio. */
+  secretEnv: string;
+  enabled: boolean;
 }
 
 export interface Snippet { id: string; name: string; kind: 'cmd' | 'ai'; body: string; provider: string | null; model: string | null }
@@ -195,6 +231,9 @@ export interface AppState {
   parked: ParkedTab[];
   /** Zużycie tokenów i ostatnie limity per provider (licznik w ai.ts, czyta je plugin Quota). */
   usage: Record<string, import('./usage').ProviderUsage>;
+  /** Modele oznaczone gwiazdką: na górze listy w panelu czatu. */
+  starred: { provider: string; model: string }[];
+  mcp: McpServer[];
   hosts: Host[];
   remote: RemoteCfg;
   local: LocalCfg;

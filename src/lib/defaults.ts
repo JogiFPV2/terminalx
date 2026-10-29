@@ -187,6 +187,8 @@ export function initialState(defaultShell: string): AppState {
     plugins: [],
     parked: [],
     usage: {},
+    starred: [],
+    mcp: [],
     hosts: [],
     remote: { enabled: false, mode: 'lan', port: 7420, devices: [] },
     local: { comfyDir: '', port: 8188, idleMin: 5, args: '', custom: [] },

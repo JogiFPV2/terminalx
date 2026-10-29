@@ -34,6 +34,11 @@
     }
   }
   const models = (pid: string) => app.providers.find((p) => p.id === pid)?.models || [];
+  function toggleMcp(id: string) {
+    if (!edit) return;
+    const cur = edit.mcp ?? app.mcp.map((s) => s.id);
+    edit.mcp = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id];
+  }
   function toggleTool(k: string) { if (!edit) return; edit.tools = edit.tools.includes(k) ? edit.tools.filter((t) => t !== k) : [...edit.tools, k]; }
 </script>
 
@@ -59,6 +64,10 @@
     </div>
     <div class="field"><span class="flabel">Narzędzia</span>
       <div class="checks">{#each Object.entries(TOOLS[edit.kind]) as [k, l]}<label><input type="checkbox" checked={edit.tools.includes(k)} onchange={() => toggleTool(k)} />{l}</label>{/each}</div></div>
+    {#if app.mcp.length}
+      <div class="field"><span class="flabel">Serwery MCP</span>
+        <div class="checks">{#each app.mcp as s (s.id)}<label title={s.enabled ? '' : 'Wyłączony w Ustawienia → Serwery MCP'}><input type="checkbox" checked={edit.mcp == null || edit.mcp.includes(s.id)} onchange={() => toggleMcp(s.id)} />{s.name}{s.enabled ? '' : ' (wyłączony)'}</label>{/each}</div></div>
+    {/if}
     {#if edit.kind === 'agent'}<div class="field" style="max-width:240px"><label for="aPar">Maks. podagentów równolegle</label><input class="inp" id="aPar" type="number" min="1" max="16" bind:value={edit.parallel} /></div>{/if}
     <div class="field"><label for="aPrompt">Instrukcja systemowa</label><textarea class="inp" id="aPrompt" bind:value={edit.prompt}></textarea></div>
     <div class="formbtns"><button class="btn" onclick={() => (edit = null)}>Anuluj</button><button class="btn pri" onclick={save}>Zapisz</button></div>

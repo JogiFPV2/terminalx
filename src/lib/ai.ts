@@ -6,6 +6,7 @@ import { isChat } from './defaults';
 import { onGpu } from './gpu';
 import type { Provider } from './types';
 import { emptyUsage, addUsage, tokensOf, parseLimits } from './usage';
+import { expandAttachments } from './attach';
 
 const usageListeners = new Set<(providerId: string) => void>();
 export function onUsage(cb: (providerId: string) => void) { usageListeners.add(cb); return () => usageListeners.delete(cb); }
@@ -90,7 +91,11 @@ async function anthropic(p: Provider, model: string, o: CompleteOpts): Promise<C
 
 /* ---------- OpenAI-compatible ---------- */
 
-function toOpenAi(messages: AMsg[], system?: string) {
+/** Wynik narzędzia jako tekst (OpenAI nie przyjmuje obrazów w wiadomości `tool`). */
+const resultText = (c: unknown) => typeof c === 'string' ? c : Array.isArray(c) ? c.map((b: any) => (b.type === 'text' ? b.text : b.type === 'image' ? '[obraz poniżej]' : '')).join('\n') : JSON.stringify(c);
+const dataUrl = (b: Block) => `data:${b.source.media_type};base64,${b.source.data}`;
+
+function toOpenAi(messages: AMsg[], system?: string, pdf = false) {
   const out: any[] = [];
   if (system) out.push({ role: 'system', content: system });
   for (const m of messages) {
@@ -100,20 +105,29 @@ function toOpenAi(messages: AMsg[], system?: string) {
       const calls = m.content.filter((b) => b.type === 'tool_use').map((b) => ({ id: b.id, type: 'function', function: { name: b.name, arguments: JSON.stringify(b.input || {}) } }));
       out.push({ role: 'assistant', content: text || null, ...(calls.length ? { tool_calls: calls } : {}) });
     } else {
-      const text = m.content.filter((b) => b.type === 'text').map((b) => b.text).join('\n');
-      for (const b of m.content.filter((b) => b.type === 'tool_result')) {
-        out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: typeof b.content === 'string' ? b.content : JSON.stringify(b.content) });
+      const parts: any[] = [];
+      for (const b of m.content) {
+        if (b.type === 'tool_result') {
+          out.push({ role: 'tool', tool_call_id: b.tool_use_id, content: resultText(b.content) });
+          // Obrazy z wyników narzędzi (np. MCP) idą zaraz za nimi jako wiadomość użytkownika.
+          if (Array.isArray(b.content)) for (const x of b.content) if (x.type === 'image' && x.source?.type === 'base64') parts.push({ type: 'image_url', image_url: { url: dataUrl(x) } });
+        } else if (b.type === 'text') parts.push({ type: 'text', text: b.text });
+        else if (b.type === 'image' && b.source?.type === 'base64') parts.push({ type: 'image_url', image_url: { url: dataUrl(b) } });
+        else if (b.type === 'document' && b.source?.type === 'base64') {
+          parts.push(pdf ? { type: 'file', file: { filename: b.title || 'dokument.pdf', file_data: dataUrl(b) } } : { type: 'text', text: `[PDF „${b.title}” pominięty: ten provider nie przyjmuje plików PDF. Plik leży na dysku, ścieżka powyżej.]` });
+        }
       }
-      const imgs = m.content.filter((b) => b.type === 'image' && b.source?.type === 'base64');
-      if (imgs.length) out.push({ role: 'user', content: [...imgs.map((b) => ({ type: 'image_url', image_url: { url: `data:${b.source.media_type};base64,${b.source.data}` } })), { type: 'text', text }] });
-      else if (text) out.push({ role: 'user', content: text });
+      if (parts.some((x) => x.type !== 'text')) out.push({ role: 'user', content: parts });
+      else if (parts.length) out.push({ role: 'user', content: parts.map((x) => x.text).join('\n') });
     }
   }
   return out;
 }
 
 async function openai(p: Provider, model: string, o: CompleteOpts): Promise<CompleteResult> {
-  const body: Record<string, unknown> = { model, messages: toOpenAi(o.messages, o.system), max_tokens: o.maxTokens || 4096 };
+  // PDF jako część `file` przyjmują OpenAI i OpenRouter; lokalne serwery (Ollama, LM Studio) nie.
+  const pdf = p.type === 'openai' || /openrouter\.ai/.test(p.url);
+  const body: Record<string, unknown> = { model, messages: toOpenAi(o.messages, o.system, pdf), max_tokens: o.maxTokens || 4096 };
   if (o.temperature != null) body.temperature = o.temperature;
   if (o.topP != null) body.top_p = o.topP;
   if (o.json) body.response_format = { type: 'json_object' };
@@ -135,6 +149,7 @@ async function openai(p: Provider, model: string, o: CompleteOpts): Promise<Comp
 
 export async function complete(o: CompleteOpts): Promise<CompleteResult> {
   const { p, model } = resolveModel(o.providerId, o.model);
+  o = { ...o, messages: await expandAttachments(o.messages) };
   // Ollama liczy na tej samej karcie co ComfyUI: przez wspólną kolejkę GPU (agenci, nody, snippety).
   return onGpu(p.type === 'ollama' ? `ollama:${model}` : '', () => (p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o)));
 }

@@ -5,11 +5,12 @@
 <script lang="ts">
   // Wybór z listy z wyszukiwaniem i podpowiedziami: przycisk-chip, a po kliknięciu okienko z polem szukania.
   // Strzałki wybierają, Enter zatwierdza, Esc zamyka. `custom` pozwala zatwierdzić wpisaną wartość spoza listy.
+  // `onstar` dodaje gwiazdkę przy pozycjach (ulubione); kolejność listy ustala wywołujący.
   import Icon from '../Icon.svelte';
 
-  let { value, label, items, icon = '', title = '', placeholder = 'Szukaj…', custom = false, loading = false, up = true, onopen, onpick }: {
+  let { value, label, items, icon = '', title = '', placeholder = 'Szukaj…', custom = false, loading = false, up = true, onopen, onpick, starred, onstar }: {
     value: string; label: string; items: Item[]; icon?: string; title?: string; placeholder?: string; custom?: boolean; loading?: boolean; up?: boolean;
-    onopen?: () => void; onpick: (v: string) => void;
+    onopen?: () => void; onpick: (v: string) => void; starred?: (v: string) => boolean; onstar?: (v: string) => void;
   } = $props();
 
   let open = $state(false);
@@ -27,7 +28,7 @@
     const score = (it: Item) => { const t = `${it.label || it.value} ${it.value} ${it.hint || ''}`.toLowerCase(); return words.every((w) => t.includes(w)) ? (t.startsWith(words[0]) ? 0 : 1) : -1; };
     return items.map((it) => [score(it), it] as const).filter(([sc]) => sc >= 0).sort((a, b) => a[0] - b[0]).map(([, it]) => it);
   });
-  const extra = $derived(custom && q.trim() && !items.some((i) => i.value === q.trim()) ? q.trim() : '');
+  const extra = $derived(custom && q.trim() && !items.some((i) => i.value === q.trim() || i.label === q.trim()) ? q.trim() : '');
   const total = $derived(shown.length + (extra ? 1 : 0));
 
   function toggle() {
@@ -70,12 +71,15 @@
       </div>
       <div class="items" role="listbox" bind:this={listEl}>
         {#each shown as it, i (it.value)}
-          <button class="it" class:hi={i === hi} class:cur={it.value === value} role="option" aria-selected={it.value === value}
-            onpointerenter={() => (hi = i)} onclick={() => pick(it.value)}>
+          {@const st = !!starred?.(it.value)}
+          <div class="it" class:hi={i === hi} class:cur={it.value === value} role="option" aria-selected={it.value === value} tabindex="-1"
+            onpointerenter={() => (hi = i)} onclick={() => pick(it.value)} onkeydown={() => {}}>
+            {#if onstar}<button class="star" class:on={st} title={st ? 'Usuń gwiazdkę' : 'Oznacz gwiazdką (na górę listy)'} aria-label={st ? 'Usuń gwiazdkę' : 'Oznacz gwiazdką'}
+              onclick={(e) => { e.stopPropagation(); onstar(it.value); root.querySelector<HTMLInputElement>('.pop input')?.focus(); }}><Icon name="star" size={12} /></button>{/if}
             <span class="tx">{@html mark(it.label || it.value)}</span>
             {#if it.hint}<span class="hint">{it.hint}</span>{/if}
             {#if it.value === value}<Icon name="check" size={12} />{/if}
-          </button>
+          </div>
         {/each}
         {#if extra}
           <button class="it" class:hi={hi === shown.length} role="option" aria-selected="false" onpointerenter={() => (hi = shown.length)} onclick={() => pick(extra)}>
@@ -98,7 +102,12 @@
   .search { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted-foreground); }
   .search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--foreground); font: inherit; font-size: 12.5px; }
   .items { max-height: 260px; overflow: auto; padding: 4px; display: flex; flex-direction: column; }
-  .it { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; text-align: left; font-size: 12.5px; color: var(--foreground); min-width: 0; }
+  .it { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 5px; text-align: left; font-size: 12.5px; color: var(--foreground); min-width: 0; cursor: pointer; flex: none; }
+  .star { display: grid; place-items: center; width: 16px; height: 16px; margin-left: -3px; border-radius: 4px; flex: none; opacity: 0; }
+  .it .star :global(svg) { color: var(--muted-foreground); }
+  .it.hi .star, .star.on { opacity: 1; }
+  .it .star.on :global(svg) { color: #e0a400; fill: currentColor; }
+  .it .star:hover :global(svg) { color: #e0a400; }
   .it.hi { background: var(--muted); }
   .it.cur { font-weight: 600; }
   .it :global(svg) { color: var(--primary); flex: none; }

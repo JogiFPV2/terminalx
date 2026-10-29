@@ -773,7 +773,52 @@
     "Pobieranie listy…": "Loading list…",
     "zapisany": "saved",
     "Zużycie tokenów i limity providerów (bez kluczy i treści)": "Token usage and provider limits (no keys or content)",
-    "Quota: ustawienia": "Quota: settings"
+    "Quota: ustawienia": "Quota: settings",
+    "Nowa rozmowa (obecna zostaje w historii)": "New conversation (the current one stays in history)",
+    "Historia rozmów": "Conversation history",
+    "Szukaj w rozmowach…": "Search conversations…",
+    "Ten workspace": "This workspace",
+    "Brak zapisanych rozmów. Każda rozmowa z agentem i podagentami trafia tutaj sama.": "No saved conversations yet. Every conversation with the agent and subagents is saved here automatically.",
+    "Usuń rozmowę z historii": "Delete conversation from history",
+    "Dołącz pliki: obrazy, wideo, PDF, kod… (albo przeciągnij / Ctrl+V)": "Attach files: images, video, PDF, code… (or drag / Ctrl+V)",
+    "Upuść, żeby dołączyć do wiadomości": "Drop to attach to the message",
+    "Usuń załącznik": "Remove attachment",
+    "Adresat wiadomości": "Message recipient",
+    "Agent albo podagent…": "Agent or subagent…",
+    "Model (gwiazdka: na górę listy)": "Model (star: pin to the top)",
+    "Usuń gwiazdkę": "Remove star",
+    "Oznacz gwiazdką (na górę listy)": "Star (pin to the top)",
+    "Oznacz gwiazdką": "Star",
+    "Poczekaj, załączniki jeszcze się zapisują.": "Wait, attachments are still being saved.",
+    "Maksymalnie 20 załączników w jednej wiadomości.": "Up to 20 attachments per message.",
+    "Agent jeszcze pracuje. Zatrzymaj go przed nową rozmową.": "The agent is still working. Stop it before starting a new conversation.",
+    "Agent jeszcze pracuje. Zatrzymaj go przed zmianą rozmowy.": "The agent is still working. Stop it before switching conversations.",
+    "Zatrzymano podagenta.": "Subagent stopped.",
+    "Chcę użyć narzędzia MCP:": "I want to use an MCP tool:",
+    "Serwery MCP": "MCP servers",
+    "Importuj JSON": "Import JSON",
+    "Dodaj serwer": "Add server",
+    "Import konfiguracji": "Import configuration",
+    "Nowy serwer MCP": "New MCP server",
+    "Edytuj serwer MCP": "Edit MCP server",
+    "Lokalny (komenda)": "Local (command)",
+    "Zdalny (HTTP)": "Remote (HTTP)",
+    "Argumenty": "Arguments",
+    "Folder roboczy (opcjonalnie)": "Working folder (optional)",
+    "Zmienna na token": "Token variable",
+    "Adres serwera (Streamable HTTP)": "Server URL (Streamable HTTP)",
+    "Token (opcjonalnie)": "Token (optional)",
+    "Zmienne środowiskowe (KLUCZ=wartość, po jednej w linii)": "Environment variables (KEY=value, one per line)",
+    "Nagłówki (Nazwa: wartość, po jednym w linii)": "Headers (Name: value, one per line)",
+    "Zapisz i połącz": "Save and connect",
+    "Połącz i odśwież listę narzędzi": "Connect and refresh the tool list",
+    "Usuń zapisany token": "Delete saved token",
+    "Nie masz jeszcze serwerów. Dodaj pierwszy przyciskiem + albo zaimportuj konfigurację z innej aplikacji.": "No servers yet. Add one with + or import a configuration from another app.",
+    "Podaj nazwę serwera.": "Enter a server name.",
+    "Podaj komendę, np. npx.": "Enter a command, e.g. npx.",
+    "Adres musi zaczynać się od http:// albo https://": "The URL must start with http:// or https://",
+    "Nie znalazłem serwerów w tym JSON-ie.": "No servers found in this JSON.",
+    "Serwery MCP dają agentom i podagentom dodatkowe narzędzia: GitHub, bazy danych, przeglądarka, pliki, dokumentacja. Serwer lokalny startuje przy pierwszym użyciu i kończy się z aplikacją. W trybie „Pytaj przed komendą” każde narzędzie, które coś zmienia, czeka na Twoją zgodę. Profil „Tylko odczyt” dostaje tylko narzędzia oznaczone przez serwer jako bezpieczne. Które serwery widzi dany profil, ustawisz w Ustawienia → Agenci.": "MCP servers give agents and subagents extra tools: GitHub, databases, a browser, files, documentation. A local server starts on first use and stops with the app. In \"Ask before commands\" mode every tool that changes something waits for your approval. A read-only profile only gets tools the server marks as safe. Choose which servers each profile sees in Settings → Agents."
   },
   "patterns": [
     [
@@ -1171,6 +1216,34 @@
     [
       "Wróć do ustawień agenta ({0})",
       "Back to agent settings ({0})"
+    ],
+    [
+      "{0} narzędzi: {1}",
+      "{0} tools: {1}"
+    ],
+    [
+      "{0} wiad.",
+      "{0} msgs"
+    ],
+    [
+      "dziś {0}",
+      "today {0}"
+    ],
+    [
+      "wczoraj {0}",
+      "yesterday {0}"
+    ],
+    [
+      "Napisz do podagenta „{0}”…",
+      "Write to subagent “{0}”…"
+    ],
+    [
+      "Niedostępne serwery MCP (agent działa bez nich): {0}",
+      "Unavailable MCP servers (the agent works without them): {0}"
+    ],
+    [
+      "Dodano serwery MCP: {0}",
+      "Added MCP servers: {0}"
     ]
   ]
 }

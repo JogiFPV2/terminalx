@@ -288,6 +288,8 @@ export async function loadState() {
     flows: saved.flows || {},
     parked: [],
     usage: saved.usage || {},
+    starred: saved.starred || [],
+    mcp: saved.mcp || [],
     hosts: saved.hosts || [],
     remote: { ...fresh.remote, ...(saved.remote || {}) },
     local: { ...fresh.local, ...(saved.local || {}) },

@@ -3,6 +3,8 @@ mod local;
 mod media;
 mod monitor;
 mod plans;
+mod chats;
+mod mcp;
 mod pty;
 mod remote;
 mod ssh;
@@ -77,6 +79,7 @@ pub fn run() {
         .manage(Arc::new(remote::RemoteState::default()))
         .manage(local::LocalState::default())
         .manage(monitor::MonState::default())
+        .manage(mcp::McpState::default())
         .setup(|app| {
             // Okno tworzymy tutaj, żeby dało się dołożyć argumenty WebView2. Port DevTools tylko na żądanie
             // (zmienna TERMINALX_DEVTOOLS_PORT, testy end-to-end); domyślnie wyłączony.
@@ -99,7 +102,7 @@ pub fn run() {
             }
             // Wyniki workflow (grafika, wideo) i czcionki motywów są pokazywane przez protokół asset tylko z tych folderów.
             let scope = app.asset_protocol_scope();
-            for dir in [media::media_root(app.handle()), media::fonts_root(app.handle())].into_iter().flatten() {
+            for dir in [media::media_root(app.handle()), media::fonts_root(app.handle()), chats::att_root(app.handle())].into_iter().flatten() {
                 let _ = scope.allow_directory(&dir, true);
             }
             let mut win = tauri::WebviewWindowBuilder::from_config(app.handle(), &config)?.additional_browser_args(&args);
@@ -140,6 +143,14 @@ pub fn run() {
             store::plugin_uninstall,
             ai::secret_set,
             plans::plan_usage,
+            chats::chat_save,
+            chats::chat_list,
+            chats::chat_load,
+            chats::chat_delete,
+            chats::att_save,
+            mcp::mcp_connect,
+            mcp::mcp_call,
+            mcp::mcp_disconnect,
             ai::keyvault_set,
             ai::keyvault_masked,
             ai::keyvault_get,
@@ -206,6 +217,9 @@ pub fn run() {
                 }
                 if let Some(l) = window.app_handle().try_state::<local::LocalState>() {
                     local::stop_all(&l);
+                }
+                if let Some(m) = window.app_handle().try_state::<mcp::McpState>() {
+                    mcp::stop_all(&m);
                 }
             }
         })
