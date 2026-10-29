@@ -9,7 +9,7 @@ export interface Toast { id: string; text: string; kind: 'info' | 'success' | 'w
 export interface Pending { id: string; label: string; start: number; ms: number; restore: () => void; finalize: () => void; timer: number }
 export interface MenuItem { label?: string; icon?: string; c?: string; badge?: { text: string; c: string }; kbd?: string; disabled?: boolean; soon?: string; sep?: boolean; heading?: string; run?: () => void }
 export interface MenuSpec { x: number; y: number; items: MenuItem[] }
-export interface ConfirmSpec { title: string; message: string; confirmLabel?: string; danger?: boolean; input?: { label: string; value: string }; resolve: (v: any) => void }
+export interface ConfirmSpec { title: string; message: string; confirmLabel?: string; danger?: boolean; input?: { label: string; value: string; secret?: boolean }; resolve: (v: any) => void }
 
 export const app = $state<AppState>(initialState('powershell'));
 

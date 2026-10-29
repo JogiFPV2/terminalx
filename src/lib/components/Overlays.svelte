@@ -65,7 +65,7 @@
         {#if c.message}<p class="hint" style="color:var(--foreground)">{c.message}</p>{/if}
         {#if c.input}
           <div class="field"><label for="cin">{c.input.label}</label>
-            <input class="inp" id="cin" bind:value={inputVal} use:focusEl onkeydown={(e) => { if (e.key === 'Enter') done(inputVal); if (e.key === 'Escape') done(null); }} /></div>
+            <input class="inp" id="cin" bind:value={inputVal} use:focusEl type={c.input.secret ? 'password' : 'text'} autocomplete="off" spellcheck="false" onkeydown={(e) => { if (e.key === 'Enter') done(inputVal); if (e.key === 'Escape') done(null); }} /></div>
         {/if}
       </div>
       <footer>

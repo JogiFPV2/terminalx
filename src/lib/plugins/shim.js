@@ -179,6 +179,12 @@
       onChanged(cb) { return on('tabsChanged', async () => cb(await rpc('tabs.list', {}))); },
     },
     ai: { complete: (o) => rpc('ai.complete', o) },
+    keys: {
+      add: (id, opts) => rpc('keys.add', { id, title: opts?.title, message: opts?.message }),
+      masked: (ids) => rpc('keys.masked', { ids }),
+      copy: (id, label) => rpc('keys.copy', { id, label }),
+      delete: (id) => rpc('keys.delete', { id }),
+    },
     events: { on: (name, cb) => on('app:' + name, cb) },
   };
 

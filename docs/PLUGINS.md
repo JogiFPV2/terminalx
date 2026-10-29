@@ -48,12 +48,13 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 | `net:*` | Sieć do dowolnych adresów | wysokie |
 | `fs:read`, `fs:write` | Pliki użytkownika poza katalogiem pluginu (wybrane przez użytkownika foldery) | wysokie |
 | `shell:exec` | Uruchamianie procesów | wysokie |
+| `vault:keys` | Sejf kluczy API (`tx.keys`): zapis klucza wpisanego w oknie hosta, wersje zamaskowane, kopiowanie do schowka przez host. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
 
 Uprawnienia wysokiego ryzyka są oznaczone przy imporcie i na liście pluginów.
 
 ### Czego plugin nie dostanie nigdy
 
-Importer odrzuca archiwum, które prosi o dowolne z: `secrets`, `keychain`, `credentials`, `keystrokes`, `clipboard:read`, `providers:keys`. Niezależnie od manifestu host:
+Importer odrzuca archiwum, które prosi o dowolne z: `secrets`, `keychain`, `credentials`, `keystrokes`, `clipboard:read`, `providers:keys`, `vault:*`. Niezależnie od manifestu host:
 
 - nie udostępnia magazynu poświadczeń, haseł z Vaulta ani kluczy API providerów (`tx.ai` wysyła zapytanie w imieniu pluginu, ale klucza plugin nie widzi),
 - nie przekazuje naciśnięć klawiszy z terminala; `terminal:read` dostaje tylko wyjście, a linie po monicie o hasło (echo wyłączone) są wycinane,
@@ -121,6 +122,7 @@ export function activate(tx) {
 |---|---|---|
 | Notatki (`tx.notes`) | Sekcja „Notatki” nad Ustawieniami: foldery w folderach, przeciąganie, każda notatka to plik `.md` z opcjonalnym tytułem w front matter | `storage`, `ui:sidebar`, `ui:commands` |
 | Procesy w tle (`tx.bcgrnd_process`) | Sekcja na zakładki z działającym procesem: przeciągnij zakładkę na sekcję albo PPM → „Przenieś do Procesy w tle”. Proces działa dalej, „Przywróć” odkłada zakładkę na jej miejsce, wykrywa też długo działające procesy | `tabs:manage`, `terminal:read`, `ui:sidebar`, `ui:tabmenu` |
+| Klucze API (`tx.keys`) | Sekcja z providerami (nazwa i opcjonalny link) i ich kluczami. Klucze są w magazynie poświadczeń systemu, na liście widać pierwsze i ostatnie 4 znaki, ikona obok kopiuje pełny klucz (schowek czyści się po 45 s, jeśli nadal go zawiera). Plugin nie widzi pełnych kluczy | `storage`, `ui:sidebar`, `ui:commands`, `vault:keys` |
 | Monitor zasobów (`tx.sysmon`) | CPU i RAM na pasku statusu | `system:info`, `ui:statusbar` |
 | Porty (`tx.ports`) | Nasłuchujące porty, otwieranie w przeglądarce, zatrzymywanie procesu | `shell:exec`, `net:localhost`, `ui:sidebar` |
 | Pomodoro (`tx.pomodoro`) | Licznik pracy i przerw z powiadomieniem | `ui:statusbar`, `ui:commands`, `notifications` |

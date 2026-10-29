@@ -20,7 +20,8 @@ export type Permission =
   | 'fs:read' | 'fs:write'
   | 'shell:exec'
   | 'tabs:manage'
-  | 'ui:tabmenu';
+  | 'ui:tabmenu'
+  | 'vault:keys';               // tylko pluginy wbudowane w aplikację; import .zip je odrzuca
 
 export interface Disposable { dispose(): void }
 
@@ -177,6 +178,14 @@ export interface TxApi {
   tabs: PluginTabs;                                                                   // 'tabs:manage'
   ai: {                                                                               // 'ai:invoke'
     complete(opts: { prompt: string; system?: string; provider?: string; model?: string; maxTokens?: number }): Promise<string>;
+  };
+  /** Sejf kluczy ('vault:keys', tylko wbudowane): klucz wpisuje się w oknie hosta i trafia do magazynu
+   *  poświadczeń systemu. Plugin dostaje tylko wersję zamaskowaną; kopiowanie robi host. */
+  keys: {
+    add(id: string, opts?: { title?: string; message?: string }): Promise<{ masked: string } | null>;
+    masked(ids: string[]): Promise<Record<string, string | null>>;
+    copy(id: string, label?: string): Promise<void>;
+    delete(id: string): Promise<void>;
   };
   events: {
     on(event: 'workspace:changed' | 'tab:opened' | 'tab:closed' | 'theme:changed', cb: (payload: unknown) => void): Disposable;

@@ -747,7 +747,24 @@
     "Szerokość panelu plików": "File panel width",
     "Przywróć na pasek zakładek": "Restore to tab bar",
     "Zatrzymaj proces": "Stop process",
-    "Procesy w tle": "Background processes"
+    "Procesy w tle": "Background processes",
+    "Klucze API": "API keys",
+    "Usuń providera": "Delete provider",
+    "Link (opcjonalnie)": "Link (optional)",
+    "Link musi zaczynać się od http:// albo https://.": "The link must start with http:// or https://.",
+    "Dodaj klucz": "Add key",
+    "Nazwa klucza": "Key name",
+    "Nazwa (opcjonalnie)": "Name (optional)",
+    "Usuń klucz": "Delete key",
+    "Usunąć klucz?": "Delete key?",
+    "Kopiuj pełny klucz": "Copy full key",
+    "brak w sejfie": "not in vault",
+    "Brak providerów. Kliknij +, żeby dodać.": "No providers. Click + to add one.",
+    "Klucz trafi do magazynu poświadczeń systemu. Na liście będzie częściowo ukryty.": "The key goes to the system credential store. It will be partly hidden in the list.",
+    "Provider nie ma kluczy.": "The provider has no keys.",
+    "Sejf kluczy API (tylko wbudowane)": "API key vault (built-in only)",
+    "Klucze API: nowy provider": "API keys: new provider",
+    "Nie skopiowano": "Not copied"
   },
   "patterns": [
     [
@@ -1105,6 +1122,38 @@
     [
       "{0} · w tle (dwuklik przywraca)",
       "{0} · in background (double-click restores)"
+    ],
+    [
+      "Nowy klucz · {0}",
+      "New key · {0}"
+    ],
+    [
+      "Otwórz {0}",
+      "Open {0}"
+    ],
+    [
+      "Usunąć {0}?",
+      "Delete {0}?"
+    ],
+    [
+      "Skopiowano {0}. Schowek wyczyści się za 45 s.",
+      "Copied {0}. The clipboard clears in 45 s."
+    ],
+    [
+      "klucz {0}",
+      "{0} key"
+    ],
+    [
+      "klucz „{0}”",
+      "key “{0}”"
+    ],
+    [
+      "{0} ({1}) zniknie z sejfu. Tego nie da się cofnąć.",
+      "{0} ({1}) will be removed from the vault. This can't be undone."
+    ],
+    [
+      "Razem z providerem z sejfu znikną jego klucze ({0}). Tego nie da się cofnąć.",
+      "The provider's keys ({0}) will be removed from the vault too. This can't be undone."
     ]
   ]
 }

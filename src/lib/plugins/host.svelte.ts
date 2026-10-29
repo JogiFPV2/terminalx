@@ -26,8 +26,9 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'fs:read': { label: 'Odczyt plików użytkownika', risk: 2 },
   'fs:write': { label: 'Zapis plików użytkownika', risk: 2 },
   'shell:exec': { label: 'Uruchamianie procesów', risk: 2 },
+  'vault:keys': { label: 'Sejf kluczy API (tylko wbudowane)', risk: 2 },
 };
-export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys'];
+export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:'];
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
@@ -68,7 +69,7 @@ export async function loadPlugins() {
     } catch { /* uszkodzony manifest pomijamy */ }
   }
   // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów i Pomodoro).
-  const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.bcgrnd_process', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
+  const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
   list.sort((a, b) => (order.indexOf(a.manifest.id) + 1 || 999) - (order.indexOf(b.manifest.id) + 1 || 999));
   for (const p of list) {
     if (!app.plugins.some((r) => r.id === p.manifest.id)) {
@@ -143,7 +144,9 @@ export function emitStorageChange(pluginId: string, paths: string[]) { emit(plug
 export function broadcastTheme() { const css = themeCss(); for (const id of runtimes.keys()) send(id, { kind: 'theme', css }); }
 
 function hasPerm(pluginId: string, perm: string) {
-  const perms = loaded(pluginId)?.manifest.permissions || [];
+  const lp = loaded(pluginId), perms = lp?.manifest.permissions || [];
+  // Sejf kluczy: tylko pluginy dostarczone z aplikacją (import .zip i tak odrzuca to uprawnienie).
+  if (perm === 'vault:keys') return !!lp?.builtin && perms.includes(perm);
   if (perm === 'net:localhost') return perms.includes('net:localhost') || perms.includes('net:*');
   return perms.includes(perm);
 }
@@ -187,7 +190,27 @@ const NEEDS: Record<string, string | null> = {
   'terminal.list': 'terminal:read', 'terminal.subscribe': 'terminal:read', 'terminal.unsubscribe': 'terminal:read', 'terminal.write': 'terminal:write',
   'tabs.list': 'tabs:manage', 'tabs.get': 'tabs:manage', 'tabs.park': 'tabs:manage', 'tabs.unpark': 'tabs:manage', 'tabs.close': 'tabs:manage', 'tabs.tail': 'terminal:read',
   'ai.complete': 'ai:invoke',
+  'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
 };
+
+/** Klucz w sejfie: przestrzeń pluginu + jego własny identyfikator. */
+function vaultRef(pluginId: string, id: unknown) {
+  const s = String(id ?? '');
+  if (!/^[A-Za-z0-9_-]{1,48}$/.test(s)) throw new Error('Niepoprawny identyfikator klucza');
+  return `keyvault:${pluginId}:${s}`;
+}
+
+let clipTimer = 0;
+/** Kopiuje klucz z sejfu do schowka (plugin go nie widzi) i czyści schowek po 45 s, jeśli nadal tam jest. */
+async function copyKey(ref: string, label: string) {
+  const key = await call<string>('keyvault_get', { keyRef: ref });
+  await navigator.clipboard.writeText(key);
+  notify(`Skopiowano ${label || 'klucz'}. Schowek wyczyści się za 45 s.`, 'success');
+  clearTimeout(clipTimer);
+  clipTimer = window.setTimeout(async () => {
+    try { if ((await navigator.clipboard.readText()) === key) await navigator.clipboard.writeText(''); } catch { /* brak dostępu do schowka */ }
+  }, 45_000);
+}
 
 // Linie po monicie o hasło nie trafiają do pluginów (tylko do 1. znaku nowej linii po monicie).
 const SECRET_PROMPT = /(password|passphrase|hasło|haslo|pin)\s*[:：]?\s*$/i;
@@ -288,6 +311,22 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
       return null;
     }
     case 'tabs.tail': { const f = findTab(a.id); return f?.tab.panes[0] ? sessions.tail(f.tab.panes[0].id, Math.min(500, a.lines || 20)) : []; }
+    case 'keys.add': {
+      // Klucz wpisuje się w oknie hosta, nie pluginu: plugin dostaje tylko wersję zamaskowaną.
+      const ref = vaultRef(pluginId, a.id);
+      const value = await new Promise<string | null>((resolve) => {
+        ui.confirm = { title: String(a.title || 'Nowy klucz API'), message: String(a.message || ''), confirmLabel: 'Zapisz', input: { label: 'Klucz API', value: '', secret: true }, resolve };
+      });
+      if (!value?.trim()) return null;
+      return { masked: await call<string>('keyvault_set', { keyRef: ref, value }) };
+    }
+    case 'keys.masked': {
+      const ids = (Array.isArray(a.ids) ? a.ids : []).slice(0, 500);
+      const map = await call<Record<string, string>>('keyvault_masked', { refs: ids.map((id: unknown) => vaultRef(pluginId, id)) });
+      return Object.fromEntries(ids.map((id: string) => [id, map[vaultRef(pluginId, id)] ?? null]));
+    }
+    case 'keys.copy': await copyKey(vaultRef(pluginId, a.id), String(a.label || '')); return null;
+    case 'keys.delete': await call('keyvault_delete', { keyRef: vaultRef(pluginId, a.id) }); return null;
     case 'ai.complete': {
       const r = await complete({ providerId: a.provider || null, model: a.model || null, system: a.system, messages: [{ role: 'user', content: String(a.prompt || '') }], maxTokens: a.maxTokens || 4000 });
       return r.text;

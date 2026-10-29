@@ -1,0 +1,15 @@
+{
+  "id": "tx.keys",
+  "name": "Klucze API",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "TerminalX",
+  "description": "Providerzy i ich klucze API w pasku bocznym. Klucze leżą w magazynie poświadczeń systemu, na liście są częściowo ukryte, a przycisk kopiuje pełny klucz do schowka.",
+  "icon": "key",
+  "permissions": ["storage", "ui:sidebar", "ui:commands", "vault:keys"],
+  "contributes": {
+    "sidebar": [{ "id": "keys", "title": "Klucze API", "icon": "key" }]
+  },
+  "config": {}
+}

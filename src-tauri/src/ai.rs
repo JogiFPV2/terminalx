@@ -29,6 +29,72 @@ pub fn secret_delete(key_ref: String) -> Result<(), String> {
     }
 }
 
+/* ---------- sejf kluczy (plugin „Klucze API”) ----------
+ * Klucze wpisane przez użytkownika do sejfu. Plugin widzi tylko wersję zamaskowaną; pełny klucz
+ * odczytuje wyłącznie host, gdy użytkownik kliknie „kopiuj”. Odczyt działa tylko w przestrzeni
+ * `keyvault:`, więc nie da się nim wyciągnąć kluczy providerów AI ani haseł SSH. */
+
+const VAULT: &str = "keyvault:";
+
+fn vault_entry(key_ref: &str) -> Result<keyring::Entry, String> {
+    if !key_ref.starts_with(VAULT) || key_ref.len() > 200 {
+        return Err("Niedozwolony identyfikator klucza".into());
+    }
+    entry(key_ref)
+}
+
+/// Pierwsze i ostatnie 4 znaki; krótkie klucze w całości ukryte.
+pub(crate) fn mask(key: &str) -> String {
+    let c: Vec<char> = key.chars().collect();
+    if c.len() <= 12 {
+        return "•".repeat(8);
+    }
+    format!("{}••••••••{}", c[..4].iter().collect::<String>(), c[c.len() - 4..].iter().collect::<String>())
+}
+
+#[tauri::command]
+pub fn keyvault_set(key_ref: String, value: String) -> Result<String, String> {
+    let v = value.trim();
+    if v.is_empty() {
+        return Err("Pusty klucz".into());
+    }
+    vault_entry(&key_ref)?.set_password(v).map_err(|e| format!("Nie udało się zapisać klucza: {e}"))?;
+    Ok(mask(v))
+}
+
+#[tauri::command]
+pub fn keyvault_masked(refs: Vec<String>) -> std::collections::HashMap<String, String> {
+    refs.into_iter()
+        .filter_map(|r| {
+            let k = vault_entry(&r).ok()?.get_password().ok()?;
+            Some((r, mask(&k)))
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn keyvault_get(key_ref: String) -> Result<String, String> {
+    vault_entry(&key_ref)?.get_password().map_err(|_| "Nie ma takiego klucza w sejfie".to_string())
+}
+
+#[tauri::command]
+pub fn keyvault_delete(key_ref: String) -> Result<(), String> {
+    match vault_entry(&key_ref)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn mask_hides_middle() {
+        assert_eq!(super::mask("sk-ant-api03-abcdefXYZ9"), "sk-a••••••••XYZ9");
+        assert_eq!(super::mask("krótki"), "••••••••");
+        assert!(super::vault_entry("openai-key").is_err());
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderRef {
