@@ -1,4 +1,4 @@
-# TerminalX
+# Hermitty
 
 Lekki menedżer terminali i workflow z AI dla Windows, Linuksa i macOS. Tauri 2 (Rust) + Svelte 5 + xterm.js. Interfejs po polsku i angielsku.
 
@@ -6,8 +6,8 @@ Lekki menedżer terminali i workflow z AI dla Windows, Linuksa i macOS. Tauri 2 
 
 **Gotowa aplikacja** (po zbudowaniu):
 
-- `release\TerminalX.exe` – uruchamiany bezpośrednio, bez instalacji.
-- `release\TerminalX_0.1.0_x64-setup.exe` – instalator dla bieżącego użytkownika (skrót w menu Start, odinstalowanie z ustawień Windows).
+- `release\Hermitty.exe` – uruchamiany bezpośrednio, bez instalacji.
+- `release\Hermitty_0.1.0_x64-setup.exe` – instalator dla bieżącego użytkownika (skrót w menu Start, odinstalowanie z ustawień Windows).
 
 **Ze źródeł:**
 
@@ -54,7 +54,7 @@ Wymagania do budowania: Node.js 20+, Rust (rustup, toolchain MSVC), Visual Studi
 - **Przekierowania portów**: lokalne (-L), zdalne (-R) i SOCKS (-D), z automatycznym startem przy połączeniu.
 - **Zdalny dostęp z telefonu** (Ustawienia → Zdalny dostęp): w sieci Wi-Fi albo przez Tailscale (z dowolnego miejsca, bez publicznego IP). Parowanie kodem QR z potwierdzeniem na komputerze, szyfrowanie każdej wiadomości kluczem urządzenia, uprawnienia per urządzenie (podgląd, sterowanie, pełny). Telefon w przeglądarce: terminale na żywo z paskiem klawiszy, czat z agentem i zatwierdzanie komend, Procesy w tle.
 - **Monitoring** (pasek boczny): CPU z wykresem, RAM, dysk, sieć, GPU (NVIDIA) i opóźnienie dla tego komputera i wybranych hostów SSH (Linux, odczyt `/proc` przez istniejące połączenie, bez agenta na serwerze). Kolumny i odświeżanie do wyboru; odpytuje tylko przy otwartej zakładce.
-- **Eksplorator i wiersz poleceń**: „Otwórz w TerminalX” w menu folderu (instalator; w wersji portable przełącznik w Ustawienia → Ogólne), `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`. Kolejne uruchomienie otwiera terminal w działającej kopii.
+- **Eksplorator i wiersz poleceń**: „Otwórz w Hermitty” w menu folderu (instalator; w wersji portable przełącznik w Ustawienia → Ogólne), `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`. Kolejne uruchomienie otwiera terminal w działającej kopii.
 - **Język**: polski albo angielski (automatycznie z systemu, zmiana w Ustawienia → Ogólne). Słowniki w `src/lib/i18n/`.
 - **Paleta komend** (Ctrl+K), zapamiętywanie układu i sesji, tryb portable (folder `data` obok exe).
 
@@ -89,7 +89,7 @@ src-tauri/src/       rdzeń w Ruście: pty.rs, sys.rs, store.rs, ai.rs, media.rs
 catalog/             katalog modeli lokalnych pobierany przez aplikację
 tests/               testy (npm test)
 .github/workflows/   CI i wydania
-plugins/             wbudowane pluginy + sdk/terminalx-plugin.d.ts
+plugins/             wbudowane pluginy + sdk/hermitty-plugin.d.ts
 docs/PLUGINS.md      specyfikacja pluginów
 PLAN.md              plan i architektura
 ```

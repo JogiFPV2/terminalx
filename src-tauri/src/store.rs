@@ -18,8 +18,32 @@ pub fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    if !dir.exists() {
+        // Pierwsze uruchomienie po zmianie nazwy z TerminalX: kopia danych poprzedniej wersji
+        // (stan, rozmowy, pluginy). Kopia, nie przeniesienie, bo stara wersja może jeszcze działać.
+        if let Some(old) = dir.parent().map(|p| p.join(LEGACY_ID)).filter(|p| p.is_dir()) {
+            let _ = copy_dir(&old, &dir);
+        }
+    }
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
+}
+
+/// Identyfikator aplikacji sprzed zmiany nazwy (nazwa jej folderu danych).
+const LEGACY_ID: &str = "dev.terminalx.app";
+
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(to)?;
+    for e in fs::read_dir(from)? {
+        let e = e?;
+        let target = to.join(e.file_name());
+        if e.file_type()?.is_dir() {
+            copy_dir(&e.path(), &target)?;
+        } else {
+            fs::copy(e.path(), target)?;
+        }
+    }
+    Ok(())
 }
 
 fn write_atomic(path: &Path, data: &[u8]) -> Result<(), String> {
@@ -235,4 +259,20 @@ pub fn plugin_uninstall(app: AppHandle, id: String, keep_data: bool) -> Result<(
         fs::remove_dir_all(target).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn copies_old_data_tree() {
+        let base = std::env::temp_dir().join(format!("hermitty-copy-{}", std::process::id()));
+        let (old, new) = (base.join("old"), base.join("new"));
+        std::fs::create_dir_all(old.join("chats")).unwrap();
+        std::fs::write(old.join("state.json"), "{}").unwrap();
+        std::fs::write(old.join("chats").join("a.json"), "[1]").unwrap();
+        super::copy_dir(&old, &new).unwrap();
+        assert_eq!(std::fs::read_to_string(new.join("chats").join("a.json")).unwrap(), "[1]");
+        assert!(old.join("state.json").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }

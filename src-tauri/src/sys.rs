@@ -265,7 +265,7 @@ pub async fn http_request(method: String, url: String, headers: Option<HashMap<S
     }
     let client = reqwest::Client::builder().timeout(Duration::from_secs(60)).build().map_err(|e| e.to_string())?;
     let m = reqwest::Method::from_bytes(method.to_uppercase().as_bytes()).map_err(|e| e.to_string())?;
-    let mut req = client.request(m, &url).header("user-agent", "TerminalX");
+    let mut req = client.request(m, &url).header("user-agent", "Hermitty");
     for (k, v) in headers.unwrap_or_default() {
         req = req.header(k, v);
     }
@@ -290,13 +290,13 @@ mod tests {
     }
 }
 
-/// „Otwórz w TerminalX” w menu Eksploratora (Windows, wpisy użytkownika w HKCU). Instalator dodaje je sam;
+/// „Otwórz w Hermitty” w menu Eksploratora (Windows, wpisy użytkownika w HKCU). Instalator dodaje je sam;
 /// to polecenie służy wersji portable i wyłączeniu wpisu.
 #[tauri::command(async)]
 pub fn explorer_menu(enable: Option<bool>) -> Result<bool, String> {
     #[cfg(windows)]
     {
-        let name = "TerminalX";
+        let name = "Hermitty";
         let keys = [format!(r"HKCU\Software\Classes\Directory\shell\{name}"), format!(r"HKCU\Software\Classes\Directory\Background\shell\{name}")];
         let reg = |args: &[&str]| {
             let mut cmd = Command::new("reg");

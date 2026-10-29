@@ -59,7 +59,7 @@ pub struct McpState {
 
 fn secret(key_ref: &Option<String>) -> Option<String> {
     let r = key_ref.as_deref().filter(|r| r.starts_with("mcp:"))?;
-    keyring::Entry::new("TerminalX", r).ok()?.get_password().ok()
+    crate::ai::secret(r)
 }
 
 fn kill_tree(child: &mut Child) {
@@ -289,7 +289,7 @@ async fn connect(cfg: &McpCfg) -> Result<Server, String> {
     let mut s = Server { cfg: cfg.clone(), conn, next: AtomicU64::new(1), tools: vec![] };
     let init = async {
         // Pierwsze `npx -y …` pobiera pakiet, więc na start dajemy więcej czasu.
-        s.request("initialize", json!({ "protocolVersion": PROTOCOL, "capabilities": {}, "clientInfo": { "name": "TerminalX", "version": env!("CARGO_PKG_VERSION") } }), 120).await?;
+        s.request("initialize", json!({ "protocolVersion": PROTOCOL, "capabilities": {}, "clientInfo": { "name": "Hermitty", "version": env!("CARGO_PKG_VERSION") } }), 120).await?;
         s.notify("notifications/initialized").await?;
         let mut cursor: Option<String> = None;
         for _ in 0..20 {

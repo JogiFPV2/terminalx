@@ -453,7 +453,7 @@ export function validateManifest(m: any, hasMain: boolean): string | null {
 export async function pickAndInspect(): Promise<ImportReview> {
   if (!isTauri) throw new Error('Import pluginów działa w aplikacji.');
   const { open } = await import('@tauri-apps/plugin-dialog');
-  const path = await open({ multiple: false, filters: [{ name: 'Plugin TerminalX', extensions: ['zip'] }] });
+  const path = await open({ multiple: false, filters: [{ name: 'Plugin Hermitty', extensions: ['zip'] }] });
   if (!path || Array.isArray(path)) throw new Error('');
   const r = await call<{ manifest: string; files: number; hasMain: boolean }>('plugin_inspect', { path });
   let m: any;

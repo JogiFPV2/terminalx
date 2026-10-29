@@ -2077,6 +2077,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e17592d60ebacc7d5e169f4663c5f84f9161cc90328abcfe8456f41e4dfcb284"
 
 [[package]]
+name = "hermitty"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "crypto_secretbox",
+ "futures-util",
+ "if-addrs",
+ "keyring",
+ "portable-pty",
+ "rand 0.8.8",
+ "reqwest 0.12.28",
+ "russh",
+ "russh-sftp",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tokio",
+ "tokio-tungstenite",
+ "webview2-com",
+ "zip 2.6.1",
+]
+
+[[package]]
 name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5728,37 +5759,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fed54709c5b3a53d09bb1c113ea4f5ceafd1e772ddcb0030a82e1d56c087b08"
 dependencies = [
  "new_debug_unreachable",
-]
-
-[[package]]
-name = "terminalx"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "crypto_secretbox",
- "futures-util",
- "if-addrs",
- "keyring",
- "portable-pty",
- "rand 0.8.8",
- "reqwest 0.12.28",
- "russh",
- "russh-sftp",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tokio",
- "tokio-tungstenite",
- "webview2-com",
- "zip 2.6.1",
 ]
 
 [[package]]

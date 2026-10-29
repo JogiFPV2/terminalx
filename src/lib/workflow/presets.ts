@@ -68,9 +68,9 @@ function graph() {
   return { g, add };
 }
 const o = (id: string, slot = 0) => [id, slot];
-const SAVE_IMG = (add: ReturnType<typeof graph>['add'], img: unknown[]) => add('SaveImage', { filename_prefix: 'TerminalX/img', images: img });
+const SAVE_IMG = (add: ReturnType<typeof graph>['add'], img: unknown[]) => add('SaveImage', { filename_prefix: 'Hermitty/img', images: img });
 const SAVE_VID = (add: ReturnType<typeof graph>['add'], frames: unknown[], fps: number) =>
-  add('SaveVideo', { filename_prefix: 'TerminalX/vid', format: 'auto', 'format.codec': 'auto', video: o(add('CreateVideo', { fps, images: frames })) });
+  add('SaveVideo', { filename_prefix: 'Hermitty/vid', format: 'auto', 'format.codec': 'auto', video: o(add('CreateVideo', { fps, images: frames })) });
 const NEG_WAN = '色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走';
 const NEG_LTX = 'low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly';
 

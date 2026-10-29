@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "apiVersion": 1,
   "main": "main.js",
-  "author": "TerminalX",
+  "author": "Hermitty",
   "description": "Notatki i foldery w pasku bocznym. Każda notatka to osobny plik .md w folderze danych pluginu.",
   "icon": "notebook",
   "permissions": ["storage", "ui:sidebar", "ui:commands"],

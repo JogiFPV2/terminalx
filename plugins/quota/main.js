@@ -18,7 +18,7 @@ const SERVICES = [
   { id: 'openrouter', name: 'OpenRouter', from: 'kredyty, klucz providera OpenRouter z Ustawień' },
 ];
 
-/** @type {import('../sdk/terminalx-plugin').TxApi} */
+/** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let cfg = { place: 'bottom', plans: {}, providers: {} };
 const plans = {};              // usługa → { data, error, at }

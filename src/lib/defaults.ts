@@ -1,7 +1,7 @@
 import type { AgentProfile, AppState, MediaOp, NodeTypeDef, PromptItem, Provider, Snippet } from './types';
 
 /** Nazwa, wersja i repozytorium aplikacji (repo: katalog modeli online, aktualizacje). */
-export const BRAND = { name: 'TerminalX', version: __APP_VERSION__, repo: 'JogiFPV2/terminalx' };
+export const BRAND = { name: 'Hermitty', version: __APP_VERSION__, repo: 'JogiFPV2/terminalx' };
 
 type ProviderTypeDef = { label: string; url: string; models: string[]; chat?: boolean; media?: Partial<Record<MediaOp, string[]>> };
 

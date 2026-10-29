@@ -1,5 +1,5 @@
 /**
- * TerminalX Plugin API, wersja 1.
+ * Hermitty Plugin API, wersja 1.
  *
  * Plugin to moduł ES (`main` w plugin.json) eksportujący `activate(tx)` i opcjonalnie `deactivate()`.
  * Kod pluginu działa w izolowanym iframe (osobny origin, CSP bez dostępu do sieci). Każde wywołanie `tx.*`

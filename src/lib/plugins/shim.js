@@ -1,4 +1,4 @@
-// Środowisko wewnątrz iframe pluginu. Buduje obiekt `tx` (API z plugins/sdk/terminalx-plugin.d.ts)
+// Środowisko wewnątrz iframe pluginu. Buduje obiekt `tx` (API z plugins/sdk/hermitty-plugin.d.ts)
 // i przekazuje wywołania do hosta przez postMessage. Ten plik jest wstrzykiwany do srcdoc jako tekst.
 (() => {
   let seq = 0;

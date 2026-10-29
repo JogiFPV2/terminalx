@@ -3,7 +3,7 @@
 let timer = null;
 let item = null;
 
-/** @param {import('../sdk/terminalx-plugin').TxApi} tx */
+/** @param {import('../sdk/hermitty-plugin').TxApi} tx */
 export function activate(tx) {
   item = tx.ui.statusBar.createItem({ id: 'sysmon', alignment: 'right', priority: 50 });
   item.icon = 'activity';

@@ -158,7 +158,7 @@ async fn codex() -> Result<PlanUsage, String> {
         .get("https://chatgpt.com/backend-api/wham/usage")
         .bearer_auth(token)
         .header("accept", "application/json")
-        .header("user-agent", "TerminalX");
+        .header("user-agent", "Hermitty");
     if let Some(acc) = t.get("account_id").or_else(|| t.get("accountId")).and_then(Value::as_str).filter(|a| !a.is_empty()) {
         req = req.header("ChatGPT-Account-Id", acc);
     }
@@ -351,7 +351,7 @@ fn parse_cursor(r: &Value) -> PlanUsage {
 /* ---------- z.ai / BigModel (GLM Coding Plan, klucz API z Providerów) ---------- */
 
 async fn zai(key_ref: &str, base_url: &str) -> Result<PlanUsage, String> {
-    let key = keyring::Entry::new("TerminalX", key_ref).and_then(|e| e.get_password()).map_err(|_| "z.ai: dodaj klucz API providera z.ai w Ustawienia → Providerzy.".to_string())?;
+    let key = crate::ai::secret(key_ref).ok_or_else(|| "z.ai: dodaj klucz API providera z.ai w Ustawienia → Providerzy.".to_string())?;
     let host = if base_url.contains("bigmodel.cn") { "https://open.bigmodel.cn" } else { "https://api.z.ai" };
     let url = format!("{host}/api/monitor/usage/quota/limit");
     let http = client()?;

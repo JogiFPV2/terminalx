@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "apiVersion": 1,
   "main": "main.js",
-  "author": "TerminalX",
+  "author": "Hermitty",
   "description": "Licznik pracy i przerw na pasku statusu z powiadomieniem.",
   "icon": "timer",
   "permissions": ["ui:statusbar", "ui:commands", "notifications"],

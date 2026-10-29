@@ -139,7 +139,7 @@ const OS = /Windows/.test(UA) ? 'windows' : /Mac/.test(UA) ? 'macos' : 'linux';
 export async function installComfy(progress: (s: string) => void) {
   const dir = app.local.comfyDir || await call<string>('comfy_default_dir');
   if (OS !== 'windows') return installWithUv(dir, progress);
-  const rel: any = await call('http_request', { method: 'GET', url: 'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest', headers: { 'user-agent': 'TerminalX', accept: 'application/vnd.github+json' }, body: null });
+  const rel: any = await call('http_request', { method: 'GET', url: 'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/latest', headers: { 'user-agent': 'Hermitty', accept: 'application/vnd.github+json' }, body: null });
   const assets: { name: string; browser_download_url: string }[] = JSON.parse(rel.body).assets || [];
   const vendor = local.hw?.gpus[0]?.vendor || 'nvidia';
   const old = /GTX 10|GTX 9|TITAN X/i.test(local.hw?.gpus[0]?.name || '');

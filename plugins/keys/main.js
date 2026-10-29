@@ -4,7 +4,7 @@
 
 const FILE = 'providers.json';
 
-/** @type {import('../sdk/terminalx-plugin').TxApi} */
+/** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let root;
 let data = { providers: [] };   // [{ id, name, url, open, keys: [{ id, label }] }]

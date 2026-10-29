@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "apiVersion": 1,
   "main": "main.js",
-  "author": "TerminalX",
+  "author": "Hermitty",
   "description": "CPU i RAM systemu na pasku statusu.",
   "icon": "activity",
   "permissions": ["system:info", "ui:statusbar"],

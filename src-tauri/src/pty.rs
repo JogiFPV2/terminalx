@@ -193,7 +193,7 @@ fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
     }
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    cmd.env("TERM_PROGRAM", "TerminalX");
+    cmd.env("TERM_PROGRAM", "Hermitty");
     cmd
 }
 

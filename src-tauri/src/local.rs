@@ -161,7 +161,7 @@ pub fn comfy_default_dir(app: AppHandle) -> Result<String, String> {
     let dir = if portable {
         data.join("comfyui")
     } else {
-        tauri::Manager::path(&app).local_data_dir().map_err(|e| e.to_string())?.join("TerminalX").join("ComfyUI")
+        tauri::Manager::path(&app).local_data_dir().map_err(|e| e.to_string())?.join("Hermitty").join("ComfyUI")
     };
     Ok(dir.to_string_lossy().into_owned())
 }
@@ -341,7 +341,7 @@ fn safe_dest(dest: &str) -> Result<PathBuf, String> {
 /// Suma SHA-256 pliku z Hugging Face (nagłówek X-Linked-Etag przed przekierowaniem do CDN).
 async fn expected_sha(url: &str) -> Option<String> {
     let client = reqwest::Client::builder().redirect(reqwest::redirect::Policy::none()).connect_timeout(Duration::from_secs(15)).build().ok()?;
-    let res = client.head(url).header("user-agent", "TerminalX").send().await.ok()?;
+    let res = client.head(url).header("user-agent", "Hermitty").send().await.ok()?;
     let tag = res.headers().get("x-linked-etag")?.to_str().ok()?.trim_matches('"').to_lowercase();
     (tag.len() == 64 && tag.bytes().all(|c| c.is_ascii_hexdigit())).then_some(tag)
 }
@@ -362,7 +362,7 @@ async fn download(app: &AppHandle, id: &str, url: &str, dest: &Path, sha256: Opt
     // Wznawianie przerwanego pobierania.
     let have = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
     let client = reqwest::Client::builder().connect_timeout(Duration::from_secs(30)).build().map_err(|e| e.to_string())?;
-    let mut req = client.get(url).header("user-agent", "TerminalX");
+    let mut req = client.get(url).header("user-agent", "Hermitty");
     if have > 0 {
         req = req.header("range", format!("bytes={have}-"));
     }

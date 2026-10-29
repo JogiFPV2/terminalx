@@ -89,8 +89,8 @@ fn save_devices(app: &AppHandle, list: &[Device]) {
         let _ = std::fs::write(p, serde_json::to_string_pretty(list).unwrap_or_default());
     }
 }
-fn key_entry(id: &str) -> Result<keyring::Entry, String> {
-    keyring::Entry::new("TerminalX", &format!("remote-device:{id}")).map_err(|e| e.to_string())
+fn key_ref(id: &str) -> String {
+    format!("remote-device:{id}")
 }
 
 /* ---------- crypto ---------- */
@@ -184,7 +184,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         Some("hello") => {
             let id = hello["device"].as_str().unwrap_or("").to_string();
             let known = load_devices(&app).into_iter().any(|d| d.id == id);
-            let k = if known { key_entry(&id).ok().and_then(|e| e.get_password().ok()) } else { None };
+            let k = if known { crate::ai::secret(&key_ref(&id)) } else { None };
             match k.and_then(|k| STANDARD.decode(k).ok()).and_then(|v| <[u8; 32]>::try_from(v).ok()) {
                 Some(k) => (k, id, None),
                 None => {
@@ -226,7 +226,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
             return Ok(());
         };
         device_id = URL_SAFE_NO_PAD.encode(rand_bytes::<12>());
-        key_entry(&device_id)?.set_password(&STANDARD.encode(key)).map_err(|e| e.to_string())?;
+        crate::ai::secret_store(&key_ref(&device_id), &STANDARD.encode(key))?;
         let mut list = load_devices(&app);
         list.push(Device { id: device_id.clone(), name, perm, added: now_ms(), last_seen: Some(now_ms()) });
         save_devices(&app, &list);
@@ -377,7 +377,7 @@ pub async fn remote_revoke(app: AppHandle, state: State<'_, Arc<RemoteState>>, d
     let mut list = load_devices(&app);
     list.retain(|d| d.id != device_id);
     save_devices(&app, &list);
-    if let Ok(e) = key_entry(&device_id) { let _ = e.delete_credential(); }
+    let _ = crate::ai::secret_remove(&key_ref(&device_id));
     state.conns.lock().await.retain(|_, c| c.device != device_id); // zamknięcie kanału kończy sesję
     Ok(())
 }

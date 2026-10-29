@@ -3,7 +3,7 @@
 let item = null;
 let timer = null;
 
-/** @param {import('../sdk/terminalx-plugin').TxApi} tx */
+/** @param {import('../sdk/hermitty-plugin').TxApi} tx */
 export function activate(tx) {
   let phase = 'work';
   let running = false;

@@ -91,7 +91,8 @@ export const ICONS: Record<string, string> = {
   ssh: '<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V8a5 5 0 0 1 10 0v3M12 15v2"/>',
   bash: '<path d="M4 17 10 12 4 7M12 19h8"/>',
   dots: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
-  logo: '<path d="m4 17 6-5-6-5"/><path d="M12 19h8"/>',
+  // Znak Hermitty: „>_”, którego kursor zwija się w spiralę muszli kraba-pustelnika.
+  logo: '<g stroke-width="2.1"><path d="M1.5 8.46L5.93 12.44L1.5 16.43"/><path d="M8.15 18.2L16.56 18.2L17.8 17.85L18.96 17.32L19.93 16.65L20.77 15.81L21.48 14.92L21.97 13.95L22.32 12.93L22.5 11.91L22.5 10.89L22.32 9.96L22.01 9.08L21.61 8.28L21.08 7.57L20.46 6.99L19.8 6.51L19.04 6.2L18.34 5.97L17.58 5.89L16.87 5.93L16.16 6.06L15.54 6.33L14.97 6.64L14.48 7.04L14.08 7.53L13.77 8.01L13.55 8.54L13.42 9.12L13.37 9.65L13.46 10.14L13.55 10.63L13.77 11.11L14.04 11.51L14.35 11.82L14.7 12.09L15.06 12.31L15.46 12.44L15.85 12.53L16.25 12.53L16.61 12.49L16.96 12.4L17.27 12.22L17.58 12L17.8 11.78L17.98 11.51L18.11 11.25L18.2 10.94"/></g>',
 };
 
 export function icon(name: string, cls = 'i'): string {

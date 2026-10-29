@@ -1,7 +1,7 @@
 // Porty: lista nasłuchujących portów TCP z nazwą procesu.
 // Windows: netstat + tasklist. Linux: ss. macOS: lsof.
 
-/** @type {import('../sdk/terminalx-plugin').TxApi} */
+/** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let root = null;
 let timer = null;

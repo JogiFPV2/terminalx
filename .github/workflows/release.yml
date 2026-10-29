@@ -46,7 +46,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'TerminalX ${{ github.ref_name }}'
+          releaseName: 'Hermitty ${{ github.ref_name }}'
           releaseBody: 'Instalatory poniżej. Zainstalowana aplikacja zaktualizuje się sama.'
           releaseDraft: true
           prerelease: false

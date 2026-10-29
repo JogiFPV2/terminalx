@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#111114">
-<title>TerminalX</title>
+<title>Hermitty</title>
 <link rel="stylesheet" href="/xterm.css">
 <style>
 :root{--bg:#111114;--fg:#e7e7ea;--card:#16161a;--muted:#1c1c21;--mf:#8b8b95;--pri:#8b8cf8;--prif:#0f0f14;--acc:#24242b;--bd:#26262d;--red:#f87171;--green:#4ade80;--yellow:#fbbf24;--blue:#60a5fa;--term:#0f0f12;
@@ -57,7 +57,7 @@ nav.tabs .n{position:absolute;top:6px;margin-left:4px;background:var(--red);colo
 </head>
 <body>
 <div id="app">
-  <header><span class="dot" id="dot"></span><b>TerminalX</b><span class="chip" id="perm"></span></header>
+  <header><span class="dot" id="dot"></span><b>Hermitty</b><span class="chip" id="perm"></span></header>
   <div class="bar" id="wsbar"></div>
   <main id="main"><div class="center"><h1>Łączenie…</h1></div></main>
   <nav class="tabs hidden" id="nav">
@@ -121,7 +121,7 @@ nav.tabs .n{position:absolute;top:6px;margin-left:4px;background:var(--red);colo
 
   function handle(m) {
     if (m.t === 'error') { screen(`<div class="center"><h1>Brak połączenia</h1><p>${esc(m.msg)}</p></div>`); if (/Nieznane/.test(m.msg)) localStorage.removeItem(STORE); return; }
-    if (m.t === 'waiting') { screen('<div class="center"><h1>Potwierdź na komputerze</h1><p>W aplikacji TerminalX pojawiło się pytanie o nowe urządzenie.</p></div>'); return; }
+    if (m.t === 'waiting') { screen('<div class="center"><h1>Potwierdź na komputerze</h1><p>W aplikacji Hermitty pojawiło się pytanie o nowe urządzenie.</p></div>'); return; }
     if (m.t === 'denied') { screen('<div class="center"><h1>Odrzucono</h1><p>Komputer nie zgodził się na to urządzenie.</p></div>'); return; }
     if (m.t === 'paired') { device = m.device; localStorage.setItem(STORE, JSON.stringify({ device, key: b64(key) })); history.replaceState(null, '', '/'); return; }
     if (m.t === 'ready') { ready = true; retry = 0; perm = m.perm; setDot('on'); $('#perm').textContent = { view: 'podgląd', control: 'sterowanie', full: 'pełny dostęp' }[perm]; $('#nav').classList.remove('hidden'); refresh(); return; }

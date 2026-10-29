@@ -122,9 +122,9 @@ export async function saveSecret(h: Host, value: string) {
 
 export async function generateKey(): Promise<{ path: string; pub: string } | null> {
   const home = (await call<[string, unknown[]]>('fs_list_detail', { dir: '' }))[0];
-  let path = `${home}\\.ssh\\id_ed25519_terminalx`;
+  let path = `${home}\\.ssh\\id_ed25519_hermitty`;
   const exists = (p: string) => call('fs_read_text', { path: p }).then(() => true, () => false);
-  for (let i = 2; await exists(path); i++) path = `${home}\\.ssh\\id_ed25519_terminalx_${i}`;
+  for (let i = 2; await exists(path); i++) path = `${home}\\.ssh\\id_ed25519_hermitty_${i}`;
   await call('sys_exec', { cmd: 'cmd', args: ['/C', 'mkdir', `${home}\\.ssh`], cwd: null, timeoutMs: 5000 }).catch(() => {});
   const r = await call<{ code: number; stdout: string; stderr: string }>('sys_exec', { cmd: 'ssh-keygen', args: ['-t', 'ed25519', '-f', path, '-N', '', '-C', 'terminalx'], cwd: null, timeoutMs: 20000 });
   if (r.code !== 0) throw new Error(r.stderr || r.stdout || 'ssh-keygen zakończył się błędem');

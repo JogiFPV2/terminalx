@@ -6,7 +6,7 @@
 const ROOT = 'notes';
 const ORDER_FILE = '.order.json';
 
-/** @type {import('../sdk/terminalx-plugin').TxApi} */
+/** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let root;              // element sekcji w pasku bocznym
 let tree = [];         // [{ kind, path, name, title, body, children }]

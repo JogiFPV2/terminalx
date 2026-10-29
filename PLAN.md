@@ -1,4 +1,4 @@
-# TerminalX: plan projektu
+# Hermitty (dawniej TerminalX): plan projektu
 
 Lekki, minimalistyczny menedżer terminali i workflow z AI, wzorowany wizualnie na [Netcatty](https://github.com/binaricat/Netcatty).
 Najpierw Windows, potem Linux i macOS.

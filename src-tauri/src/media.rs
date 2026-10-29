@@ -50,7 +50,7 @@ fn trusted(p: &MediaProvider, url: &str) -> bool {
 
 fn auth(req: reqwest::RequestBuilder, p: &MediaProvider) -> Result<reqwest::RequestBuilder, String> {
     let key = match p.key_ref.as_deref() {
-        Some(r) if !r.is_empty() => keyring::Entry::new("TerminalX", r).ok().and_then(|e| e.get_password().ok()),
+        Some(r) if !r.is_empty() => crate::ai::secret(r),
         _ => None,
     };
     // Lokalny ComfyUI zwykle działa bez klucza; gdy jest za serwerem z hasłem, klucz idzie jako Bearer.

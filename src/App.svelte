@@ -46,7 +46,7 @@
         startHost();
         startScheduler();
         startUpdates();
-        // „Otwórz w TerminalX” z Eksploratora i flagi --open-terminal-path / --open-terminal-shell.
+        // „Otwórz w Hermitty” z Eksploratora i flagi --open-terminal-path / --open-terminal-shell.
         if (isTauri) {
           type CliOpen = { path?: string; shell?: string };
           const open = (o: CliOpen | null) => { if (o) newTab(o.shell && ui.shells.some((x) => x.id === o.shell) ? o.shell : app.settings.defaultShell, app.activeWs, o.path || undefined); };

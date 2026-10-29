@@ -79,7 +79,7 @@
   {/each}
 </div>
 <details><summary>Format plugin.json</summary><pre class="code">{SAMPLE}</pre>
-  <p class="hint" style="margin-top:8px">Struktura archiwum: <code>plugin.json</code>, <code>main.js</code> (moduł ES z <code>activate(tx)</code>), opcjonalnie inne pliki. Pełna specyfikacja: <code>docs/PLUGINS.md</code>, typy API: <code>plugins/sdk/terminalx-plugin.d.ts</code>.</p></details>
+  <p class="hint" style="margin-top:8px">Struktura archiwum: <code>plugin.json</code>, <code>main.js</code> (moduł ES z <code>activate(tx)</code>), opcjonalnie inne pliki. Pełna specyfikacja: <code>docs/PLUGINS.md</code>, typy API: <code>plugins/sdk/hermitty-plugin.d.ts</code>.</p></details>
 
 <style>
   .review { border: 1px solid color-mix(in oklab, var(--primary) 45%, var(--border)); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in oklab, var(--primary) 5%, var(--background)); }

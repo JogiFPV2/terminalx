@@ -1,8 +1,8 @@
-# Pluginy TerminalX
+# Pluginy Hermitty
 
 Plugin to folder z plikiem `plugin.json` i kodem w JavaScript, spakowany do `.zip`. Importujesz go w **Ustawienia → Pluginy → Importuj .zip**, przeglądasz wymagane uprawnienia i włączasz przełącznikiem. Włączony plugin uruchamia się od razu i przy każdym starcie aplikacji.
 
-Typy całego API: [`plugins/sdk/terminalx-plugin.d.ts`](../plugins/sdk/terminalx-plugin.d.ts).
+Typy całego API: [`plugins/sdk/hermitty-plugin.d.ts`](../plugins/sdk/hermitty-plugin.d.ts).
 Przykłady: `plugins/notes`, `plugins/bcgrnd_process`, `plugins/sysmon`, `plugins/ports`, `plugins/pomodoro`.
 
 ## Struktura archiwum

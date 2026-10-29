@@ -20,7 +20,7 @@ fn app_restart(app: tauri::AppHandle) {
     app.restart();
 }
 
-/// Otwarcie terminala z wiersza poleceń albo z menu Eksploratora („Otwórz w TerminalX”):
+/// Otwarcie terminala z wiersza poleceń albo z menu Eksploratora („Otwórz w Hermitty”):
 /// `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`, albo sam folder jako argument.
 #[derive(serde::Serialize, Clone, Default)]
 struct CliOpen {
@@ -50,6 +50,11 @@ fn cli_initial() -> Option<CliOpen> {
     START_OPEN.get().cloned().flatten()
 }
 
+/// Zmienna środowiskowa `HERMITTY_<name>`; dawna nazwa `TERMINALX_<name>` działa dalej.
+fn env_var(name: &str) -> Option<String> {
+    std::env::var(format!("HERMITTY_{name}")).or_else(|_| std::env::var(format!("TERMINALX_{name}"))).ok()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let ptys = Arc::new(pty::Ptys::default());
@@ -57,7 +62,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     // Jedna kopia aplikacji: kolejne uruchomienie (np. z Eksploratora) otwiera terminal w działającej.
     // Testy end-to-end (port DevTools) działają obok zwykłej kopii.
-    if std::env::var("TERMINALX_DEVTOOLS_PORT").is_err() {
+    if env_var("DEVTOOLS_PORT").is_none() {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             use tauri::Emitter;
             if let Some(w) = app.get_webview_window("main") {
@@ -82,7 +87,7 @@ pub fn run() {
         .manage(mcp::McpState::default())
         .setup(|app| {
             // Okno tworzymy tutaj, żeby dało się dołożyć argumenty WebView2. Port DevTools tylko na żądanie
-            // (zmienna TERMINALX_DEVTOOLS_PORT, testy end-to-end); domyślnie wyłączony.
+            // (zmienna HERMITTY_DEVTOOLS_PORT, testy end-to-end); domyślnie wyłączony.
             let config = app.config().app.windows.first().cloned().ok_or("brak konfiguracji okna")?;
             let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection");
             // „Tryb lekki” (domyślnie włączony): WebView2 bez GPU zużywa około połowę mniej pamięci.
@@ -92,10 +97,10 @@ pub fn run() {
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
                 .and_then(|v| v.pointer("/settings/lightMode").and_then(|b| b.as_bool()))
                 .unwrap_or(true);
-            if light || std::env::var("TERMINALX_NO_GPU").is_ok() {
+            if light || env_var("NO_GPU").is_some() {
                 args.push_str(" --disable-gpu --disable-gpu-compositing");
             }
-            if let Ok(port) = std::env::var("TERMINALX_DEVTOOLS_PORT") {
+            if let Some(port) = env_var("DEVTOOLS_PORT") {
                 if port.parse::<u16>().is_ok() {
                     args.push_str(&format!(" --remote-debugging-port={port}"));
                 }

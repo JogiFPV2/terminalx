@@ -1,11 +1,11 @@
 [package]
-name = "terminalx"
+name = "hermitty"
 version = "0.1.0"
 description = "Lekki menedżer terminali i workflow z AI"
 edition = "2021"
 
 [lib]
-name = "terminalx_lib"
+name = "hermitty_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

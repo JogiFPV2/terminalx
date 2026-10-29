@@ -3,7 +3,7 @@
 // a „Przywróć” odkłada zakładkę na jej poprzednie miejsce. Po wyłączeniu pluginu host sam oddaje
 // wszystkie zaparkowane zakładki do ich workspace'ów.
 
-/** @type {import('../sdk/terminalx-plugin').TxApi} */
+/** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let root = null;
 let section = null;

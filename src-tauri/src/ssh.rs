@@ -155,7 +155,7 @@ pub struct SshState {
 
 fn secret(r: &Option<String>) -> Option<String> {
     let r = r.as_deref().filter(|s| !s.is_empty())?;
-    keyring::Entry::new("TerminalX", r).ok()?.get_password().ok()
+    crate::ai::secret(r)
 }
 
 fn expand_home(p: &str) -> String {

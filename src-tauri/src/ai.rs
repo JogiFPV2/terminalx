@@ -5,28 +5,54 @@
 use serde::Deserialize;
 use std::time::Duration;
 
-const SERVICE: &str = "TerminalX";
+const SERVICE: &str = "Hermitty";
+/// Nazwa usługi w magazynie poświadczeń sprzed zmiany nazwy aplikacji.
+const LEGACY: &str = "TerminalX";
 
 fn entry(key_ref: &str) -> Result<keyring::Entry, String> {
     keyring::Entry::new(SERVICE, key_ref).map_err(|e| e.to_string())
 }
 
+/// Sekret z magazynu. Wpis zapisany jeszcze pod starą nazwą aplikacji jest przy pierwszym odczycie
+/// przepisywany pod nową (stary zostaje, żeby poprzednia wersja dalej działała).
+pub(crate) fn secret(key_ref: &str) -> Option<String> {
+    let e = entry(key_ref).ok()?;
+    if let Ok(v) = e.get_password() {
+        return Some(v);
+    }
+    let v = keyring::Entry::new(LEGACY, key_ref).ok()?.get_password().ok()?;
+    let _ = e.set_password(&v);
+    Some(v)
+}
+
+pub(crate) fn secret_store(key_ref: &str, value: &str) -> Result<(), String> {
+    entry(key_ref)?.set_password(value).map_err(|e| format!("Nie udało się zapisać klucza: {e}"))
+}
+
+/// Usuwa sekret pod obiema nazwami.
+pub(crate) fn secret_remove(key_ref: &str) -> Result<(), String> {
+    if let Ok(old) = keyring::Entry::new(LEGACY, key_ref) {
+        let _ = old.delete_credential();
+    }
+    match entry(key_ref)?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[tauri::command(async)]
 pub fn secret_set(key_ref: String, value: String) -> Result<(), String> {
-    entry(&key_ref)?.set_password(&value).map_err(|e| format!("Nie udało się zapisać klucza: {e}"))
+    secret_store(&key_ref, &value)
 }
 
 #[tauri::command(async)]
 pub fn secret_has(key_ref: String) -> bool {
-    entry(&key_ref).and_then(|e| e.get_password().map_err(|e| e.to_string())).is_ok()
+    secret(&key_ref).is_some()
 }
 
 #[tauri::command(async)]
 pub fn secret_delete(key_ref: String) -> Result<(), String> {
-    match entry(&key_ref)?.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    secret_remove(&key_ref)
 }
 
 /* ---------- sejf kluczy (plugin „Klucze API”) ----------
@@ -66,7 +92,8 @@ pub fn keyvault_set(key_ref: String, value: String) -> Result<String, String> {
 pub fn keyvault_masked(refs: Vec<String>) -> std::collections::HashMap<String, String> {
     refs.into_iter()
         .filter_map(|r| {
-            let k = vault_entry(&r).ok()?.get_password().ok()?;
+            vault_entry(&r).ok()?;
+            let k = secret(&r)?;
             Some((r, mask(&k)))
         })
         .collect()
@@ -74,15 +101,14 @@ pub fn keyvault_masked(refs: Vec<String>) -> std::collections::HashMap<String, S
 
 #[tauri::command(async)]
 pub fn keyvault_get(key_ref: String) -> Result<String, String> {
-    vault_entry(&key_ref)?.get_password().map_err(|_| "Nie ma takiego klucza w sejfie".to_string())
+    vault_entry(&key_ref)?;
+    secret(&key_ref).ok_or_else(|| "Nie ma takiego klucza w sejfie".to_string())
 }
 
 #[tauri::command(async)]
 pub fn keyvault_delete(key_ref: String) -> Result<(), String> {
-    match vault_entry(&key_ref)?.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
+    vault_entry(&key_ref)?;
+    secret_remove(&key_ref)
 }
 
 #[cfg(test)]
@@ -92,6 +118,16 @@ mod tests {
         assert_eq!(super::mask("sk-ant-api03-abcdefXYZ9"), "sk-a••••••••XYZ9");
         assert_eq!(super::mask("krótki"), "••••••••");
         assert!(super::vault_entry("openai-key").is_err());
+    }
+
+    #[test]
+    fn legacy_secret_moves_to_new_name() {
+        let r = format!("test-legacy-{}", std::process::id());
+        keyring::Entry::new(super::LEGACY, &r).unwrap().set_password("v1").unwrap();
+        assert_eq!(super::secret(&r).as_deref(), Some("v1"));
+        assert_eq!(super::entry(&r).unwrap().get_password().unwrap(), "v1");
+        super::secret_remove(&r).unwrap();
+        assert!(super::secret(&r).is_none());
     }
 }
 
@@ -119,7 +155,7 @@ pub async fn ai_request(
     headers: Option<std::collections::HashMap<String, String>>,
 ) -> Result<serde_json::Value, String> {
     let key = match provider.key_ref.as_deref() {
-        Some(r) if !r.is_empty() => entry(r)?.get_password().ok(),
+        Some(r) if !r.is_empty() => secret(r),
         _ => None,
     };
     let client = reqwest::Client::builder().timeout(Duration::from_secs(600)).build().map_err(|e| e.to_string())?;
