@@ -4,6 +4,8 @@ import { tabMenuItems, emit } from './plugins/host.svelte';
 import { openSsh, openSftp, openVault, openMonitor, openGallery } from './hosts.svelte';
 import * as sessions from './terminal/sessions.svelte';
 import { isTauri, call } from './ipc';
+import { ACCOUNT_SERVICES, setTabAccount, accountsApply } from './accounts';
+import type { AccountService } from './types';
 
 export function openMenu(x: number, y: number, items: MenuItem[]) { ui.menu = { x, y, items }; }
 
@@ -61,6 +63,15 @@ export function tabMenu(tabId: string, x: number, y: number) {
     items.push({ sep: true }, { heading: 'Podagent' });
     items.push({ label: 'Brak', icon: t.subagent ? undefined : 'check', run: () => (t.subagent = null) });
     for (const s of subs) items.push({ label: s.name, icon: t.subagent === s.id ? 'check' : undefined, run: () => (t.subagent = s.id) });
+    // Konto narzędzia (Claude Code, Codex) tylko tam, gdzie są dodatkowe konta i powłoka Windows.
+    if (accountsApply(t.panes[0].shell)) for (const svc of Object.keys(ACCOUNT_SERVICES) as AccountService[]) {
+      const accs = app.accounts.filter((a) => a.service === svc);
+      if (!accs.length) continue;
+      const cur = t.panes[0].accounts?.[svc] || null;
+      items.push({ sep: true }, { heading: `Konto ${ACCOUNT_SERVICES[svc].name}` });
+      items.push({ label: 'Domyślne', icon: cur ? undefined : 'check', run: () => setTabAccount(t.id, svc, null) });
+      for (const a of accs) items.push({ label: a.name, icon: cur === a.id ? 'check' : undefined, run: () => setTabAccount(t.id, svc, a.id) });
+    }
   }
   const plugItems = tabMenuItems(t.kind === 'flow' ? 'flow' : 'terminal');
   if (plugItems.length && f.ws) {

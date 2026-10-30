@@ -192,7 +192,7 @@ const NEEDS: Record<string, string | null> = {
   'system.stats': 'system:info', 'shell.exec': 'shell:exec', 'net.fetch': 'net:localhost',
   'terminal.list': 'terminal:read', 'terminal.subscribe': 'terminal:read', 'terminal.unsubscribe': 'terminal:read', 'terminal.write': 'terminal:write',
   'tabs.list': 'tabs:manage', 'tabs.get': 'tabs:manage', 'tabs.park': 'tabs:manage', 'tabs.unpark': 'tabs:manage', 'tabs.close': 'tabs:manage', 'tabs.tail': 'terminal:read',
-  'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage', 'ai.plan': 'ai:plans',
+  'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage', 'ai.plan': 'ai:plans', 'ai.accounts': 'ai:plans',
   'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
 };
 
@@ -337,14 +337,16 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
       const svc = String(a.service || '');
       if (svc === 'openrouter') {
         const p = app.providers.find((x) => /openrouter\.ai/.test(x.url));
-        if (!p) throw new Error('Dodaj providera OpenRouter z kluczem w Ustawienia → Providerzy.');
+        if (!p) throw new Error('Dodaj providera OpenRouter z kluczem w Ustawienia → Konta i providerzy.');
         const b = await balanceOf(p);
         if (!b) throw new Error('OpenRouter nie zwrócił salda.');
         return { plan: b.limit != null ? `limit $${b.limit}` : 'kredyty', text: b.text, windows: b.limit ? [{ label: 'kredyty', usedPercent: Math.min(100, Math.max(0, (1 - (b.remaining ?? 0) / b.limit) * 100)), resetsAt: 0 }] : [] };
       }
       const z = svc === 'zai' ? app.providers.find((x) => /z\.ai|bigmodel\.cn/.test(x.url)) : undefined;
-      return call('plan_usage', { service: svc, keyRef: z?.keyRef || null, url: z?.url || null });
+      return call('plan_usage', { service: svc, keyRef: z?.keyRef || null, url: z?.url || null, account: a.account ? String(a.account) : null });
     }
+    case 'ai.accounts':
+      return app.accounts.map((x) => ({ id: x.id, service: x.service, name: x.name }));
     case 'ai.balance': {
       const p = app.providers.find((x) => x.id === a.id);
       return p ? balanceOf(p) : null;

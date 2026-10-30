@@ -93,9 +93,9 @@ export function finalizeAll() { for (const p of [...ui.pending]) { dropPending(p
 
 /* ---------- tabs ---------- */
 
-export function makePane(shell: string, cwd?: string): Pane { return { id: nid('p'), shell, cwd }; }
+export function makePane(shell: string, cwd?: string, accounts?: Record<string, string>): Pane { return { id: nid('p'), shell, cwd, ...(accounts ? { accounts } : {}) }; }
 
-export function newTab(kind: string, wsId = app.activeWs, cwd?: string): Tab {
+export function newTab(kind: string, wsId = app.activeWs, cwd?: string, accounts?: Record<string, string>): Tab {
   const ws = app.workspaces.find((w) => w.id === wsId) || curWs();
   let tab: Tab;
   if (kind === 'flow') {
@@ -103,7 +103,7 @@ export function newTab(kind: string, wsId = app.activeWs, cwd?: string): Tab {
     app.flows[flowId] = { id: flowId, nodes: [{ id: nid('n'), type: 'manual', x: 40, y: 60, label: '', cfg: {} }], edges: [] } as Flow;
     tab = { id: nid('t'), kind: 'flow', title: 'Workflow', panes: [], split: 0.5, splitDir: 'col', subagent: null, win: null, flowId };
   } else {
-    const pane = makePane(kind, cwd);
+    const pane = makePane(kind, cwd, accounts);
     tab = { id: nid('t'), kind: 'terminal', title: cwd ? cwd.replace(/[\/]+$/, '').split(/[\/]/).pop() || defaultTitle(kind) : defaultTitle(kind), panes: [pane], split: 0.5, splitDir: 'col', subagent: ws.subDefault, win: null };
     sessions.ensureSession(pane);
   }
@@ -180,7 +180,7 @@ export function splitTab(id: string, dir: 'row' | 'col' = 'col') {
     sessions.dispose(second.id);
     return;
   }
-  const pane = makePane(t.panes[0].shell, sessions.termStatus[t.panes[0].id]?.cwd || t.panes[0].cwd);
+  const pane = makePane(t.panes[0].shell, sessions.termStatus[t.panes[0].id]?.cwd || t.panes[0].cwd, t.panes[0].accounts);
   sessions.ensureSession(pane);
   t.splitDir = dir;
   t.split = 0.5;
@@ -207,7 +207,7 @@ export function duplicateTab(id: string) {
     f.ws.z.push(copy.id); f.ws.activeTab = copy.id;
     return;
   }
-  const pane = makePane(t.panes[0].shell, sessions.termStatus[t.panes[0].id]?.cwd || t.panes[0].cwd);
+  const pane = makePane(t.panes[0].shell, sessions.termStatus[t.panes[0].id]?.cwd || t.panes[0].cwd, t.panes[0].accounts);
   sessions.ensureSession(pane);
   const copy: Tab = { id: nid('t'), kind: 'terminal', title: t.title, panes: [pane], split: 0.5, splitDir: 'col', subagent: t.subagent, win: null, hostId: t.hostId };
   f.ws.tabs.splice(f.ws.tabs.indexOf(t) + 1, 0, copy);
@@ -315,6 +315,9 @@ export async function loadState() {
     remote: { ...fresh.remote, ...(saved.remote || {}) },
     local: { ...fresh.local, ...(saved.local || {}) },
     monitor: { ...fresh.monitor, ...(saved.monitor || {}) },
+    accounts: saved.accounts || [],
+    fallback: { ...fresh.fallback, ...(saved.fallback || {}) },
+    skills: saved.skills || [],
   } as AppState;
   if (!merged.workspaces?.length) merged.workspaces = fresh.workspaces;
   if (!merged.workspaces.some((w) => w.id === merged.activeWs)) merged.activeWs = merged.workspaces[0].id;

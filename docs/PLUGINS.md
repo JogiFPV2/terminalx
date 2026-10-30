@@ -49,7 +49,7 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 | `net:*` | Sieć do dowolnych adresów | wysokie |
 | `fs:read`, `fs:write` | Pliki użytkownika poza katalogiem pluginu (wybrane przez użytkownika foldery) | wysokie |
 | `shell:exec` | Uruchamianie procesów | wysokie |
-| `ai:plans` | Zużycie planów subskrypcji (Claude, Codex, Gemini CLI, Cursor, z.ai, OpenCode Go, OpenRouter) z logowania danego narzędzia na tym komputerze. Token czyta tylko rdzeń, plugin dostaje procenty i czasy resetu. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
+| `ai:plans` | Zużycie planów subskrypcji (Claude, Codex, Gemini CLI, Cursor, z.ai, OpenCode Go, OpenRouter) z logowania danego narzędzia na tym komputerze. Token czyta tylko rdzeń, plugin dostaje procenty i czasy resetu. `tx.ai.accounts()` zwraca dodatkowe konta Claude Code i Codex (id, usługa, nazwa), a `tx.ai.plan(usługa, idKonta)` limity takiego konta. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
 | `vault:keys` | Sejf kluczy API (`tx.keys`): zapis klucza wpisanego w oknie hosta, wersje zamaskowane, kopiowanie do schowka przez host. Tylko pluginy wbudowane; import .zip je odrzuca | wysokie |
 
 Uprawnienia wysokiego ryzyka są oznaczone przy imporcie i na liście pluginów.

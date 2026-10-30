@@ -1,7 +1,7 @@
 // Wspólny klient dla providerów: Anthropic (Messages API) i zgodnych z OpenAI (OpenAI, OpenRouter, LM Studio, Ollama /v1).
 // Historia rozmowy jest trzymana w formacie bloków Anthropic; dla OpenAI konwertujemy w locie.
 import { call } from './ipc';
-import { app } from './state.svelte';
+import { app, notify } from './state.svelte';
 import { isChat } from './defaults';
 import { onGpu } from './gpu';
 import type { Provider } from './types';
@@ -43,7 +43,7 @@ export function resolveModel(providerId?: string | null, model?: string | null):
   // Bez wskazanego providera obowiązuje para „domyślny provider + domyślny model” z ustawień.
   const explicit = providerId ? app.providers.find((x) => x.id === providerId && isChat(x)) : undefined;
   const p = explicit || app.providers.find((x) => x.id === app.defModel.provider) || app.providers.find(isChat);
-  if (!p) throw new Error('Brak skonfigurowanych providerów. Dodaj providera w Ustawienia → Providerzy.');
+  if (!p) throw new Error('Brak skonfigurowanych providerów. Dodaj providera w Ustawienia → Konta i providerzy.');
   const m = explicit ? (model || p.models[0] || app.defModel.model) : (p.id === app.defModel.provider ? app.defModel.model : p.models[0]);
   return { p, model: m };
 }
@@ -147,11 +147,62 @@ async function openai(p: Provider, model: string, o: CompleteOpts): Promise<Comp
   return { text, toolCalls, content, stop: toolCalls.length ? 'tool_use' : (res.choices?.[0]?.finish_reason || 'stop'), model: res.model || model };
 }
 
+/** Błąd, po którym ma sens inny provider: limit zapytań, brak środków albo przeciążenie (nie zły klucz czy treść). */
+export function isLimitError(e: unknown) {
+  const s = String(e).replace(/^Error: /, '');
+  return /^(429|402|503|529)\b/.test(s) || /rate.?limit|quota|insufficient.?(balance|funds|credit)|credit balance|overloaded/i.test(s);
+}
+
+/** Pierwszy wybór, a po nim łańcuch zastępstw z ustawień (bez powtórek i providerów bez czatu). */
+export function fallbackChain(first: { p: Provider; model: string }) {
+  const out = [first];
+  if (!app.fallback?.enabled) return out;
+  for (const f of app.fallback.chain) {
+    const p = app.providers.find((x) => x.id === f.provider && isChat(x));
+    const model = f.model || p?.models[0];
+    if (!p || !model || out.some((x) => x.p.id === p.id && x.model === model)) continue;
+    out.push({ p, model });
+  }
+  return out;
+}
+
+const fallbackNoted = new Map<string, number>();
+/** Provider z limitem odpoczywa minutę: kolejne kroki agenta idą od razu do zastępstwa. */
+const limitedUntil = new Map<string, number>();
+const COOLDOWN = 60_000;
+
 export async function complete(o: CompleteOpts): Promise<CompleteResult> {
-  const { p, model } = resolveModel(o.providerId, o.model);
+  const first = resolveModel(o.providerId, o.model);
   o = { ...o, messages: await expandAttachments(o.messages) };
   // Ollama liczy na tej samej karcie co ComfyUI: przez wspólną kolejkę GPU (agenci, nody, snippety).
-  return onGpu(p.type === 'ollama' ? `ollama:${model}` : '', () => (p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o)));
+  const run = (p: Provider, model: string) => onGpu(p.type === 'ollama' ? `ollama:${model}` : '', () => (p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o)));
+  const all = fallbackChain(first);
+  const key = (x: { p: Provider; model: string }) => `${x.p.id}|${x.model}`;
+  // Odpoczywający idą na koniec (nie wypadają: gdy wszyscy mają limit, i tak trzeba kogoś zapytać).
+  const chain = all.length > 1 ? [...all.filter((x) => !((limitedUntil.get(key(x)) || 0) > Date.now())), ...all.filter((x) => (limitedUntil.get(key(x)) || 0) > Date.now())] : all;
+  let lastErr: unknown;
+  for (const [i, { p, model }] of chain.entries()) {
+    if (i > 0 && o.signal?.aborted) break;
+    try {
+      const r = await run(p, model);
+      limitedUntil.delete(`${p.id}|${model}`);
+      if (p.id !== first.p.id || model !== first.model) {
+        // Raz na minutę na parę, żeby pętla agenta nie zasypała powiadomieniami.
+        const k = `${first.p.id}|${first.model}>${p.id}|${model}`;
+        if (Date.now() - (fallbackNoted.get(k) || 0) > 60_000) {
+          fallbackNoted.set(k, Date.now());
+          notify(`${first.p.name} · ${first.model}: limit albo brak środków. Odpowiada zastępstwo ${p.name} · ${model}.`, 'warning', 6000);
+        }
+      }
+      return r;
+    } catch (e) {
+      if (!isLimitError(e)) throw e;
+      if (all.length > 1) limitedUntil.set(`${p.id}|${model}`, Date.now() + COOLDOWN);
+      if (i === chain.length - 1) throw e;
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 /** Jedno pytanie, jedna odpowiedź tekstowa. */

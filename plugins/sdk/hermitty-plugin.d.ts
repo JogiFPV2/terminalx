@@ -196,7 +196,9 @@ export interface TxApi {
     onUsage(cb: () => void): Disposable;
     /** 'ai:plans' (tylko wbudowane): zużycie planu subskrypcji z logowania narzędzia na tym komputerze.
      *  Usługi: claude, codex, gemini, cursor, zai, opencode, openrouter. Błąd = nie da się teraz odczytać (powód w treści). */
-    plan(service: string): Promise<{ plan: string; text?: string; windows: { label: string; usedPercent: number; resetsAt: number }[] }>;
+    plan(service: string, account?: string | null): Promise<{ plan: string; text?: string; windows: { label: string; usedPercent: number; resetsAt: number }[] }>;
+    /** 'ai:plans': dodatkowe konta Claude Code i Codex (Ustawienia → Konta i providerzy); `account` w plan(). */
+    accounts(): Promise<{ id: string; service: string; name: string }[]>;
   };
   /** Sejf kluczy ('vault:keys', tylko wbudowane): klucz wpisuje się w oknie hosta i trafia do magazynu
    *  poświadczeń systemu. Plugin dostaje tylko wersję zamaskowaną; kopiowanie robi host. */

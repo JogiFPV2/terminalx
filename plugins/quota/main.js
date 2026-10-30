@@ -18,6 +18,18 @@ const SERVICES = [
   { id: 'openrouter', name: 'OpenRouter', from: 'kredyty, klucz providera OpenRouter z Ustawień' },
 ];
 
+/** Usługi z dodatkowymi kontami (Claude Code, Codex): każde konto osobno, id `usługa@konto`. */
+let accounts = [];
+function services() {
+  const out = [];
+  for (const s of SERVICES) {
+    out.push({ ...s, svc: s.id, account: null });
+    for (const a of accounts.filter((x) => x.service === s.id)) out.push({ id: `${s.id}@${a.id}`, name: `${s.name} · ${a.name}`, from: 'osobne konto (Ustawienia → Konta i providerzy)', svc: s.id, account: a.id });
+  }
+  return out;
+}
+async function loadAccounts() { try { accounts = (await tx.ai.accounts?.()) || []; } catch { accounts = []; } }
+
 /** @type {import('../sdk/hermitty-plugin').TxApi} */
 let tx;
 let cfg = { place: 'bottom', plans: {}, providers: {} };
@@ -35,6 +47,7 @@ export async function activate(api) {
   tx.ui.commands.register('quota.settings', 'Quota: ustawienia', openSettings);
   tx.ai.onUsage(() => update());
   timer = setInterval(() => { update(); refreshPlans(); }, 15_000);   // odliczanie do resetu; plany co 5 min
+  await loadAccounts();
   await update();
   refreshPlans();
 }
@@ -120,7 +133,7 @@ async function update() {
   info = await tx.ai.usage();
   const shown = info.providers.filter((p) => pc(p.id).show);
   // Plany: element tylko wtedy, gdy są dane; usługa, której nie da się odczytać, znika z paska (powód w ustawieniach).
-  const planShown = SERVICES.filter((s) => cfg.plans[s.id] && plans[s.id]?.data);
+  const planShown = services().filter((s) => cfg.plans[s.id] && plans[s.id]?.data);
   for (const [id, it] of items) {
     const keep = id.startsWith('plan:') ? planShown.some((s) => 'plan:' + s.id === id) : shown.some((p) => p.id === id);
     if (!keep) { it.dispose(); items.delete(id); }
@@ -167,11 +180,12 @@ async function refreshPlans(force = false) {
   if (plansBusy) return;
   plansBusy = true;
   try {
-    for (const s of SERVICES) {
+    await loadAccounts();
+    for (const s of services()) {
       if (!cfg.plans[s.id]) continue;
       const st = plans[s.id];
       if (!force && st && Date.now() - st.at < PLAN_MS) continue;
-      try { plans[s.id] = { data: await tx.ai.plan(s.id), error: '', at: Date.now() }; }
+      try { plans[s.id] = { data: await tx.ai.plan(s.svc, s.account), error: '', at: Date.now() }; }
       catch (e) { plans[s.id] = { data: st?.data && Date.now() - st.at < 30 * 60_000 ? st.data : null, error: String(e?.message || e), at: Date.now() }; }
       renderPlans();
     }
@@ -195,7 +209,7 @@ function planView(s, d) {
 function renderPlans() {
   const box = settingsEl?.querySelector('.qplans');
   if (!box) return;
-  box.innerHTML = SERVICES.map((s) => {
+  box.innerHTML = services().map((s) => {
     const st = plans[s.id], on = !!cfg.plans[s.id];
     let status = esc(s.from);
     if (on && st?.error && !st.data) status = `<span class="qerr">${esc(st.error)}</span>`;
@@ -212,6 +226,7 @@ function renderPlans() {
 
 async function openSettings() {
   info = await tx.ai.usage();
+  await loadAccounts();
   tx.ui.dialog.open({
     title: 'Quota',
     width: 560,
@@ -235,7 +250,7 @@ async function openSettings() {
         <div class="qlist qplans"></div>
         <p class="qhint">Zaznaczone usługi pokazują procent zużycia i czas do resetu z konta, na które jesteś zalogowany w danym narzędziu na tym komputerze. Logowanie odczytuje tylko rdzeń aplikacji. Usługa, której nie da się odczytać, znika z paska, a powód widać tutaj.</p>
         <div class="qhead"><b>Providerzy API</b></div>
-        <div class="qlist">${rows || '<p class="qhint">Brak providerów czatu. Dodaj je w Ustawienia → Providerzy.</p>'}</div>
+        <div class="qlist">${rows || '<p class="qhint">Brak providerów czatu. Dodaj je w Ustawienia → Konta i providerzy.</p>'}</div>
         <p class="qhint">Zaznacz providerów widocznych na pasku. Z limitem tokenów pasek pokazuje, ile z niego zostało (liczone z zapytań wysłanych z aplikacji). Bez limitu: limit API z ostatniej odpowiedzi (Anthropic, OpenAI), saldo konta (OpenRouter, DeepSeek) albo samo zużycie.</p>`;
       renderPlans();
       el.addEventListener('click', (e) => {

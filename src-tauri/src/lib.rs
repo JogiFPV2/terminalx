@@ -7,6 +7,7 @@ mod chats;
 mod mcp;
 mod pty;
 mod remote;
+mod skills;
 mod ssh;
 mod store;
 mod sys;
@@ -179,6 +180,8 @@ pub fn run() {
             store::plugin_inspect,
             store::plugin_install,
             store::plugin_uninstall,
+            store::account_remove,
+            skills::skill_import,
             ai::secret_set,
             plans::plan_usage,
             chats::chat_save,

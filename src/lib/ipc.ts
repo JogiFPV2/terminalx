@@ -12,11 +12,11 @@ export function call<T = unknown>(cmd: string, args?: Record<string, unknown>): 
   return invoke<T>(cmd, args);
 }
 
-export function ptySpawn(shell: string, cwd: string | undefined, cols: number, rows: number, onEvent: (e: PtyEvent) => void): Promise<number> {
+export function ptySpawn(shell: string, cwd: string | undefined, cols: number, rows: number, onEvent: (e: PtyEvent) => void, accounts?: Record<string, string>): Promise<number> {
   if (!isTauri) return mockSpawn(shell, onEvent);
   const ch = new Channel<PtyEvent>();
   ch.onmessage = onEvent;
-  return invoke<number>('pty_spawn', { shell, cwd: cwd || null, cols, rows, onEvent: ch });
+  return invoke<number>('pty_spawn', { shell, cwd: cwd || null, cols, rows, accounts: accounts || null, onEvent: ch });
 }
 
 export function sshSpawn(host: Record<string, unknown>, cols: number, rows: number, onEvent: (e: PtyEvent) => void): Promise<number> {

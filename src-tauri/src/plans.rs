@@ -111,11 +111,15 @@ fn pct(v: &Value) -> Option<f64> {
     v.as_f64().filter(|x| x.is_finite())
 }
 
+/// Dodatkowe konto bez logowania (folder konta jeszcze pusty).
+const NOT_LOGGED: &str = "To konto nie jest jeszcze zalogowane. Kliknij „Zaloguj w zakładce terminala”.";
+
 /* ---------- Claude (Pro / Max, logowanie Claude Code) ---------- */
 
-async fn claude() -> Result<PlanUsage, String> {
-    let dir = std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from).unwrap_or_else(|| home().join(".claude"));
-    let creds = read_json(&dir.join(".credentials.json"), "Brak logowania Claude Code (zaloguj się w Claude Code).")?;
+async fn claude(account: Option<PathBuf>) -> Result<PlanUsage, String> {
+    let missing = if account.is_some() { NOT_LOGGED } else { "Brak logowania Claude Code (zaloguj się w Claude Code)." };
+    let dir = account.or_else(|| std::env::var_os("CLAUDE_CONFIG_DIR").map(PathBuf::from)).unwrap_or_else(|| home().join(".claude"));
+    let creds = read_json(&dir.join(".credentials.json"), missing)?;
     let o = creds.get("claudeAiOauth").ok_or("Claude Code nie jest zalogowany kontem Claude (Pro/Max).")?;
     let token = o.get("accessToken").and_then(Value::as_str).filter(|t| !t.is_empty()).ok_or("Brak tokenu Claude Code.")?;
     if o.get("expiresAt").and_then(Value::as_f64).is_some_and(|e| (e as i64) < now_ms()) {
@@ -149,9 +153,10 @@ fn parse_claude(r: &Value, plan: &str) -> PlanUsage {
 
 /* ---------- Codex (ChatGPT Plus / Pro, logowanie Codex CLI) ---------- */
 
-async fn codex() -> Result<PlanUsage, String> {
-    let dir = std::env::var_os("CODEX_HOME").map(PathBuf::from).unwrap_or_else(|| home().join(".codex"));
-    let auth = read_json(&dir.join("auth.json"), "Brak logowania Codex CLI (codex login).")?;
+async fn codex(account: Option<PathBuf>) -> Result<PlanUsage, String> {
+    let missing = if account.is_some() { NOT_LOGGED } else { "Brak logowania Codex CLI (codex login)." };
+    let dir = account.or_else(|| std::env::var_os("CODEX_HOME").map(PathBuf::from)).unwrap_or_else(|| home().join(".codex"));
+    let auth = read_json(&dir.join("auth.json"), missing)?;
     let t = auth.get("tokens").ok_or("Codex CLI jest zalogowany kluczem API, nie kontem ChatGPT: plan nie ma limitów do pokazania.")?;
     let token = t.get("access_token").or_else(|| t.get("accessToken")).and_then(Value::as_str).ok_or("Brak tokenu Codex CLI.")?;
     let mut req = client()?
@@ -351,7 +356,7 @@ fn parse_cursor(r: &Value) -> PlanUsage {
 /* ---------- z.ai / BigModel (GLM Coding Plan, klucz API z Providerów) ---------- */
 
 async fn zai(key_ref: &str, base_url: &str) -> Result<PlanUsage, String> {
-    let key = crate::ai::secret(key_ref).ok_or_else(|| "z.ai: dodaj klucz API providera z.ai w Ustawienia → Providerzy.".to_string())?;
+    let key = crate::ai::secret(key_ref).ok_or_else(|| "z.ai: dodaj klucz API providera z.ai w Ustawienia → Konta i providerzy.".to_string())?;
     let host = if base_url.contains("bigmodel.cn") { "https://open.bigmodel.cn" } else { "https://api.z.ai" };
     let url = format!("{host}/api/monitor/usage/quota/limit");
     let http = client()?;
@@ -407,15 +412,17 @@ async fn opencode() -> Result<PlanUsage, String> {
     Ok(out)
 }
 
-/// Zużycie planu usługi. `key_ref`/`url` tylko dla z.ai (klucz providera z Ustawień).
+/// Zużycie planu usługi. `key_ref`/`url` tylko dla z.ai (klucz providera z Ustawień),
+/// `account` dla dodatkowego konta Claude Code albo Codex (jego folder logowania w danych aplikacji).
 #[tauri::command]
-pub async fn plan_usage(service: String, key_ref: Option<String>, url: Option<String>) -> Result<PlanUsage, String> {
+pub async fn plan_usage(app: tauri::AppHandle, service: String, key_ref: Option<String>, url: Option<String>, account: Option<String>) -> Result<PlanUsage, String> {
+    let dir = account.filter(|a| !a.is_empty()).map(|a| crate::store::account_dir(&app, &a)).transpose()?;
     match service.as_str() {
-        "claude" => claude().await,
-        "codex" => codex().await,
+        "claude" => claude(dir).await,
+        "codex" => codex(dir).await,
         "gemini" => gemini().await,
         "cursor" => cursor().await,
-        "zai" => zai(key_ref.as_deref().filter(|k| !k.is_empty()).ok_or("z.ai: dodaj providera z.ai z kluczem API w Ustawienia → Providerzy.")?, url.as_deref().unwrap_or("")).await,
+        "zai" => zai(key_ref.as_deref().filter(|k| !k.is_empty()).ok_or("z.ai: dodaj providera z.ai z kluczem API w Ustawienia → Konta i providerzy.")?, url.as_deref().unwrap_or("")).await,
         "opencode" => opencode().await,
         _ => Err("Nieznana usługa".into()),
     }

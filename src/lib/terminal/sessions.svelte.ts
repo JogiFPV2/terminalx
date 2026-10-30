@@ -194,7 +194,7 @@ function spawn(session: Session) {
       term.write(`\x1b[2mŁączenie z ${host.user}@${host.host}:${host.port}…\x1b[0m\r\n`);
       start = sshSpawn(host, term.cols, term.rows, onEvent).then((id) => { sshConnected?.(pane.shell.slice(4)); return id; });
     }
-  } else start = ptySpawn(pane.shell, pane.cwd, term.cols, term.rows, onEvent);
+  } else start = ptySpawn(pane.shell, pane.cwd, term.cols, term.rows, onEvent, pane.accounts);
   session.ready = start.then((id) => { session.ptyId = id; session.started = Date.now(); })
     .catch((err) => {
       if (termStatus[pane.id]) termStatus[pane.id].exited = true;

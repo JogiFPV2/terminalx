@@ -1,14 +1,14 @@
 // Agent workspace'u („szef”) i podagenci zakładek. Pętla narzędzi po stronie aplikacji:
 // agent czyta zakładki, deleguje zadania podagentom, uruchamia komendy po zatwierdzeniu i korzysta z serwerów MCP.
 // Rozmowy trafiają do historii (chats/<id>.json) razem z kontekstem modelu, więc można do nich wrócić.
-import { complete, stripAnsi, type AMsg, type Block, type ToolDef } from './ai';
+import { complete, stripAnsi, type AMsg, type Block, type ToolCall, type ToolDef } from './ai';
 import { app, ui, findTab, curWs, notify, shellName } from './state.svelte';
 import * as sessions from './terminal/sessions.svelte';
 import { nid, sleep, fill } from './util';
 import { call } from './ipc';
 import { userContent } from './attach';
 import { toolsFor, invoke as mcpInvoke, type Bound } from './mcp.svelte';
-import type { AgentProfile, Att, ChatMsg, Snippet, Tab, Workspace } from './types';
+import type { AgentProfile, Att, ChatMsg, Skill, Snippet, Tab, Workspace } from './types';
 
 export const agentState = $state({ busy: {} as Record<string, boolean>, subBusy: {} as Record<string, string> });
 const histories = new Map<string, AMsg[]>();
@@ -103,6 +103,37 @@ async function mcpTools(ws: Workspace, p: AgentProfile) {
   return r;
 }
 
+/* ---------- skille ---------- */
+// Model widzi tylko nazwy i opisy przypiętych skilli; treść i pliki wczytuje narzędziem, gdy ich potrzebuje.
+
+function skillsOf(p: AgentProfile): Skill[] {
+  return (p.skills || []).map((id) => app.skills.find((s) => s.id === id)).filter((s): s is Skill => !!s);
+}
+
+function skillPrompt(list: Skill[]) {
+  if (!list.length) return '';
+  return `\n\nSkille (instrukcje do konkretnych rodzajów zadań). Zanim zaczniesz zadanie, którego dotyczy skill, wczytaj go narzędziem use_skill i postępuj według niego:\n${list.map((s) => `- ${s.name}: ${s.description || '(bez opisu)'}`).join('\n')}`;
+}
+
+function skillDefs(list: Skill[]): ToolDef[] {
+  if (!list.length) return [];
+  const defs: ToolDef[] = [{ name: 'use_skill', description: 'Zwraca pełne instrukcje skilla i listę jego plików pomocniczych.', input_schema: { type: 'object', properties: { name: { type: 'string', enum: list.map((s) => s.name) } }, required: ['name'] } }];
+  if (list.some((s) => s.files)) defs.push({ name: 'read_skill_file', description: 'Treść pliku pomocniczego skilla (ścieżka z listy zwróconej przez use_skill).', input_schema: { type: 'object', properties: { name: { type: 'string' }, path: { type: 'string' } }, required: ['name', 'path'] } });
+  return defs;
+}
+
+/** Wynik narzędzia skilla albo null, gdy to inne narzędzie. */
+function runSkillTool(list: Skill[], c: ToolCall): string | null {
+  if (c.name !== 'use_skill' && c.name !== 'read_skill_file') return null;
+  const s = list.find((x) => x.name === c.input.name);
+  if (!s) return `Nie ma skilla „${c.input.name}”. Dostępne: ${list.map((x) => x.name).join(', ') || 'brak'}.`;
+  if (c.name === 'use_skill') {
+    const files = Object.keys(s.files || {});
+    return s.body + (files.length ? `\n\nPliki skilla (read_skill_file): ${files.join(', ')}` : '');
+  }
+  return s.files?.[String(c.input.path)] ?? `Skill „${s.name}” nie ma pliku ${c.input.path}.`;
+}
+
 function tabsSummary(ws: Workspace) {
   return ws.tabs.map((t) => {
     const sub = t.subagent ? profile(t.subagent, 'sub').name : 'brak';
@@ -139,8 +170,10 @@ async function runSub(ws: Workspace, tab: Tab, content: string | Block[], signal
   tools.push({ name: 'report', description: direct ? 'Kończy pracę i odpowiada użytkownikowi.' : 'Kończy pracę i przekazuje raport agentowi.', input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } });
   const mcp = await mcpTools(ws, p);
   tools.push(...mcp.defs);
+  const skills = skillsOf(p);
+  tools.push(...skillDefs(skills));
 
-  const system = `${p.prompt}\n\nPracujesz w zakładce „${tab.title}” (${shellName(tab.panes[0]?.shell || '')}, system Windows). ${direct ? 'Użytkownik pisze do ciebie bezpośrednio; odpowiadaj jemu.' : 'Zadanie zleca ci agent workspace\'u.'} Gdy skończysz, wywołaj narzędzie report.`;
+  const system = `${p.prompt}${skillPrompt(skills)}\n\nPracujesz w zakładce „${tab.title}” (${shellName(tab.panes[0]?.shell || '')}, system Windows). ${direct ? 'Użytkownik pisze do ciebie bezpośrednio; odpowiadaj jemu.' : 'Zadanie zleca ci agent workspace\'u.'} Gdy skończysz, wywołaj narzędzie report.`;
   messages.push({ role: 'user', content });
   agentState.subBusy[tab.id] = 'pracuje';
   try {
@@ -157,6 +190,7 @@ async function runSub(ws: Workspace, tab: Tab, content: string | Block[], signal
         else if (c.name === 'read_buffer') out = sessions.tail(tab.panes[0]?.id, Math.min(400, c.input.lines || 60)).join('\n');
         else if (c.name === 'run_command') { agentState.subBusy[tab.id] = 'uruchamia'; out = await runInTab(ws, p, tab, String(c.input.command || ''), who, signal); agentState.subBusy[tab.id] = 'pracuje'; }
         else if (c.name === 'wait_for_output') out = await waitFor(tab, Math.min(120, c.input.seconds || 5), c.input.pattern, signal);
+        else if (runSkillTool(skills, c) !== null) out = runSkillTool(skills, c)!;
         else if (mcp.bound.has(c.name)) { agentState.subBusy[tab.id] = 'MCP'; out = await runMcp(ws, p, who, mcp.bound.get(c.name)!, c.input, signal).catch((e) => `Błąd: ${e}`); agentState.subBusy[tab.id] = 'pracuje'; }
         else out = `Nieznane narzędzie ${c.name}`;
         results.push({ type: 'tool_result', tool_use_id: c.id, content: out || '(pusto)' });
@@ -260,8 +294,10 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
   try {
     const mcp = await mcpTools(ws, p);
     tools.push(...mcp.defs);
+    const skills = skillsOf(p);
+    tools.push(...skillDefs(skills));
     for (let step = 0; step < 16 && !signal.aborted; step++) {
-      const system = `${p.prompt}\n\nSystem: Windows. Workspace „${ws.name}”. Zakładki:\n${tabsSummary(ws)}\n\nUżywaj identyfikatorów zakładek z listy. Pracę w konkretnym terminalu deleguj podagentom, gdy zakładka ma podagenta albo zadanie wymaga kilku kroków.${mcp.defs.length ? ' Narzędzia z prefiksem serwera (np. github__…) pochodzą z serwerów MCP.' : ''}`;
+      const system = `${p.prompt}${skillPrompt(skills)}\n\nSystem: Windows. Workspace „${ws.name}”. Zakładki:\n${tabsSummary(ws)}\n\nUżywaj identyfikatorów zakładek z listy. Pracę w konkretnym terminalu deleguj podagentom, gdy zakładka ma podagenta albo zadanie wymaga kilku kroków.${mcp.defs.length ? ' Narzędzia z prefiksem serwera (np. github__…) pochodzą z serwerów MCP.' : ''}`;
       const r = await complete({ providerId: ws.chatModel?.provider || p.provider, model: ws.chatModel?.model || p.model, system, messages: history, tools, maxTokens: 16000, signal });
       history.push({ role: 'assistant', content: r.content });
       if (r.text) post(ws, { role: 'agent', who: p.name, text: r.text });
@@ -270,7 +306,9 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
         let out: string | Block[] = '';
         try {
           const t = c.input.tab_id ? findTab(String(c.input.tab_id))?.tab : undefined;
-          if (mcp.bound.has(c.name)) out = await runMcp(ws, p, p.name, mcp.bound.get(c.name)!, c.input, signal);
+          const sk = runSkillTool(skills, c);
+          if (sk !== null) out = sk;
+          else if (mcp.bound.has(c.name)) out = await runMcp(ws, p, p.name, mcp.bound.get(c.name)!, c.input, signal);
           else if (c.name === 'list_tabs') out = tabsSummary(ws);
           else if (c.name === 'list_node_types') out = (await import('./workflow/builder')).nodeCatalog();
           else if (c.name === 'build_workflow') {

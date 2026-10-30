@@ -14,7 +14,7 @@
     "To nie jest zakładka workflow.": "This is not a workflow tab.",
     "Uzupełnij snippet": "Fill in the snippet",
     "Zatrzymano agenta.": "Agent stopped.",
-    "Brak skonfigurowanych providerów. Dodaj providera w Ustawienia → Providerzy.": "No providers configured. Add one in Settings → Providers.",
+    "Brak skonfigurowanych providerów. Dodaj providera w Ustawienia → Konta i providerzy.": "No providers configured. Add one in Settings → Accounts & providers.",
     "Klucz API": "API key",
     "Konfiguracja agentów": "Agent settings",
     "Np. „Sprawdź, czemu testy w zakładce api nie przechodzą”.": "E.g. “Check why the tests in the api tab are failing”.",
@@ -633,7 +633,7 @@
     "Uruchom workflow (z Shift: wszystko od nowa)": "Run workflow (with Shift: everything from scratch)",
     "Ustawienia noda": "Node settings",
     "Ustawienia → Lokalne AI": "Settings → Local AI",
-    "Ustawienia → Providerzy": "Settings → Providers",
+    "Ustawienia → Konta i providerzy": "Settings → Accounts & providers",
     "Usuń node (Delete)": "Delete node (Delete)",
     "Usuń połączenie": "Remove connection",
     "Utwórz własny node": "Create a custom node",
@@ -683,7 +683,7 @@
     "Workflow ma cykl; nody w pętli zostały pominięte.": "The workflow has a cycle; nodes in the loop were skipped.",
     "Workflow zakończony": "Workflow finished",
     "Brak ffmpeg. Zainstaluj go (winget install Gyan.FFmpeg) i uruchom aplikację ponownie.": "ffmpeg not found. Install it (winget install Gyan.FFmpeg) and restart the app.",
-    "Brak providera grafiki i wideo. Dodaj fal.ai, Replicate, OpenAI albo Google w Ustawienia → Providerzy albo modele lokalne w Ustawienia → Lokalne AI.": "No image and video provider. Add fal.ai, Replicate, OpenAI or Google in Settings → Providers, or local models in Settings → Local AI.",
+    "Brak providera grafiki i wideo. Dodaj fal.ai, Replicate, OpenAI albo Google w Ustawienia → Konta i providerzy albo modele lokalne w Ustawienia → Lokalne AI.": "No image and video provider. Add fal.ai, Replicate, OpenAI or Google in Settings → Accounts & providers, or local models in Settings → Local AI.",
     "Google nie obsługuje tej operacji. Wybierz fal.ai albo Replicate.": "Google doesn't support this operation. Choose fal.ai or Replicate.",
     "OpenAI nie obsługuje tej operacji. Wybierz fal.ai albo Replicate.": "OpenAI doesn't support this operation. Choose fal.ai or Replicate.",
     "Provider nie zwrócił żadnego pliku": "The provider returned no files",
@@ -818,7 +818,68 @@
     "Podaj komendę, np. npx.": "Enter a command, e.g. npx.",
     "Adres musi zaczynać się od http:// albo https://": "The URL must start with http:// or https://",
     "Nie znalazłem serwerów w tym JSON-ie.": "No servers found in this JSON.",
-    "Serwery MCP dają agentom i podagentom dodatkowe narzędzia: GitHub, bazy danych, przeglądarka, pliki, dokumentacja. Serwer lokalny startuje przy pierwszym użyciu i kończy się z aplikacją. W trybie „Pytaj przed komendą” każde narzędzie, które coś zmienia, czeka na Twoją zgodę. Profil „Tylko odczyt” dostaje tylko narzędzia oznaczone przez serwer jako bezpieczne. Które serwery widzi dany profil, ustawisz w Ustawienia → Agenci.": "MCP servers give agents and subagents extra tools: GitHub, databases, a browser, files, documentation. A local server starts on first use and stops with the app. In \"Ask before commands\" mode every tool that changes something waits for your approval. A read-only profile only gets tools the server marks as safe. Choose which servers each profile sees in Settings → Agents."
+    "Serwery MCP dają agentom i podagentom dodatkowe narzędzia: GitHub, bazy danych, przeglądarka, pliki, dokumentacja. Serwer lokalny startuje przy pierwszym użyciu i kończy się z aplikacją. W trybie „Pytaj przed komendą” każde narzędzie, które coś zmienia, czeka na Twoją zgodę. Profil „Tylko odczyt” dostaje tylko narzędzia oznaczone przez serwer jako bezpieczne. Które serwery widzi dany profil, ustawisz w Ustawienia → Agenci.": "MCP servers give agents and subagents extra tools: GitHub, databases, a browser, files, documentation. A local server starts on first use and stops with the app. In \"Ask before commands\" mode every tool that changes something waits for your approval. A read-only profile only gets tools the server marks as safe. Choose which servers each profile sees in Settings → Agents.",
+    "Claude Code na tym komputerze": "Claude Code on this computer",
+    "Codex CLI na tym komputerze": "Codex CLI on this computer",
+    "Gemini CLI (konto Google)": "Gemini CLI (Google account)",
+    "aplikacja Cursor (jedno konto na komputer)": "Cursor app (one account per computer)",
+    "logowanie OpenCode": "OpenCode login",
+    "usunięte konto": "deleted account",
+    "domyślne": "default",
+    "osobne konto w Hermitty": "separate account in Hermitty",
+    ", gdzie logujesz się na to konto. Logowanie zostaje w folderze konta w danych Hermitty.": ", where you sign in to this account. The login stays in the account's folder in Hermitty's data.",
+    "Dodaj i zaloguj": "Add and sign in",
+    "Dodaj konto Claude Code albo Codex": "Add a Claude Code or Codex account",
+    "Konta subskrypcji": "Subscription accounts",
+    "Limity planów (Claude Pro/Max, ChatGPT, Google, Cursor) z logowania narzędzi na tym komputerze. Claude Code i Codex mogą mieć kilka kont, np. prywatne i firmowe: każde ma własne logowanie, a zakładkę terminala przypinasz do konta w jej menu (prawy przycisk → Konto). Konta nie przełączają się same, bo regulaminy usług nie pozwalają omijać limitów planu kilkoma kontami.": "Plan limits (Claude Pro/Max, ChatGPT, Google, Cursor) from the tools' logins on this computer. Claude Code and Codex can have several accounts, e.g. personal and work: each has its own login, and you pin a terminal tab to an account from its menu (right-click → Account). Accounts never switch on their own, because the services' terms don't allow getting around plan limits with several accounts.",
+    "Narzędzie": "Tool",
+    "Nowe konto": "New account",
+    "Odśwież limity": "Refresh limits",
+    "Po dodaniu otworzy się zakładka z": "After adding, a tab opens with",
+    "Usuń konto": "Remove account",
+    "Zaloguj w zakładce terminala": "Sign in in a terminal tab",
+    "np. Firma": "e.g. Work",
+    "Agent to szef workspace'u: planuje, deleguje pracę podagentom i sprawdza wyniki.": "The agent is the workspace's boss: it plans, delegates work to subagents and checks the results.",
+    "Brak skilli. Dodasz je w Ustawienia → Skille.": "No skills yet. Add them in Settings → Skills.",
+    "Który agent prowadzi workspace i jaki podagent dostają jego nowe zakładki.": "Which agent runs each workspace and which subagent its new tabs get.",
+    "Model, uprawnienia, narzędzia, serwery MCP i skille ustawiasz w profilu.": "Model, permissions, tools, MCP servers and skills are set in the profile.",
+    "Podagent pracuje w jednej zakładce terminala: czyta jej wyjście, uruchamia komendy i raportuje agentowi.": "A subagent works in one terminal tab: it reads its output, runs commands and reports to the agent.",
+    "Skille": "Skills",
+    "Brak zastępstw. Dodaj np. OpenRouter albo lokalną Ollamę, żeby praca nie stawała przy limicie.": "No fallbacks. Add e.g. OpenRouter or a local Ollama so work doesn't stop at a limit.",
+    "Dodaj zastępstwo": "Add fallback",
+    "Gdy provider odpowie limitem zapytań (429), brakiem środków (402) albo przeciążeniem (503, 529), agent, snippet albo nod workflow ponawia zapytanie u kolejnego providera z listy, w tej kolejności. Inne błędy, np. zły klucz, przerywają od razu. Dotyczy kluczy API; konta subskrypcji nie przełączają się same.": "When a provider answers with a rate limit (429), no funds (402) or overload (503, 529), the agent, snippet or workflow node retries with the next provider on the list, in order. Other errors, such as a wrong key, stop right away. This applies to API keys; subscription accounts never switch on their own.",
+    "Niżej": "Down",
+    "Wyżej": "Up",
+    "Włączone": "Enabled",
+    "Zastępstwa": "Fallbacks",
+    "Wybór agenta, snippeta albo noda": "The agent's, snippet's or node's choice",
+    "najpierw zawsze model ustawiony w danym miejscu (domyślnie": "always the model set there first (default",
+    "AI · połączenia": "AI · connections",
+    "AI · zachowanie": "AI · behavior",
+    "Konta i providerzy": "Accounts & providers",
+    "Nody workflow": "Workflow nodes",
+    "Rozszerzenia": "Extensions",
+    "Archiwum .zip albo plik SKILL.md": "A .zip archive or a SKILL.md file",
+    "Brak skilli. Utwórz pierwszy przyciskiem + albo zaimportuj folder ze SKILL.md.": "No skills. Create one with + or import a folder with a SKILL.md.",
+    "Edytuj skill": "Edit skill",
+    "Folder ze SKILL.md": "Folder with a SKILL.md",
+    "Import działa w aplikacji.": "Import works in the app.",
+    "Importuj folder": "Import folder",
+    "Importuj plik": "Import file",
+    "Instrukcje": "Instructions",
+    "Kiedy go użyć": "When to use it",
+    "Kroki, komendy, na co uważać…": "Steps, commands, what to watch out for…",
+    "Nieprzypięty do żadnego profilu": "Not pinned to any profile",
+    "nieużywany": "unused",
+    "Nowy skill": "New skill",
+    "Pliki pomocnicze (agent czyta je na żądanie)": "Supporting files (the agent reads them on demand)",
+    "Skill potrzebuje nazwy i instrukcji.": "A skill needs a name and instructions.",
+    "Skill to instrukcja na konkretny rodzaj zadania, np. „wdrożenie na staging” albo „przegląd migracji SQL”, z opcjonalnymi plikami pomocniczymi. Format jak": "A skill is an instruction for a specific kind of task, e.g. “deploy to staging” or “review SQL migrations”, with optional supporting files. Same format as",
+    "w Claude: nagłówek z nazwą i opisem, dalej instrukcje. Przypinasz go agentom i podagentom w ich profilu. Agent widzi nazwy i opisy, a pełną treść wczytuje dopiero wtedy, gdy zadanie jej wymaga, więc wiele skilli nie zapycha mu kontekstu.": "in Claude: a header with a name and description, then instructions. You pin it to agents and subagents in their profile. The agent sees names and descriptions and loads the full text only when a task needs it, so many skills don't clutter its context.",
+    "np. wdrożenie aplikacji na serwer testowy": "e.g. deploying the app to the test server",
+    "Domyślne": "Default",
+    "To konto nie jest jeszcze zalogowane. Kliknij „Zaloguj w zakładce terminala”.": "This account isn’t signed in yet. Click “Sign in in a terminal tab”.",
+    "Providerzy API": "API providers"
   },
   "patterns": [
     [
@@ -1058,10 +1119,6 @@
       "Couldn't check for updates: {0}"
     ],
     [
-      "{0} plików",
-      "{0} files"
-    ],
-    [
       "{0} uruchomień",
       "{0} runs"
     ],
@@ -1244,6 +1301,66 @@
     [
       "Dodano serwery MCP: {0}",
       "Added MCP servers: {0}"
+    ],
+    [
+      "{0}: konto „{1}” zadziała po ponownym uruchomieniu powłoki (menu zakładki).",
+      "{0}: account “{1}” takes effect after restarting the shell (tab menu)."
+    ],
+    [
+      "Logowanie · {0} · {1}",
+      "Sign-in · {0} · {1}"
+    ],
+    [
+      "{0} · {1}: limit albo brak środków. Odpowiada zastępstwo {2} · {3}.",
+      "{0} · {1}: limit reached or no funds. Fallback {2} · {3} is answering."
+    ],
+    [
+      "Usunąć konto „{0}”?",
+      "Remove account “{0}”?"
+    ],
+    [
+      "Zniknie też logowanie {0} zapisane dla tego konta. Zakładki, które go używały, wrócą do konta domyślnego.",
+      "The {0} login saved for this account will be removed too. Tabs that used it go back to the default account."
+    ],
+    [
+      "{0}: zużyto {1}%, reset za {2}",
+      "{0}: {1}% used, resets in {2}"
+    ],
+    [
+      "{0}: zużyto {1}%",
+      "{0}: {1}% used"
+    ],
+    [
+      "Usunąć skill „{0}”?",
+      "Remove skill “{0}”?"
+    ],
+    [
+      "Używają go: {0}. Zniknie z tych profili.",
+      "Used by: {0}. It will be removed from these profiles."
+    ],
+    [
+      "Dodano skill „{0}”.",
+      "Added skill “{0}”."
+    ],
+    [
+      "Zaktualizowano skill „{0}”.",
+      "Updated skill “{0}”."
+    ],
+    [
+      "Dodano skill „{0}” (plików: {1}).",
+      "Added skill “{0}” ({1} files)."
+    ],
+    [
+      "Zaktualizowano skill „{0}” (plików: {1}).",
+      "Updated skill “{0}” ({1} files)."
+    ],
+    [
+      "Konto {0}",
+      "{0} account"
+    ],
+    [
+      "pliki: {0}",
+      "files: {0}"
     ]
   ]
 }

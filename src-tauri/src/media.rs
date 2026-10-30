@@ -55,7 +55,7 @@ fn auth(req: reqwest::RequestBuilder, p: &MediaProvider) -> Result<reqwest::Requ
     };
     // Lokalny ComfyUI zwykle działa bez klucza; gdy jest za serwerem z hasłem, klucz idzie jako Bearer.
     let Some(key) = key else {
-        return if p.kind == "comfy" { Ok(req) } else { Err("Brak klucza API dla providera mediów. Dodaj go w Ustawienia → Providerzy.".into()) };
+        return if p.kind == "comfy" { Ok(req) } else { Err("Brak klucza API dla providera mediów. Dodaj go w Ustawienia → Konta i providerzy.".into()) };
     };
     Ok(match p.kind.as_str() {
         "fal" => req.header("authorization", format!("Key {key}")),

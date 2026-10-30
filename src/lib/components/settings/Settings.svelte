@@ -14,13 +14,17 @@
   import Remote from './Remote.svelte';
   import Local from './Local.svelte';
   import Mcp from './Mcp.svelte';
+  import Accounts from './Accounts.svelte';
+  import Fallback from './Fallback.svelte';
+  import Skills from './Skills.svelte';
 
-  const PAGES: ([string, string, string] | null)[] = [
-    ['general', 'Ogólne', 'sliders'], ['appearance', 'Wygląd', 'palette'], ['terminal', 'Terminal', 'terminal'], ['shortcuts', 'Skróty', 'kbd'],
-    null,
-    ['agents', 'Agenci', 'bot'], ['providers', 'Providerzy', 'key'], ['mcp', 'Serwery MCP', 'server'], ['local', 'Lokalne AI', 'chip'], ['prompts', 'Prompty', 'book'], ['nodes', 'Nody', 'nodes'], ['snippets', 'Snippety', 'snip'], ['plugins', 'Pluginy', 'plug'],
-    null,
-    ['remote', 'Zdalny dostęp', 'phone'],
+  // Grupy: aplikacja, skąd AI bierze modele (konta, klucze, zastępstwa, lokalne, MCP),
+  // jak AI pracuje (agenci, prompty, skille, snippety) i rozszerzenia.
+  const GROUPS: [string, [string, string, string][]][] = [
+    ['Aplikacja', [['general', 'Ogólne', 'sliders'], ['appearance', 'Wygląd', 'palette'], ['terminal', 'Terminal', 'terminal'], ['shortcuts', 'Skróty', 'kbd'], ['remote', 'Zdalny dostęp', 'phone']]],
+    ['AI · połączenia', [['providers', 'Konta i providerzy', 'key'], ['fallback', 'Zastępstwa', 'loop'], ['local', 'Lokalne AI', 'chip'], ['mcp', 'Serwery MCP', 'server']]],
+    ['AI · zachowanie', [['agents', 'Agenci', 'bot'], ['prompts', 'Prompty', 'notebook'], ['skills', 'Skille', 'book'], ['snippets', 'Snippety', 'snip']]],
+    ['Rozszerzenia', [['nodes', 'Nody workflow', 'nodes'], ['plugins', 'Pluginy', 'plug']]],
   ];
   const close = () => (ui.settingsOpen = false);
 </script>
@@ -30,10 +34,11 @@
 <div class="overlay" role="presentation" onpointerdown={(e) => e.target === e.currentTarget && close()}>
   <div class="modal" role="dialog" aria-label="Ustawienia">
     <nav>
-      {#each PAGES as p}
-        {#if p}
+      {#each GROUPS as [title, pages]}
+        <span class="grp">{title}</span>
+        {#each pages as p}
           <button class:on={ui.settingsPage === p[0]} onclick={() => (ui.settingsPage = p[0])}><Icon name={p[2]} size={14} />{p[1]}</button>
-        {:else}<hr />{/if}
+        {/each}
       {/each}
     </nav>
     <!-- Poza przewijaną sekcją, żeby „zamknij” było widoczne zawsze. -->
@@ -44,7 +49,9 @@
       {:else if ui.settingsPage === 'terminal'}<TerminalPage />
       {:else if ui.settingsPage === 'shortcuts'}<Shortcuts />
       {:else if ui.settingsPage === 'agents'}<Agents />
-      {:else if ui.settingsPage === 'providers'}<Providers />
+      {:else if ui.settingsPage === 'providers'}<Accounts /><hr class="sep" /><Providers />
+      {:else if ui.settingsPage === 'fallback'}<Fallback />
+      {:else if ui.settingsPage === 'skills'}<Skills />
       {:else if ui.settingsPage === 'mcp'}<Mcp />
       {:else if ui.settingsPage === 'prompts'}<Prompts />
       {:else if ui.settingsPage === 'nodes'}<Nodes />
@@ -57,12 +64,14 @@
 </div>
 
 <style>
-  .modal { position: relative; width: min(940px, 100%); height: min(680px, 100%); background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: grid; grid-template-columns: 184px 1fr; overflow: hidden; box-shadow: 0 30px 80px -30px rgb(0 0 0 / .6); }
+  .modal { position: relative; width: min(960px, 100%); height: min(680px, 100%); background: var(--card); border: 1px solid var(--border); border-radius: 12px; display: grid; grid-template-columns: 196px 1fr; overflow: hidden; box-shadow: 0 30px 80px -30px rgb(0 0 0 / .6); }
   nav { border-right: 1px solid var(--border); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; background: var(--sidebar); overflow: auto; }
   nav button { display: flex; align-items: center; gap: 9px; text-align: left; padding: 6px 10px; border-radius: 6px; color: var(--muted-foreground); white-space: nowrap; }
   nav button:hover { color: var(--foreground); }
   nav button.on { background: var(--accent); color: var(--foreground); }
-  nav hr { border: 0; border-top: 1px solid var(--border); margin: 6px 4px; }
+  .grp { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); padding: 12px 10px 4px; opacity: .8; }
+  .grp:first-child { padding-top: 2px; }
+  .sep { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
   section { position: relative; padding: 18px 20px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow: auto; }
   .closer { position: absolute; right: 12px; top: 12px; z-index: 5; background: var(--card); }
   .closer:hover { background: var(--muted); }

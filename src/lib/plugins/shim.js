@@ -183,7 +183,8 @@
       complete: (o) => rpc('ai.complete', o),
       usage: () => rpc('ai.usage', {}),
       balance: (id) => rpc('ai.balance', { id }),
-      plan: (service) => rpc('ai.plan', { service }),
+      plan: (service, account) => rpc('ai.plan', { service, account: account || null }),
+      accounts: () => rpc('ai.accounts', {}),
       onUsage: (cb) => on('usage', cb),
     },
     keys: {

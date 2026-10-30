@@ -29,6 +29,24 @@ pub fn data_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
+/// Folder dodatkowego konta narzędzia (Claude Code, Codex): tu narzędzie trzyma swoje logowanie,
+/// gdy zakładka dostaje `CLAUDE_CONFIG_DIR` / `CODEX_HOME`. Id tylko z małych liter, cyfr, `-` i `_`.
+pub fn account_dir(app: &AppHandle, id: &str) -> Result<PathBuf, String> {
+    if id.is_empty() || id.len() > 40 || !id.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_') {
+        return Err("Niepoprawny identyfikator konta".into());
+    }
+    let dir = data_dir(app)?.join("accounts").join(id);
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+/// Usuwa folder konta razem z logowaniem narzędzia.
+#[tauri::command(async)]
+pub fn account_remove(app: AppHandle, id: String) -> Result<(), String> {
+    let dir = account_dir(&app, &id)?;
+    fs::remove_dir_all(dir).map_err(|e| e.to_string())
+}
+
 /// Identyfikator aplikacji sprzed zmiany nazwy (nazwa jej folderu danych).
 const LEGACY_ID: &str = "dev.terminalx.app";
 

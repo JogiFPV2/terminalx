@@ -314,7 +314,7 @@
             {/if}</div>
         </div>
         {#if prov?.type === 'comfy' && /127\.0\.0\.1|localhost/.test(prov.url) && (!local.inst || (presetById(c.model) && !installed(presetById(c.model)!)))}<p class="hint warn">Model lokalny trzeba najpierw pobrać: <button class="lnk" onclick={() => { ui.settingsPage = 'local'; ui.settingsOpen = true; }}>Ustawienia → Lokalne AI</button>.</p>{/if}
-        {#if !mp.length}<p class="hint warn">Dodaj providera grafiki i wideo (fal.ai, Replicate, OpenAI, Google) w <button class="lnk" onclick={() => { ui.settingsPage = 'providers'; ui.settingsOpen = true; }}>Ustawienia → Providerzy</button>.</p>{/if}
+        {#if !mp.length}<p class="hint warn">Dodaj providera grafiki i wideo (fal.ai, Replicate, OpenAI, Google) w <button class="lnk" onclick={() => { ui.settingsPage = 'providers'; ui.settingsOpen = true; }}>Ustawienia → Konta i providerzy</button>.</p>{/if}
         {#if op !== 'upscale' && op !== 'rmbg'}
           <div class="field"><span class="flabel">Proporcje</span><div class="seg asp">
             {#each ASPECTS as a}<button class:on={c.aspect === a} title={a} onclick={() => (c.aspect = a)}><i style:aspect-ratio={a.replace(':', ' / ')}></i></button>{/each}

@@ -13,7 +13,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 use std::time::Duration;
 use tauri::ipc::{Channel, InvokeResponseBody};
-use tauri::State;
+use tauri::{AppHandle, State};
 
 /// Zaległość (wysłane, a niepotwierdzone bajty), po której czytanie z PTY czeka.
 const HIGH: usize = 2 * 1024 * 1024;
@@ -199,19 +199,31 @@ fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
 
 #[tauri::command(async)]
 pub fn pty_spawn(
+    app: AppHandle,
     state: State<'_, Arc<Ptys>>,
     shell: String,
     cwd: Option<String>,
     cols: u16,
     rows: u16,
+    accounts: Option<HashMap<String, String>>,
     on_event: Channel<InvokeResponseBody>,
 ) -> Result<u32, String> {
+    let mut command = build_command(&shell, cwd.as_deref());
+    // Konto narzędzia wybrane dla zakładki: jego folder logowania w zmiennej, którą czyta narzędzie.
+    for (service, id) in accounts.unwrap_or_default() {
+        let var = match service.as_str() {
+            "claude" => "CLAUDE_CONFIG_DIR",
+            "codex" => "CODEX_HOME",
+            _ => continue,
+        };
+        command.env(var, crate::store::account_dir(&app, &id)?);
+    }
     let pair = native_pty_system()
         .openpty(PtySize { rows: rows.max(2), cols: cols.max(10), pixel_width: 0, pixel_height: 0 })
         .map_err(|e| format!("Nie udało się otworzyć PTY: {e}"))?;
     let child = pair
         .slave
-        .spawn_command(build_command(&shell, cwd.as_deref()))
+        .spawn_command(command)
         .map_err(|e| format!("Nie udało się uruchomić „{shell}”: {e}"))?;
     drop(pair.slave);
 

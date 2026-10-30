@@ -1,7 +1,8 @@
 export type ThemeMode = 'system' | 'light' | 'dark';
 export type PermMode = 'read' | 'ask' | 'auto';
 
-export interface Pane { id: string; shell: string; cwd?: string }
+/** `accounts`: konto narzędzia dla tej powłoki (usługa → id konta z `app.accounts`), np. inne logowanie Claude Code. */
+export interface Pane { id: string; shell: string; cwd?: string; accounts?: Record<string, string> }
 
 export interface WinGeom { x: number; y: number; w: number; h: number; max: boolean }
 
@@ -106,7 +107,20 @@ export interface AgentProfile {
   parallel?: number;
   /** Serwery MCP dostępne dla profilu; brak = wszystkie włączone. */
   mcp?: string[] | null;
+  /** Skille przypięte do profilu (id z `app.skills`). */
+  skills?: string[];
 }
+
+/** Usługi z kontami w narzędziu (logowanie trzyma samo narzędzie w folderze konta). */
+export type AccountService = 'claude' | 'codex';
+/** Dodatkowe konto Claude Code albo Codex. Konto domyślne (zwykłe logowanie narzędzia) nie ma wpisu. */
+export interface ToolAccount { id: string; service: AccountService; name: string }
+
+/** Łańcuch zastępstw: gdy provider odpowie limitem albo brakiem środków, zapytanie idzie do następnego. */
+export interface FallbackCfg { enabled: boolean; chain: { provider: string; model: string }[] }
+
+/** Skill: instrukcje (jak SKILL.md) i pliki pomocnicze, które agent wczytuje, gdy zadanie ich wymaga. */
+export interface Skill { id: string; name: string; description: string; body: string; files?: Record<string, string> }
 
 /** Serwer MCP: lokalny proces (stdio) albo adres HTTP. Token leży w Menedżerze poświadczeń pod `keyRef`. */
 export interface McpServer {
@@ -238,6 +252,9 @@ export interface AppState {
   remote: RemoteCfg;
   local: LocalCfg;
   monitor: MonitorCfg;
+  accounts: ToolAccount[];
+  fallback: FallbackCfg;
+  skills: Skill[];
 }
 
 /** Monitoring: kolumny, odświeżanie (s) i hosty SSH dołączone do tabeli. */

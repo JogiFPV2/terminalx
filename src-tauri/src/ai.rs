@@ -165,7 +165,7 @@ pub async fn ai_request(
 
     match provider.kind.as_str() {
         "anthropic" => {
-            let key = key.ok_or("Brak klucza API dla Anthropic. Dodaj go w Ustawienia → Providerzy.")?;
+            let key = key.ok_or("Brak klucza API dla Anthropic. Dodaj go w Ustawienia → Konta i providerzy.")?;
             req = req.header("x-api-key", key).header("anthropic-version", "2023-06-01");
         }
         "ollama" => {
@@ -174,7 +174,7 @@ pub async fn ai_request(
             }
         }
         _ => {
-            let key = key.ok_or("Brak klucza API dla tego providera. Dodaj go w Ustawienia → Providerzy.")?;
+            let key = key.ok_or("Brak klucza API dla tego providera. Dodaj go w Ustawienia → Konta i providerzy.")?;
             req = req.header("authorization", format!("Bearer {key}"));
         }
     }

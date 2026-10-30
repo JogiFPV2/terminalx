@@ -60,7 +60,7 @@
   const allModels = $derived(app.providers.filter(isChat).flatMap((p) => p.models.map((m) => ({ p, m }))));
 </script>
 
-<div class="pagehead"><h2>Providerzy AI</h2><div><button class="icobtn" title="Dodaj providera" onclick={create}><Icon name="plus" /></button></div></div>
+<div class="pagehead"><h2>Providerzy API</h2><div><button class="icobtn" title="Dodaj providera" onclick={create}><Icon name="plus" /></button></div></div>
 <p class="hint">Klucze API trafiają do Menedżera poświadczeń Windows, nie do plików. Agenci, snippety, workflow i pluginy z uprawnieniem <code>ai:invoke</code> korzystają z providerów, ale nigdy nie dostają samych kluczy.</p>
 
 <div class="field" style="max-width:440px">

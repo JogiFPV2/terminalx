@@ -24,7 +24,7 @@ const ready = (p: Provider) => p.hasKey || (p.type === 'comfy' && (!!app.local.c
 export function pickProvider(cfg: MediaCfg, op: MediaOp): Provider {
   const list = mediaProviders();
   const p = (cfg.provider && list.find((x) => x.id === cfg.provider)) || list.find((x) => ready(x) && modelHints(x, op).length) || list.find((x) => modelHints(x, op).length);
-  if (!p) throw new Error('Brak providera grafiki i wideo. Dodaj fal.ai, Replicate, OpenAI albo Google w Ustawienia → Providerzy albo modele lokalne w Ustawienia → Lokalne AI.');
+  if (!p) throw new Error('Brak providera grafiki i wideo. Dodaj fal.ai, Replicate, OpenAI albo Google w Ustawienia → Konta i providerzy albo modele lokalne w Ustawienia → Lokalne AI.');
   return p;
 }
 
