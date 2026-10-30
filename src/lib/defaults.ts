@@ -196,5 +196,6 @@ export function initialState(defaultShell: string): AppState {
     accounts: [],
     fallback: { enabled: false, chain: [] },
     skills: [],
+    voice: { sttProvider: '', sttModel: '', lang: 'auto', autoSend: false, keepAudio: true, speak: 'off', engine: 'system', sysVoice: '', rate: 1, ttsProvider: '', ttsModel: 'gpt-4o-mini-tts', ttsVoice: 'coral', ttsStyle: '' },
   };
 }

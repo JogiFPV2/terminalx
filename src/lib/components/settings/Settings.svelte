@@ -17,13 +17,14 @@
   import Accounts from './Accounts.svelte';
   import Fallback from './Fallback.svelte';
   import Skills from './Skills.svelte';
+  import Voice from './Voice.svelte';
 
   // Grupy: aplikacja, skąd AI bierze modele (konta, klucze, zastępstwa, lokalne, MCP),
   // jak AI pracuje (agenci, prompty, skille, snippety) i rozszerzenia.
   const GROUPS: [string, [string, string, string][]][] = [
     ['Aplikacja', [['general', 'Ogólne', 'sliders'], ['appearance', 'Wygląd', 'palette'], ['terminal', 'Terminal', 'terminal'], ['shortcuts', 'Skróty', 'kbd'], ['remote', 'Zdalny dostęp', 'phone']]],
     ['AI · połączenia', [['providers', 'Konta i providerzy', 'key'], ['fallback', 'Zastępstwa', 'loop'], ['local', 'Lokalne AI', 'chip'], ['mcp', 'Serwery MCP', 'server']]],
-    ['AI · zachowanie', [['agents', 'Agenci', 'bot'], ['prompts', 'Prompty', 'notebook'], ['skills', 'Skille', 'book'], ['snippets', 'Snippety', 'snip']]],
+    ['AI · zachowanie', [['agents', 'Agenci', 'bot'], ['prompts', 'Prompty', 'notebook'], ['skills', 'Skille', 'book'], ['snippets', 'Snippety', 'snip'], ['voice', 'Głos', 'mic']]],
     ['Rozszerzenia', [['nodes', 'Nody workflow', 'nodes'], ['plugins', 'Pluginy', 'plug']]],
   ];
   const close = () => (ui.settingsOpen = false);
@@ -52,6 +53,7 @@
       {:else if ui.settingsPage === 'providers'}<Accounts /><hr class="sep" /><Providers />
       {:else if ui.settingsPage === 'fallback'}<Fallback />
       {:else if ui.settingsPage === 'skills'}<Skills />
+      {:else if ui.settingsPage === 'voice'}<Voice />
       {:else if ui.settingsPage === 'mcp'}<Mcp />
       {:else if ui.settingsPage === 'prompts'}<Prompts />
       {:else if ui.settingsPage === 'nodes'}<Nodes />

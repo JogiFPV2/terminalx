@@ -46,7 +46,7 @@ export interface Tab {
 
 /** Załącznik wiadomości zapisany w `attachments/<rozmowa>/` (wideo jako klatki, plik binarny tylko ze ścieżką). */
 export interface Att {
-  kind: 'image' | 'video' | 'pdf' | 'text' | 'file';
+  kind: 'image' | 'video' | 'pdf' | 'text' | 'file' | 'audio';
   name: string;
   path: string;
   size: number;
@@ -255,6 +255,31 @@ export interface AppState {
   accounts: ToolAccount[];
   fallback: FallbackCfg;
   skills: Skill[];
+  voice: VoiceCfg;
+}
+
+/** Głos: dyktowanie (nagranie zamieniane na tekst u providera) i czytanie odpowiedzi agentów. */
+export interface VoiceCfg {
+  /** Provider zgodny z OpenAI do zamiany mowy na tekst ('' = pierwszy pasujący z kluczem). */
+  sttProvider: string;
+  sttModel: string;
+  /** Kod języka nagrań albo 'auto' (model rozpoznaje sam). */
+  lang: string;
+  /** Wiadomość głosowa: wysyłka zaraz po nagraniu zamiast wstawienia tekstu do pola. */
+  autoSend: boolean;
+  /** Nagranie zostaje w rozmowie jako załącznik do odsłuchania. */
+  keepAudio: boolean;
+  /** Które odpowiedzi czytać na głos. */
+  speak: 'off' | 'agent' | 'all';
+  /** Głosy systemu (offline) albo /audio/speech providera. */
+  engine: 'system' | 'provider';
+  sysVoice: string;
+  rate: number;
+  ttsProvider: string;
+  ttsModel: string;
+  ttsVoice: string;
+  /** Wskazówki dla modeli, które je przyjmują (np. gpt-4o-mini-tts): tempo, ton. */
+  ttsStyle: string;
 }
 
 /** Monitoring: kolumny, odświeżanie (s) i hosty SSH dołączone do tabeli. */

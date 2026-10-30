@@ -879,7 +879,46 @@
     "np. wdrożenie aplikacji na serwer testowy": "e.g. deploying the app to the test server",
     "Domyślne": "Default",
     "To konto nie jest jeszcze zalogowane. Kliknij „Zaloguj w zakładce terminala”.": "This account isn’t signed in yet. Click “Sign in in a terminal tab”.",
-    "Providerzy API": "API providers"
+    "Providerzy API": "API providers",
+    "Głos": "Voice",
+    "Przycisk mikrofonu w panelu agenta nagrywa wiadomość i zamienia ją na tekst. Agent może też czytać odpowiedzi na głos (głośnik w nagłówku panelu albo przy każdej wiadomości). Mikrofon działa tylko w trakcie nagrywania.": "The microphone button in the agent panel records a message and turns it into text. The agent can also read replies aloud (speaker in the panel header or next to each message). The microphone is only on while recording.",
+    "Dyktowanie": "Dictation",
+    "Język nagrań": "Recording language",
+    "Rozpoznaj sam": "Detect automatically",
+    "Podany język poprawia trafność i szybkość.": "Setting the language improves accuracy and speed.",
+    "Wysyłaj od razu po nagraniu": "Send right after recording",
+    "Wyłączone: rozpoznany tekst trafia do pola wiadomości, żeby go poprawić przed wysłaniem.": "Off: the recognized text goes into the message box so you can fix it before sending.",
+    "Zachowaj nagranie w rozmowie": "Keep the recording in the chat",
+    "Plik dołącza się do wiadomości (do odsłuchania w historii). Model dostaje tylko rozpoznany tekst.": "The file is attached to the message (playable from history). The model only gets the recognized text.",
+    "Czytanie odpowiedzi": "Reading replies",
+    "Czytaj na głos": "Read aloud",
+    "Nie (tylko na żądanie)": "No (on demand only)",
+    "Odpowiedzi agenta": "Agent replies",
+    "Agent i podagenci": "Agent and subagents",
+    "Windows (offline)": "Windows (offline)",
+    "Głos systemu": "System voice",
+    "Automatycznie (język aplikacji)": "Automatic (app language)",
+    "Brak polskiego głosu: dodaj pakiet mowy w Ustawienia Windows → Czas i język → Mowa.": "No Polish voice: add a speech pack in Windows Settings → Time & language → Speech.",
+    "Sposób mówienia (opcjonalnie)": "Speaking style (optional)",
+    "np. spokojnie, rzeczowo, po polsku": "e.g. calm, to the point",
+    "Płatne według cennika providera. Długie odpowiedzi są czytane w kawałkach; kod jest pomijany.": "Billed at the provider's rates. Long replies are read in parts; code is skipped.",
+    "Odsłuchaj próbkę": "Play a sample",
+    "Przeczytaj na głos": "Read aloud",
+    "Czytaj odpowiedzi na głos": "Read replies aloud",
+    "Wyłącz czytanie odpowiedzi": "Stop reading replies",
+    "Dyktuj (mowa na tekst)": "Dictate (speech to text)",
+    "Zakończ i wyślij": "Finish and send",
+    "Zakończ i wstaw tekst": "Finish and insert text",
+    "Anuluj nagranie (Esc)": "Cancel recording (Esc)",
+    "Zamieniam mowę na tekst…": "Converting speech to text…",
+    "kliknij mikrofon, żeby wysłać": "click the microphone to send",
+    "kliknij mikrofon, żeby wstawić tekst": "click the microphone to insert the text",
+    "Nagranie jest puste.": "The recording is empty.",
+    "Nie rozpoznano mowy. Spróbuj bliżej mikrofonu.": "No speech recognized. Try closer to the microphone.",
+    "Nagranie ma limit 10 minut.": "Recordings are limited to 10 minutes.",
+    "Dyktowanie potrzebuje providera OpenAI albo zgodnego z OpenAI (np. Groq) z kluczem API. Ustaw go w Ustawienia → Głos.": "Dictation needs an OpenAI or OpenAI-compatible provider (e.g. Groq) with an API key. Set it in Settings → Voice.",
+    "Brak providera do dyktowania. Ustaw go w Ustawienia → Głos.": "No dictation provider. Set it in Settings → Voice.",
+    "Brak providera do czytania. Ustaw go w Ustawienia → Głos albo wybierz głosy systemu.": "No provider for reading aloud. Set it in Settings → Voice or choose system voices."
   },
   "patterns": [
     [
@@ -1361,6 +1400,14 @@
     [
       "pliki: {0}",
       "files: {0}"
+    ],
+    [
+      "Brak dostępu do mikrofonu: {0}",
+      "No microphone access: {0}"
+    ],
+    [
+      "Tempo: {0}×",
+      "Speed: {0}×"
     ]
   ]
 }

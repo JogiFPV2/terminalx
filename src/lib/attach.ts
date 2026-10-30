@@ -12,7 +12,7 @@ const TEXT_EXT = /\.(txt|md|markdown|csv|tsv|json|jsonc|ya?ml|toml|ini|cfg|conf|
 
 export const fmtSize = (n: number) => n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1024).toFixed(0)} KB` : `${(n / 1048576).toFixed(1)} MB`;
 
-function b64(blob: Blob): Promise<string> {
+export function b64(blob: Blob): Promise<string> {
   return new Promise((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(String(r.result).replace(/^data:[^,]*,/, ''));
@@ -91,6 +91,14 @@ export async function prepare(file: File, chat: string): Promise<Att> {
   return { kind: 'file', name, path: await save(chat, name, file), size: file.size, mime: file.type };
 }
 
+/** Nagranie z dyktowania jako załącznik rozmowy (`data` to base64, już policzone do transkrypcji). */
+export async function saveAudio(chat: string, blob: Blob, data: string): Promise<Att> {
+  const d = new Date(), two = (n: number) => String(n).padStart(2, '0');
+  const ext = /ogg/.test(blob.type) ? 'ogg' : /mp4/.test(blob.type) ? 'm4a' : 'webm';
+  const name = `glos-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}.${ext}`;
+  return { kind: 'audio', name, path: await call<string>('att_save', { chat, name, data }), size: blob.size, mime: blob.type };
+}
+
 /* ---------- wysyłka do providera ---------- */
 
 // Ostatnio wczytane pliki: pętla narzędzi wysyła tę samą historię wiele razy.
@@ -105,7 +113,7 @@ async function read64(path: string) {
   return d;
 }
 
-const KIND = { image: 'obraz', video: 'wideo', pdf: 'PDF', text: 'plik tekstowy', file: 'plik' } as const;
+const KIND = { image: 'obraz', video: 'wideo', pdf: 'PDF', text: 'plik tekstowy', file: 'plik', audio: 'nagranie głosowe' } as const;
 
 /** Opis załącznika dla modelu: nazwa, rodzaj, rozmiar i ścieżka (agent może użyć jej w terminalu). */
 export function describe(a: Att) {

@@ -8,6 +8,7 @@ import { nid, sleep, fill } from './util';
 import { call } from './ipc';
 import { userContent } from './attach';
 import { toolsFor, invoke as mcpInvoke, type Bound } from './mcp.svelte';
+import { autoSpeak } from './voice.svelte';
 import type { AgentProfile, Att, ChatMsg, Skill, Snippet, Tab, Workspace } from './types';
 
 export const agentState = $state({ busy: {} as Record<string, boolean>, subBusy: {} as Record<string, string> });
@@ -26,6 +27,7 @@ function post(ws: Workspace, m: Omit<ChatMsg, 'id'>) {
   const msg: ChatMsg = { id: nid('m'), ...m };
   ws.chat.push(msg);
   persistChat(ws);
+  autoSpeak(ws, msg);
   return ws.chat[ws.chat.length - 1];
 }
 

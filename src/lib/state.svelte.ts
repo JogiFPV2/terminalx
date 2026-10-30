@@ -318,6 +318,7 @@ export async function loadState() {
     accounts: saved.accounts || [],
     fallback: { ...fresh.fallback, ...(saved.fallback || {}) },
     skills: saved.skills || [],
+    voice: { ...fresh.voice, ...(saved.voice || {}) },
   } as AppState;
   if (!merged.workspaces?.length) merged.workspaces = fresh.workspaces;
   if (!merged.workspaces.some((w) => w.id === merged.activeWs)) merged.activeWs = merged.workspaces[0].id;

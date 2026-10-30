@@ -5,7 +5,8 @@
   import { track, clamp } from '../util';
   import { PERM_LABEL, PROVIDER_TYPES, isChat } from '../defaults';
   import { resolveModel, listModels } from '../ai';
-  import { prepare, fmtSize } from '../attach';
+  import { prepare, fmtSize, saveAudio } from '../attach';
+  import { voice, startRec, stopRec, cancelRec, transcribe, toggleSpeak, stopSpeaking } from '../voice.svelte';
   import { mediaSrc } from '../workflow/media';
   import { isTauri } from '../ipc';
   import Combo from './Combo.svelte';
@@ -119,6 +120,37 @@
     if (target === 'agent') sendToAgent(ws, t, att);
     else sendToSub(ws, target, t, att);
   }
+
+  /* ---------- głos ---------- */
+
+  let input = $state<HTMLTextAreaElement>();
+  const recHere = $derived(voice.rec === ws.id);
+  const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  async function mic() {
+    if (voice.busy) return;
+    if (!voice.rec) { startRec(ws.id); return; }
+    const w = ws;
+    const blob = await stopRec();
+    if (!blob || blob.size < 1200) { notify('Nagranie jest puste.', 'info'); return; }
+    try {
+      const d = await transcribe(blob);
+      if (!d.text) { notify('Nie rozpoznano mowy. Spróbuj bliżej mikrofonu.', 'warning'); return; }
+      if (app.voice.keepAudio) {
+        const att = await saveAudio(ensureChatId(w), d.blob, d.data);
+        if (!pending[w.id]) pending[w.id] = [];
+        pending[w.id].push({ id: ++pid, name: att.name, size: att.size, preview: '', att });
+      }
+      text = text.trim() ? `${text.trim()} ${d.text}` : d.text;
+      if (app.voice.autoSend && w.id === ws.id) send();
+      else input?.focus();
+    } catch (e) { notify(String(e).replace(/^Error: /, ''), 'error'); }
+  }
+  let lastSpeak: 'agent' | 'all' = 'agent';
+  function toggleRead() {
+    if (app.voice.speak === 'off') app.voice.speak = lastSpeak;
+    else { lastSpeak = app.voice.speak; app.voice.speak = 'off'; stopSpeaking(); }
+  }
+
   function gutter(e: PointerEvent) {
     e.preventDefault();
     const sx = e.clientX, start = app.layout.agent;
@@ -179,6 +211,7 @@
   <div class="head">
     <span class="ico"><Icon name="spark" /></span>
     <div class="who" title="{eff?.model || agent?.model} · {agent ? PERM_LABEL[agent.perm].toLowerCase() : ''}"><b>{view === 'history' ? 'Historia rozmów' : agent?.name}</b></div>
+    <button class="icobtn" class:on={app.voice.speak !== 'off'} title={app.voice.speak === 'off' ? 'Czytaj odpowiedzi na głos' : 'Wyłącz czytanie odpowiedzi'} onclick={toggleRead}><Icon name="volume" size={14} /></button>
     <button class="icobtn" title="Nowa rozmowa (obecna zostaje w historii)" onclick={() => { newChat(ws); view = 'chat'; }}><Icon name="chatplus" size={14} /></button>
     <button class="icobtn" class:on={view === 'history'} title="Historia rozmów" onclick={showHistory}><Icon name="history" size={14} /></button>
     <button class="icobtn" title="Konfiguracja agentów" onclick={() => { ui.settingsPage = 'agents'; ui.settingsOpen = true; }}><Icon name="sliders" size={14} /></button>
@@ -222,7 +255,7 @@
     {/if}
     {#each ws.chat as m (m.id)}
       <div class="msg {m.role}">
-        <div class="mwho">{m.who}</div>
+        <div class="mwho">{m.who}{#if m.text && (m.role === 'agent' || m.role === 'sub')}<button class="spk" class:on={voice.speaking === m.id} title={voice.speaking === m.id ? 'Zatrzymaj' : 'Przeczytaj na głos'} onclick={() => toggleSpeak(m)}><Icon name={voice.speaking === m.id ? 'stop' : 'volume'} size={11} /></button>{/if}</div>
         {#if m.att?.length}
           <div class="atts">
             {#each m.att as a}
@@ -230,6 +263,8 @@
                 <button class="thumb" title="{a.name} · {fmtSize(a.size)}{a.duration ? ` · ${a.duration} s` : ''}" onclick={() => (lightbox = a.path)}>
                   <img src={mediaSrc(a.path)} alt={a.name} loading="lazy" />{#if a.kind === 'video'}<span class="badge"><Icon name="film" size={11} />{a.frames?.length}</span>{/if}
                 </button>
+              {:else if a.kind === 'audio'}
+                <audio class="aud" controls preload="none" src={mediaSrc(a.path)} title={a.name}></audio>
               {:else}
                 <button class="fchip" title="{a.path || 'nie skopiowano'} · kliknij: pokaż w folderze" onclick={() => reveal(a)}><Icon name="file" size={12} /><span>{a.name}</span><small>{fmtSize(a.size)}</small></button>
               {/if}
@@ -255,7 +290,7 @@
       <div class="pend">
         {#each cur as p (p.id)}
           <div class="pchip" class:err={!!p.error} title={p.error || `${p.name} · ${fmtSize(p.size)}`}>
-            {#if p.preview}<img src={p.preview} alt="" />{:else}<Icon name={p.att?.kind === 'video' ? 'film' : 'file'} size={12} />{/if}
+            {#if p.preview}<img src={p.preview} alt="" />{:else}<Icon name={p.att?.kind === 'video' ? 'film' : p.att?.kind === 'audio' ? 'mic' : 'file'} size={12} />{/if}
             <span>{p.name}</span>
             {#if !p.att && !p.error}<span class="spin"></span>{/if}
             <button class="px" title="Usuń załącznik" onclick={() => unattach(p)}><Icon name="x" size={11} /></button>
@@ -263,11 +298,24 @@
         {/each}
       </div>
     {/if}
+    {#if recHere || voice.busy}
+      <div class="recbar" role="status">
+        {#if voice.busy}<span class="spin"></span><span>Zamieniam mowę na tekst…</span>
+        {:else}
+          <span class="dot"></span><span class="tm">{clock(voice.secs)}</span>
+          <span class="lvl"><i style:width="{Math.round(voice.level * 100)}%"></i></span>
+          <span class="rh">{app.voice.autoSend ? 'kliknij mikrofon, żeby wysłać' : 'kliknij mikrofon, żeby wstawić tekst'}</span>
+          <button class="icobtn" title="Anuluj nagranie (Esc)" onclick={cancelRec}><Icon name="x" size={13} /></button>
+        {/if}
+      </div>
+    {/if}
     <div class="box">
       <button class="icobtn clip" title="Dołącz pliki: obrazy, wideo, PDF, kod… (albo przeciągnij / Ctrl+V)" onclick={() => fileInput?.click()}><Icon name="clip" size={15} /></button>
       <input type="file" multiple hidden bind:this={fileInput} onchange={(e) => { addFiles(e.currentTarget.files); e.currentTarget.value = ''; }} />
-      <textarea bind:value={text} rows="1" placeholder={target === 'agent' ? 'Zleć coś agentowi…' : `Napisz do podagenta „${subs.find((t) => t.id === target)?.title}”…`} aria-label="Wiadomość do agenta"
+      <textarea bind:this={input} bind:value={text} rows="1" placeholder={target === 'agent' ? 'Zleć coś agentowi…' : `Napisz do podagenta „${subs.find((t) => t.id === target)?.title}”…`} aria-label="Wiadomość do agenta"
         onpaste={onPaste} onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
+      <button class="icobtn mic" class:rec={recHere} disabled={voice.busy || (!!voice.rec && !recHere)}
+        title={recHere ? (app.voice.autoSend ? 'Zakończ i wyślij' : 'Zakończ i wstaw tekst') : 'Dyktuj (mowa na tekst)'} onclick={mic}><Icon name={recHere ? 'square' : 'mic'} size={15} /></button>
       {#if agentState.busy[ws.id]}
         <button class="icobtn" title="Zatrzymaj" onclick={() => stopAgent(ws.id)}><Icon name="stop" /></button>
       {:else}
@@ -297,7 +345,11 @@
   {/if}
 </aside>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Escape' && lightbox) { lightbox = ''; e.stopPropagation(); } }} />
+<svelte:window onkeydown={(e) => {
+  if (e.key !== 'Escape') return;
+  if (lightbox) { lightbox = ''; e.stopPropagation(); }
+  else if (voice.rec) { cancelRec(); e.stopPropagation(); }
+}} />
 
 <style>
   .ki { display: grid; flex: none; }
@@ -317,7 +369,7 @@
   .intro { color: var(--muted-foreground); font-size: 12.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
   .intro p { margin: 0; }
   .msg { font-size: 12.5px; line-height: 1.5; min-width: 0; }
-  .mwho { font-size: 11px; color: var(--muted-foreground); margin-bottom: 2px; }
+  .mwho { font-size: 11px; color: var(--muted-foreground); margin-bottom: 2px; display: flex; align-items: center; gap: 4px; min-height: 18px; }
   .msg.user { align-self: flex-end; background: var(--muted); padding: 7px 10px; border-radius: 8px; max-width: 88%; }
   .msg.sub .mtext { border-left: 2px solid var(--border); padding-left: 8px; }
   .msg.error .mtext { color: var(--destructive); }
@@ -348,7 +400,20 @@
   .pick :global(.combo) { flex: 0 1 auto; }
   .reset { width: 22px; height: 22px; color: var(--muted-foreground); }
   .box { display: flex; align-items: flex-end; gap: 4px; border: 1px solid var(--border); border-radius: 8px; padding: 6px 6px 6px 4px; background: var(--card); }
-  .clip { color: var(--muted-foreground); }
+  .clip, .mic { color: var(--muted-foreground); }
+  .mic.rec { color: var(--destructive); }
+  .recbar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 4px 4px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 11.5px; color: var(--muted-foreground); min-width: 0; }
+  .recbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--destructive); animation: pulse 1.2s infinite; flex: none; }
+  .recbar .tm { font-variant-numeric: tabular-nums; color: var(--foreground); flex: none; }
+  .lvl { width: 48px; height: 4px; border-radius: 2px; background: var(--muted); overflow: hidden; flex: none; }
+  .lvl i { display: block; height: 100%; background: var(--primary); transition: width .08s linear; }
+  .rh { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recbar .icobtn { width: 22px; height: 22px; margin-left: auto; }
+  .aud { height: 30px; max-width: 100%; }
+  .spk { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; color: var(--muted-foreground); opacity: 0; }
+  .msg:hover .spk, .spk.on, .spk:focus-visible { opacity: 1; }
+  .spk:hover { background: var(--muted); color: var(--foreground); }
+  .spk.on { color: var(--primary); }
   textarea { flex: 1; min-width: 0; background: none; border: 0; color: inherit; font: inherit; outline: none; resize: none; max-height: 140px; field-sizing: content; padding: 3px 0; }
   .spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted-foreground); border-top-color: transparent; animation: spin .8s linear infinite; flex: none; }
   @keyframes spin { to { transform: rotate(360deg); } }

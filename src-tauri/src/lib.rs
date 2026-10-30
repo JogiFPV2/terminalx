@@ -145,6 +145,24 @@ pub fn run() {
                         })),
                         &mut token,
                     );
+                    // Mikrofon (dyktowanie w panelu agenta) bez systemowego pytania, ale tylko dla
+                    // samej aplikacji. Ramki pluginów są w piaskownicy bez dostępu do mikrofonu.
+                    let _ = core.add_PermissionRequested(
+                        &webview2_com::PermissionRequestedEventHandler::create(Box::new(|_, args| {
+                            let Some(a) = args else { return Ok(()) };
+                            let mut kind = COREWEBVIEW2_PERMISSION_KIND::default();
+                            let mut uri = Default::default();
+                            a.PermissionKind(&mut kind)?;
+                            a.Uri(&mut uri)?;
+                            let uri = webview2_com::take_pwstr(uri);
+                            let own = ["http://tauri.localhost/", "https://tauri.localhost/", "tauri://localhost/", "http://localhost:1420/"];
+                            if kind == COREWEBVIEW2_PERMISSION_KIND_MICROPHONE && own.iter().any(|o| uri.starts_with(o)) {
+                                a.SetState(COREWEBVIEW2_PERMISSION_STATE_ALLOW)?;
+                            }
+                            Ok(())
+                        })),
+                        &mut token,
+                    );
                 });
             }
             Ok(())
@@ -199,6 +217,8 @@ pub fn run() {
             ai::secret_has,
             ai::secret_delete,
             ai::ai_request,
+            ai::ai_transcribe,
+            ai::ai_speech,
             media::media_request,
             media::media_download,
             media::media_save_b64,

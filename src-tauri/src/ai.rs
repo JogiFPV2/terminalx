@@ -154,30 +154,11 @@ pub async fn ai_request(
     body: Option<serde_json::Value>,
     headers: Option<std::collections::HashMap<String, String>>,
 ) -> Result<serde_json::Value, String> {
-    let key = match provider.key_ref.as_deref() {
-        Some(r) if !r.is_empty() => secret(r),
-        _ => None,
-    };
+    let key = provider_key(&provider);
     let client = reqwest::Client::builder().timeout(Duration::from_secs(600)).build().map_err(|e| e.to_string())?;
     let url = format!("{}{}", base(&provider.url), path);
     let method = reqwest::Method::from_bytes(method.to_uppercase().as_bytes()).map_err(|e| e.to_string())?;
-    let mut req = client.request(method, &url).header("content-type", "application/json");
-
-    match provider.kind.as_str() {
-        "anthropic" => {
-            let key = key.ok_or("Brak klucza API dla Anthropic. Dodaj go w Ustawienia → Konta i providerzy.")?;
-            req = req.header("x-api-key", key).header("anthropic-version", "2023-06-01");
-        }
-        "ollama" => {
-            if let Some(k) = key {
-                req = req.header("authorization", format!("Bearer {k}"));
-            }
-        }
-        _ => {
-            let key = key.ok_or("Brak klucza API dla tego providera. Dodaj go w Ustawienia → Konta i providerzy.")?;
-            req = req.header("authorization", format!("Bearer {key}"));
-        }
-    }
+    let mut req = authorize(client.request(method, &url).header("content-type", "application/json"), &provider.kind, key)?;
 
     for (k, v) in headers.unwrap_or_default() {
         // Nagłówków uwierzytelnienia nie da się nadpisać z frontendu.
@@ -213,4 +194,81 @@ pub async fn ai_request(
         return Err(format!("{} {}: {msg}", status.as_u16(), status.canonical_reason().unwrap_or("")));
     }
     Ok(json)
+}
+
+/// Nagłówek uwierzytelnienia zależny od rodzaju providera (klucz z magazynu, nigdy z frontendu).
+fn authorize(req: reqwest::RequestBuilder, kind: &str, key: Option<String>) -> Result<reqwest::RequestBuilder, String> {
+    Ok(match kind {
+        "anthropic" => {
+            let key = key.ok_or("Brak klucza API dla Anthropic. Dodaj go w Ustawienia → Konta i providerzy.")?;
+            req.header("x-api-key", key).header("anthropic-version", "2023-06-01")
+        }
+        "ollama" => match key {
+            Some(k) => req.header("authorization", format!("Bearer {k}")),
+            None => req,
+        },
+        _ => {
+            let key = key.ok_or("Brak klucza API dla tego providera. Dodaj go w Ustawienia → Konta i providerzy.")?;
+            req.header("authorization", format!("Bearer {key}"))
+        }
+    })
+}
+
+fn provider_key(p: &ProviderRef) -> Option<String> {
+    p.key_ref.as_deref().filter(|r| !r.is_empty()).and_then(secret)
+}
+
+async fn http_error(res: reqwest::Response) -> String {
+    let status = res.status();
+    let text = res.text().await.unwrap_or_default();
+    let msg = serde_json::from_str::<serde_json::Value>(&text)
+        .ok()
+        .and_then(|j| j.pointer("/error/message").and_then(|v| v.as_str()).map(String::from))
+        .unwrap_or_else(|| text.chars().take(400).collect());
+    format!("{} {}: {msg}", status.as_u16(), status.canonical_reason().unwrap_or(""))
+}
+
+/// Mowa → tekst: nagranie (base64) do `/audio/transcriptions` providera zgodnego z OpenAI
+/// (OpenAI, Groq, lokalne serwery Whisper).
+#[tauri::command]
+pub async fn ai_transcribe(provider: ProviderRef, model: String, data: String, mime: String, lang: Option<String>) -> Result<String, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(|e| e.to_string())?;
+    let ext = if mime.contains("ogg") { "ogg" } else if mime.contains("mp4") { "mp4" } else if mime.contains("wav") { "wav" } else { "webm" };
+    let part = reqwest::multipart::Part::bytes(bytes)
+        .file_name(format!("nagranie.{ext}"))
+        .mime_str(mime.split(';').next().unwrap_or("audio/webm"))
+        .map_err(|e| e.to_string())?;
+    let mut form = reqwest::multipart::Form::new().text("model", model).text("response_format", "json").part("file", part);
+    if let Some(l) = lang.filter(|l| !l.is_empty()) {
+        form = form.text("language", l);
+    }
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(180)).build().map_err(|e| e.to_string())?;
+    let url = format!("{}/audio/transcriptions", base(&provider.url));
+    let req = authorize(client.post(&url), &provider.kind, provider_key(&provider))?;
+    let res = req.multipart(form).send().await.map_err(|e| format!("Błąd połączenia z {url}: {e}"))?;
+    if !res.status().is_success() {
+        return Err(http_error(res).await);
+    }
+    let json: serde_json::Value = res.json().await.map_err(|e| e.to_string())?;
+    Ok(json.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string())
+}
+
+/// Tekst → mowa: `/audio/speech` providera zgodnego z OpenAI. Zwraca MP3 w base64.
+#[tauri::command]
+pub async fn ai_speech(provider: ProviderRef, model: String, voice: String, input: String, instructions: Option<String>) -> Result<String, String> {
+    use base64::Engine;
+    let mut body = serde_json::json!({ "model": model, "voice": voice, "input": input, "response_format": "mp3" });
+    if let Some(i) = instructions.filter(|i| !i.is_empty()) {
+        body["instructions"] = serde_json::Value::String(i);
+    }
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(120)).build().map_err(|e| e.to_string())?;
+    let url = format!("{}/audio/speech", base(&provider.url));
+    let req = authorize(client.post(&url), &provider.kind, provider_key(&provider))?;
+    let res = req.json(&body).send().await.map_err(|e| format!("Błąd połączenia z {url}: {e}"))?;
+    if !res.status().is_success() {
+        return Err(http_error(res).await);
+    }
+    let bytes = res.bytes().await.map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
