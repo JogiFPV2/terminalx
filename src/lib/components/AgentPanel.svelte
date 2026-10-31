@@ -159,7 +159,8 @@
   // Prosty markdown: bloki kodu i `kod`, reszta jako tekst.
   function md(s: string) {
     const esc = (x: string) => x.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
-    return s.split(/```(?:[\w-]*)\n?([\s\S]*?)```/g).map((part, i) => i % 2 ? `<pre>${esc(part.trim())}</pre>` : esc(part).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')).join('');
+    // Nazwa języka tylko z nową linią po niej: w ```npm test``` pierwsze słowo to kod, nie język.
+    return s.split(/```(?:[\w-]*\n)?([\s\S]*?)```/g).map((part, i) => i % 2 ? `<pre>${esc(part.trim())}</pre>` : esc(part).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>')).join('');
   }
   let lightbox = $state('');
   async function reveal(a: Att) {
