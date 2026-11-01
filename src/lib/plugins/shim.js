@@ -194,6 +194,21 @@
       copy: (id, label) => rpc('keys.copy', { id, label }),
       delete: (id) => rpc('keys.delete', { id }),
     },
+    phone: {
+      start: (port) => rpc('phone.start', { port }),
+      stop: () => rpc('phone.stop', {}),
+      status: () => rpc('phone.status', {}),
+      pair: () => rpc('phone.pair', {}),
+      cancelPair: () => rpc('phone.cancelPair', {}),
+      unpair: (device) => rpc('phone.unpair', { device }),
+      request: (device, method, params, opts) => rpc('phone.request', { device, method, params: params || {}, timeoutMs: opts?.timeoutMs }),
+      files: () => rpc('phone.files', {}),
+      audio: (path) => rpc('phone.audio', { path }),
+      transcribe: (path) => rpc('phone.transcribe', { path }),
+      deleteFile: (path) => rpc('phone.deleteFile', { path }),
+      reveal: (path) => rpc('phone.reveal', { path }),
+      onEvent: (cb) => on('phone', cb),
+    },
     events: { on: (name, cb) => on('app:' + name, cb) },
   };
 

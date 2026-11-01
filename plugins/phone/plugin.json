@@ -1,0 +1,27 @@
+{
+  "id": "tx.phone",
+  "name": "Telefon",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "Hermitty",
+  "description": "Telefon z Androidem przy komputerze: powiadomienia z odpowiadaniem, SMS-y i zdalny dyktafon. Wymaga aplikacji Hermitty na telefonie (APK z GitHuba). Kody jednorazowe telefon maskuje przed wysłaniem.",
+  "icon": "phone",
+  "homepage": "https://github.com/JogiFPV2/terminalx/releases",
+  "permissions": ["ui:sidebar", "ui:statusbar", "ui:commands", "notifications", "phone"],
+  "contributes": {
+    "sidebar": [{ "id": "phone", "title": "Telefon", "icon": "phone" }],
+    "statusBar": [{ "id": "phone", "alignment": "right", "priority": 5 }],
+    "commands": [
+      { "id": "phone.pair", "title": "Telefon: sparuj nowy telefon" },
+      { "id": "phone.rec", "title": "Telefon: dyktafon start/stop", "keybinding": "Ctrl+Alt+R" },
+      { "id": "phone.ring", "title": "Telefon: znajdź telefon (dzwonek)" }
+    ]
+  },
+  "config": {
+    "port": 47390,
+    "smsToasts": true,
+    "appToasts": false,
+    "statusBar": true
+  }
+}

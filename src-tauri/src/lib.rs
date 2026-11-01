@@ -5,6 +5,7 @@ mod monitor;
 mod plans;
 mod chats;
 mod mcp;
+mod phone;
 mod pty;
 mod remote;
 mod skills;
@@ -83,6 +84,7 @@ pub fn run() {
         .manage(sys::SysState::default())
         .manage(Arc::new(ssh::SshState::default()))
         .manage(Arc::new(remote::RemoteState::default()))
+        .manage(Arc::new(phone::PhoneState::default()))
         .manage(local::LocalState::default())
         .manage(monitor::MonState::default())
         .manage(mcp::McpState::default())
@@ -269,6 +271,17 @@ pub fn run() {
             remote::remote_set_perm,
             remote::remote_revoke,
             remote::remote_send,
+            phone::phone_start,
+            phone::phone_stop,
+            phone::phone_status,
+            phone::phone_pair_begin,
+            phone::phone_pair_cancel,
+            phone::phone_unpair,
+            phone::phone_request,
+            phone::phone_files,
+            phone::phone_file_read,
+            phone::phone_file_delete,
+            phone::phone_file_reveal,
         ])
         .on_window_event(|window, event| {
             // Zamknięcie okna kończy wszystkie procesy terminali, także te „w tle”.

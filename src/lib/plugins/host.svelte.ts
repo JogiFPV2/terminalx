@@ -8,6 +8,8 @@ import { isChat } from '../defaults';
 import { BRAND } from '../defaults';
 import type { PluginManifest, PluginRecord } from '../types';
 import shimCode from './shim.js?raw';
+import qrcode from 'qrcode-generator';
+import { transcribeData } from '../voice.svelte';
 
 export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'storage': { label: 'Własne pliki pluginu', risk: 0 },
@@ -30,8 +32,9 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'fs:write': { label: 'Zapis plików użytkownika', risk: 2 },
   'shell:exec': { label: 'Uruchamianie procesów', risk: 2 },
   'vault:keys': { label: 'Sejf kluczy API (tylko wbudowane)', risk: 2 },
+  'phone': { label: 'Telefon: SMS-y, powiadomienia i dyktafon (tylko wbudowane)', risk: 2 },
 };
-export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:', 'ai:plans'];
+export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:', 'ai:plans', 'phone'];
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
@@ -71,12 +74,12 @@ export async function loadPlugins() {
       if (i >= 0) list[i] = entry; else list.push(entry);
     } catch { /* uszkodzony manifest pomijamy */ }
   }
-  // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów i Pomodoro).
+  // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów, Pomodoro i Telefonu).
   const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.quota', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
   list.sort((a, b) => (order.indexOf(a.manifest.id) + 1 || 999) - (order.indexOf(b.manifest.id) + 1 || 999));
   for (const p of list) {
     if (!app.plugins.some((r) => r.id === p.manifest.id)) {
-      app.plugins.push({ id: p.manifest.id, enabled: p.builtin && !['tx.ports', 'tx.pomodoro'].includes(p.manifest.id), config: {}, builtin: p.builtin });
+      app.plugins.push({ id: p.manifest.id, enabled: p.builtin && !['tx.ports', 'tx.pomodoro', 'tx.phone'].includes(p.manifest.id), config: {}, builtin: p.builtin });
     }
   }
   plug.loaded = list;
@@ -149,7 +152,7 @@ export function broadcastTheme() { const css = themeCss(); for (const id of runt
 function hasPerm(pluginId: string, perm: string) {
   const lp = loaded(pluginId), perms = lp?.manifest.permissions || [];
   // Sejf kluczy: tylko pluginy dostarczone z aplikacją (import .zip i tak odrzuca to uprawnienie).
-  if (perm === 'vault:keys' || perm === 'ai:plans') return !!lp?.builtin && perms.includes(perm);
+  if (perm === 'vault:keys' || perm === 'ai:plans' || perm === 'phone') return !!lp?.builtin && perms.includes(perm);
   if (perm === 'net:localhost') return perms.includes('net:localhost') || perms.includes('net:*');
   return perms.includes(perm);
 }
@@ -194,6 +197,7 @@ const NEEDS: Record<string, string | null> = {
   'tabs.list': 'tabs:manage', 'tabs.get': 'tabs:manage', 'tabs.park': 'tabs:manage', 'tabs.unpark': 'tabs:manage', 'tabs.close': 'tabs:manage', 'tabs.tail': 'terminal:read',
   'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage', 'ai.plan': 'ai:plans', 'ai.accounts': 'ai:plans',
   'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
+  ...Object.fromEntries(['start', 'stop', 'status', 'pair', 'cancelPair', 'unpair', 'request', 'files', 'audio', 'transcribe', 'deleteFile', 'reveal'].map((m) => [`phone.${m}`, 'phone'])),
 };
 
 /** Klucz w sejfie: przestrzeń pluginu + jego własny identyfikator. */
@@ -351,6 +355,24 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
       const p = app.providers.find((x) => x.id === a.id);
       return p ? balanceOf(p) : null;
     }
+    case 'phone.start': await call('phone_start', { port: Number(a.port) || 47390 }); return null;
+    case 'phone.stop': await call('phone_stop'); return null;
+    case 'phone.status': return call('phone_status');
+    case 'phone.pair': {
+      const p = await call<{ code: string; link: string; expiresIn: number }>('phone_pair_begin');
+      const qr = qrcode(0, 'M');
+      qr.addData(p.link);
+      qr.make();
+      return { ...p, qrSvg: qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) };
+    }
+    case 'phone.cancelPair': await call('phone_pair_cancel'); return null;
+    case 'phone.unpair': await call('phone_unpair', { device: String(a.device) }); return null;
+    case 'phone.request': return call('phone_request', { device: String(a.device), method: String(a.method), params: a.params ?? {}, timeoutMs: a.timeoutMs ?? null });
+    case 'phone.files': return call('phone_files');
+    case 'phone.audio': return `data:audio/ogg;base64,${await call<string>('phone_file_read', { path: String(a.path) })}`;
+    case 'phone.transcribe': return transcribeData(await call<string>('phone_file_read', { path: String(a.path) }), 'audio/ogg');
+    case 'phone.deleteFile': await call('phone_file_delete', { path: String(a.path) }); return null;
+    case 'phone.reveal': await call('phone_file_reveal', { path: String(a.path) }); return null;
     case 'ai.complete': {
       const r = await complete({ providerId: a.provider || null, model: a.model || null, system: a.system, messages: [{ role: 'user', content: String(a.prompt || '') }], maxTokens: a.maxTokens || 4000 });
       return r.text;
@@ -366,6 +388,12 @@ export function startHost() {
   listening = true;
   // Zmiana licznika tokenów: jedno zdarzenie na pół sekundy, tylko dla pluginów z ai:usage.
   onUsage(() => { if (!usageTimer) usageTimer = window.setTimeout(() => { usageTimer = 0; emitAll('usage', null, 'ai:usage'); }, 500); });
+  // Zdarzenia mostka do telefonu trafiają tylko do pluginów z uprawnieniem 'phone'.
+  if (isTauri) import('@tauri-apps/api/event').then(({ listen }) => {
+    listen<any>('phone:event', (e) => emitAll('phone', e.payload, 'phone'));
+    listen('phone:devices', () => emitAll('phone', { e: 'devices' }, 'phone'));
+    listen<any>('phone:pair', (e) => emitAll('phone', { e: 'pair', p: e.payload }, 'phone'));
+  });
   window.addEventListener('message', async (ev) => {
     const msg = ev.data;
     if (!msg || !msg.__tx) return;

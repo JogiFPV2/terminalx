@@ -121,6 +121,13 @@ export async function transcribe(blob: Blob): Promise<Dictation> {
   } finally { voice.busy = false; }
 }
 
+/** Zamiana na tekst gotowego nagrania (base64), np. z dyktafonu telefonu. */
+export async function transcribeData(data: string, mime: string): Promise<string> {
+  const p = sttProvider();
+  if (!p) throw new Error('Brak providera do dyktowania. Ustaw go w Ustawienia → Głos.');
+  return call<string>('ai_transcribe', { provider: ref(p), model: app.voice.sttModel || defaultSttModel(p), data, mime, lang: langCode() || null });
+}
+
 /* ---------- czytanie ---------- */
 
 /** Tekst do przeczytania: bez bloków kodu, znaczników markdown i adresów. */

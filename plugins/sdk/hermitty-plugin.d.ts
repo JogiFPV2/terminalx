@@ -22,7 +22,8 @@ export type Permission =
   | 'shell:exec'
   | 'tabs:manage'
   | 'ui:tabmenu'
-  | 'vault:keys';               // tylko pluginy wbudowane w aplikację; import .zip je odrzuca
+  | 'vault:keys'                // tylko pluginy wbudowane w aplikację; import .zip je odrzuca
+  | 'phone';                    // tylko wbudowane: mostek do aplikacji Hermitty na Androida
 
 export interface Disposable { dispose(): void }
 
@@ -210,9 +211,39 @@ export interface TxApi {
     copy(id: string, label?: string): Promise<void>;
     delete(id: string): Promise<void>;
   };
+  /** Mostek do aplikacji Hermitty na Androida ('phone', tylko wbudowane). Kody jednorazowe z SMS-ów
+   *  i powiadomień telefon maskuje przed wysłaniem, chyba że użytkownik zezwoli na nie w aplikacji. */
+  phone: {
+    start(port: number): Promise<void>;
+    stop(): Promise<void>;
+    status(): Promise<PhoneStatus>;
+    /** Jednorazowy kod parowania (5 min) z linkiem i kodem QR w SVG. */
+    pair(): Promise<{ code: string; link: string; qrSvg: string; expiresIn: number }>;
+    cancelPair(): Promise<void>;
+    unpair(device: string): Promise<void>;
+    /** Metody telefonu: info, notif.list, notif.reply, notif.dismiss, sms.threads, sms.thread, sms.send,
+     *  rec.start, rec.stop, rec.status, rec.list, rec.send, rec.delete, ring, ring.stop. */
+    request<T = unknown>(device: string, method: string, params?: Record<string, unknown>, opts?: { timeoutMs?: number }): Promise<T>;
+    /** Pliki odebrane z telefonów (nagrania dyktafonu), od najnowszych. */
+    files(): Promise<{ device: string; kind: string; name: string; path: string; size: number; modified: number }[]>;
+    /** Nagranie jako data URL do odtworzenia w <audio>. */
+    audio(path: string): Promise<string>;
+    /** Tekst nagrania przez providera z Ustawienia → Głos. */
+    transcribe(path: string): Promise<string>;
+    deleteFile(path: string): Promise<void>;
+    reveal(path: string): Promise<void>;
+    /** Zdarzenia: { device, e: 'notif' | 'notif.removed' | 'sms' | 'info' | 'rec' | 'file', p } oraz { e: 'devices' } i { e: 'pair', p }. */
+    onEvent(cb: (ev: { device?: string; e: string; p?: any }) => void): Disposable;
+  };
   events: {
     on(event: 'workspace:changed' | 'tab:opened' | 'tab:closed' | 'theme:changed', cb: (payload: unknown) => void): Disposable;
   };
+}
+
+export interface PhoneStatus {
+  running: boolean; port: number; addrs: string[]; pcName: string; pairing: boolean;
+  devices: { id: string; name: string; model: string; added: number; lastSeen: number | null; online: boolean; addr: string;
+    info: { battery?: number; charging?: boolean; android?: string; app?: string; perms?: Record<string, boolean>; mic?: boolean } | null }[];
 }
 
 export interface PluginModule {

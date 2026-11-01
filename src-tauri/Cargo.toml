@@ -35,6 +35,7 @@ rand = "0.8"
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect"] }
 futures-util = { version = "0.3", default-features = false }
 sha2 = "0.10"
+ring = "0.17"
 
 [target.'cfg(windows)'.dependencies]
 # Ta sama wersja co w wry: obsługa awarii procesu WebView2 (ProcessFailed).

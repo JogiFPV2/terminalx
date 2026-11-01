@@ -51,3 +51,28 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
+
+  # Aplikacja na Androida (plugin Telefon): podpisany APK dołączany do tego samego szkicu wydania.
+  # Sekrety: HERMITTY_PHONE_KEYSTORE_B64 (plik .jks w base64) i HERMITTY_PHONE_KEYSTORE_PASSWORD.
+  android:
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: android-actions/setup-android@v3
+      - name: Klucz podpisu
+        run: echo "${{ secrets.HERMITTY_PHONE_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/hermitty-phone.jks"
+      - name: APK
+        working-directory: android
+        env:
+          HERMITTY_PHONE_KEYSTORE: ${{ runner.temp }}/hermitty-phone.jks
+          HERMITTY_PHONE_KEYSTORE_PASSWORD: ${{ secrets.HERMITTY_PHONE_KEYSTORE_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "Hermitty-Telefon-${GITHUB_REF_NAME}.apk"
+      - name: Do wydania
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+        run: gh release upload "$GITHUB_REF_NAME" "android/Hermitty-Telefon-${GITHUB_REF_NAME}.apk" --clobber
