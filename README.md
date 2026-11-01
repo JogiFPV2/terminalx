@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha"><b>Pobierz 0.1.0-alpha</b></a> ·
-  <a href="https://hermitty.mypinsy.com">Strona</a> ·
+  <a href="https://jogifpv2.github.io/terminalx/">Strona</a> ·
   <a href="docs/FUNKCJE.md">Wszystkie funkcje</a> ·
   <a href="docs/PLUGINS.md">Pluginy dla twórców</a>
 </p>
