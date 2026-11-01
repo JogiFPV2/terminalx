@@ -5,169 +5,178 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Hermitty</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Hermitty: terminale, agenci AI i workflow w jednym lekkim oknie na Windows. Do tego aplikacja na Androida: powiadomienia, SMS-y i zdalny dyktafon na komputerze. Wersja alpha.">
+<meta name="description" content="Hermitty: terminale, agent AI i workflow w jednym lekkim oknie na Windows. Do tego aplikacja na Androida: powiadomienia, SMS-y i zdalny dyktafon. Wersja alpha.">
 <meta property="og:title" content="Hermitty">
-<meta property="og:description" content="Terminale, agenci AI i workflow w jednym lekkim oknie. Wersja alpha.">
+<meta property="og:description" content="Terminale, agent AI i workflow w jednym oknie. Wersja alpha.">
 <meta property="og:image" content="img/main.webp">
 <link rel="icon" href="img/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap">
 <style>
-/* Układ: wąska kolumna tekstu obok dużych zrzutów aplikacji; siatki z cienkimi liniami zamiast kart. Grafit + fiolet z aplikacji, pomarańcz tylko w znaku. */
+/* Układ: plakat typograficzny na siatce 12 kolumn. Wielki grotesk + kursywa szeryfowa jako akcent; mockupy okna i telefonu na fioletowych planszach. */
 :root {
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --ink: #10131a;
-  --muted: #5b6372;
-  --line: #e1e4ea;
-  --accent: #5b4fe0;
-  --accent-ink: #ffffff;
-  --accent-soft: #ecebfd;
-  --brand: #8b7cf6;
-  --warn-bg: #fff4e5;
-  --warn-ink: #7a4300;
-  --shot-edge: #d5d9e1;
-  --sans: "Geist", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --bg: #f1f1f3;
+  --ink: #121216;
+  --muted: #6b6b77;
+  --rule: #d6d6dd;
+  --accent: #6252e6;
+  --panel: #dcd7ff;
+  --panel-2: #e6e6ec;
+  --on-accent: #ffffff;
+  --warn: #8a4b00;
+  --display: "Schibsted Grotesk", "Segoe UI", system-ui, sans-serif;
+  --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --sans: "Geist", "Segoe UI", system-ui, sans-serif;
   --mono: "Geist Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d1015; --surface: #141820; --ink: #e8ebf0; --muted: #8e97a6; --line: #232a35;
-    --accent: #8f86ff; --accent-ink: #0d1015; --accent-soft: #1d1c3a; --warn-bg: #2a1f0e; --warn-ink: #f5c27a; --shot-edge: #2b3240;
+    --bg: #0e0e12; --ink: #ececf1; --muted: #8e8e9b; --rule: #26262f; --accent: #9b90ff; --panel: #1f1b44; --panel-2: #17171d; --on-accent: #0e0e12; --warn: #f2bf73;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --bg: #0d1015; --surface: #141820; --ink: #e8ebf0; --muted: #8e97a6; --line: #232a35;
-  --accent: #8f86ff; --accent-ink: #0d1015; --accent-soft: #1d1c3a; --warn-bg: #2a1f0e; --warn-ink: #f5c27a; --shot-edge: #2b3240;
+  --bg: #0e0e12; --ink: #ececf1; --muted: #8e8e9b; --rule: #26262f; --accent: #9b90ff; --panel: #1f1b44; --panel-2: #17171d; --on-accent: #0e0e12; --warn: #f2bf73;
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
-img { max-width: 100%; display: block; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+img { max-width: 100%; display: block; height: auto; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
-h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
-p { margin: 0; }
-.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.eyebrow b { color: var(--accent); font-weight: 500; }
-section { padding-block: 96px; border-top: 1px solid var(--line); }
-.sec-head { display: grid; gap: 14px; max-width: 640px; margin-bottom: 48px; }
-.sec-head h2 { font-size: clamp(28px, 4vw, 40px); line-height: 1.12; font-weight: 600; }
-.sec-head p { color: var(--muted); font-size: 18px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2 { text-wrap: balance; }
+em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; color: var(--accent); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.label { font: 500 11.5px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 
-/* ---------- alpha + nawigacja ---------- */
-.alpha { background: var(--warn-bg); color: var(--warn-ink); font-size: 14px; }
-.alpha .wrap { display: flex; gap: 10px; align-items: center; justify-content: center; padding-block: 9px; text-align: center; flex-wrap: wrap; }
-.alpha b { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid currentColor; padding: 4px 7px; border-radius: 4px; }
+/* ---------- nagłówek ---------- */
 body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
-.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in oklab, var(--bg) 88%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
-.nav .wrap { display: flex; align-items: center; gap: 28px; height: 60px; }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 18px; letter-spacing: -0.02em; }
-.brand b { font-weight: 600; color: var(--muted); }
-.tile { width: 28px; height: 28px; border-radius: 7px; background: var(--brand); color: #1b1c1e; display: grid; place-items: center; flex: none; }
-.tile svg { width: 22px; height: 22px; }
-.nav nav { display: flex; gap: 22px; margin-left: auto; font-size: 14.5px; }
-.nav nav a { text-decoration: none; color: var(--muted); }
-.nav nav a:hover { color: var(--ink); }
-.btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; font-weight: 500; font-size: 15px; text-decoration: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); white-space: nowrap; transition: border-color .15s, transform .15s; }
-.btn:hover { border-color: color-mix(in oklab, var(--ink) 35%, var(--line)); }
-.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.btn.pri:hover { transform: translateY(-1px); }
-.btn.sm { height: 36px; padding: 0 14px; font-size: 14px; border-radius: 8px; }
-.btn svg { width: 17px; height: 17px; }
-@media (max-width: 760px) { .nav nav { display: none; } .nav .btn { margin-left: auto; } }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in oklab, var(--bg) 90%, transparent); backdrop-filter: blur(10px); }
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 64px; border-bottom: 1px solid var(--rule); }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 19px/1 var(--display); letter-spacing: -0.03em; }
+.tile { width: 30px; height: 30px; border-radius: 8px; background: #8b7cf6; color: #1b1c1e; display: grid; place-items: center; }
+.tile svg { width: 23px; height: 23px; }
+.pill { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--warn); border: 1px solid currentColor; border-radius: 99px; padding: 5px 9px; }
+.top nav { margin-left: auto; display: flex; gap: 26px; font-size: 14.5px; }
+.top nav a { text-decoration: none; color: var(--muted); }
+.top nav a:hover { color: var(--ink); }
+.get { text-decoration: none; font: 600 14px/1 var(--display); background: var(--ink); color: var(--bg); padding: 11px 16px; border-radius: 99px; }
+@media (max-width: 820px) { .top nav { display: none; } .get { margin-left: auto; } }
 
 /* ---------- hero ---------- */
-.hero { padding-block: 72px 96px; border-top: 0; }
-.hero-grid { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 24px 56px; align-items: end; }
-.hero-shot { grid-column: 1 / -1; margin-top: 40px; }
-.hero h1 { font-size: clamp(38px, 5.6vw, 68px); line-height: 1.02; font-weight: 650; letter-spacing: -0.035em; margin: 18px 0 20px; }
-.hero h1 em { font-style: normal; color: var(--accent); }
-.hero .lead { font-size: 19px; color: var(--muted); max-width: 46ch; }
-.cta { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
-.facts { display: flex; gap: 28px; margin-top: 36px; flex-wrap: wrap; }
-.facts div { display: grid; gap: 2px; }
-.facts b { font: 600 22px/1.1 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.facts span { font: 12px/1.3 var(--mono); color: var(--muted); }
-.prompt { font: 13.5px/1 var(--mono); color: var(--muted); display: flex; align-items: center; gap: 8px; }
-.prompt i { width: 8px; height: 16px; background: var(--accent); display: inline-block; animation: blink 1.1s steps(1) infinite; }
-@keyframes blink { 50% { opacity: 0; } }
-.shot { border-radius: 12px; border: 1px solid var(--shot-edge); overflow: hidden; background: #0f1115; box-shadow: 0 30px 70px -30px rgb(16 19 26 / .45), 0 2px 6px rgb(16 19 26 / .08); }
-.hero .shot { animation: rise .8s cubic-bezier(.2,.7,.2,1) both; }
-@keyframes rise { from { transform: translateY(18px); } }
-.hero-side { display: grid; gap: 26px; padding-bottom: 6px; }
-.hero-side .facts, .hero-side .cta { margin-top: 0; }
-@media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; } .hero-shot { margin-top: 16px; } }
+.hero { padding-block: 56px 0; }
+.hero h1 { font: 800 clamp(58px, 12.2vw, 184px)/0.86 var(--display); letter-spacing: -0.055em; }
+.hero h1 .l2 { display: block; padding-left: 9.5vw; }
+.hero h1 em { font-size: 1.06em; letter-spacing: -0.03em; }
+.hero-meta { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; margin-top: 44px; align-items: start; }
+.hero-meta .lead { grid-column: 1 / span 5; font-size: 19px; line-height: 1.5; max-width: 42ch; }
+.hero-meta .facts { grid-column: 7 / span 3; display: grid; gap: 10px; }
+.facts div { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--rule); padding-top: 8px; font-variant-numeric: tabular-nums; }
+.facts b { font: 700 18px/1.2 var(--display); letter-spacing: -0.02em; }
+.facts span { font: 12px/1.6 var(--mono); color: var(--muted); }
+.hero-meta .act { grid-column: 10 / span 3; display: grid; gap: 10px; }
+.btn { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-decoration: none; padding: 14px 16px; border-radius: 12px; font: 600 15px/1.2 var(--display); border: 1px solid var(--ink); transition: transform .15s; }
+.btn small { display: block; font: 400 12px/1.4 var(--mono); opacity: .7; margin-top: 3px; }
+.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn:hover { transform: translateY(-2px); }
+.btn svg { width: 18px; height: 18px; flex: none; }
+@media (max-width: 900px) {
+  .hero-meta { grid-template-columns: 1fr; }
+  .hero-meta .lead, .hero-meta .facts, .hero-meta .act { grid-column: auto; }
+  .hero h1 .l2 { padding-left: 0; }
+}
 
-/* ---------- funkcje ---------- */
-.feats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
-.feat { padding: 26px 24px 28px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: grid; gap: 10px; align-content: start; min-width: 0; }
-.feat svg { width: 22px; height: 22px; color: var(--accent); }
-.feat h3 { font-size: 17px; font-weight: 600; }
-.feat p { color: var(--muted); font-size: 14.5px; line-height: 1.55; }
-@media (max-width: 980px) { .feats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .feats { grid-template-columns: 1fr; } }
+/* ---------- mockupy ---------- */
+.stagebox { position: relative; margin-top: 56px; background: var(--panel); border-radius: 28px; padding: clamp(20px, 5vw, 72px) clamp(16px, 5vw, 72px) 0; overflow: hidden; }
+.win { border-radius: 14px 14px 0 0; overflow: hidden; box-shadow: 0 40px 80px -30px rgb(20 14 70 / .45), 0 0 0 1px rgb(0 0 0 / .25); background: #0f1115; }
+.stagebox .win { animation: rise .9s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes rise { from { transform: translateY(40px); } }
+.device { width: min(250px, 42%); border-radius: 40px; padding: 9px; background: #0a0a0d; box-shadow: 0 30px 60px -20px rgb(10 8 40 / .55), 0 0 0 1px rgb(255 255 255 / .06) inset; position: relative; }
+.device::before { content: ""; position: absolute; top: 18px; left: 50%; translate: -50% 0; width: 14px; height: 14px; border-radius: 50%; background: #000; z-index: 1; box-shadow: 0 0 0 2px #17171b; }
+.device img { border-radius: 32px; }
+.stagebox .device { position: absolute; right: clamp(12px, 4vw, 56px); bottom: -40px; width: min(230px, 30%); animation: float 1.1s .25s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes float { from { transform: translateY(70px); opacity: .6; } }
+.cap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 14px; }
 
-/* ---------- zrzuty ---------- */
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; }
-.tabs button { font: 500 14px/1 var(--sans); height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; position: relative; overflow: hidden; }
-.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--ink); }
-.tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); animation: fill 6s linear forwards; }
-.tabs.paused button::after { animation-play-state: paused; }
-@keyframes fill { from { width: 0; } to { width: 100%; } }
-.stage { position: relative; }
-.stage figure { margin: 0; display: grid; gap: 14px; }
-.stage figure[hidden] { display: none; }
-.stage figcaption { color: var(--muted); font-size: 15px; max-width: 70ch; }
-.stage .shot { animation: fadein .45s ease both; }
-@keyframes fadein { from { opacity: .4; transform: translateY(6px); } }
+/* ---------- pasek nazw ---------- */
+.marquee { margin-top: 96px; border-block: 1px solid var(--rule); overflow: hidden; white-space: nowrap; }
+.marquee div { display: inline-flex; gap: 48px; padding-block: 20px; animation: slide 40s linear infinite; font: 700 clamp(30px, 4.4vw, 58px)/1 var(--display); letter-spacing: -0.03em; }
+.marquee span { color: transparent; -webkit-text-stroke: 1.2px var(--ink); }
+.marquee span:nth-child(3n) { color: var(--ink); -webkit-text-stroke: 0; }
+.marquee span:nth-child(5n) em { -webkit-text-stroke: 0; }
+@keyframes slide { to { transform: translateX(-50%); } }
+
+/* ---------- sekcje ---------- */
+section { padding-block: 120px 0; }
+.head { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; margin-bottom: 56px; align-items: end; }
+.head h2 { grid-column: 1 / span 8; font: 800 clamp(44px, 7vw, 104px)/0.9 var(--display); letter-spacing: -0.05em; }
+.head p { grid-column: 9 / span 4; color: var(--muted); font-size: 16.5px; }
+@media (max-width: 900px) { .head { grid-template-columns: 1fr; } .head h2, .head p { grid-column: auto; } }
+
+.rows { border-top: 1px solid var(--ink); }
+.row { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; padding-block: 26px; border-bottom: 1px solid var(--rule); align-items: baseline; transition: padding .2s; }
+.row h3 { grid-column: 1 / span 5; font: 700 clamp(26px, 3vw, 40px)/1 var(--display); letter-spacing: -0.035em; }
+.row p { grid-column: 6 / span 5; color: var(--muted); }
+.row .label { grid-column: 11 / span 2; text-align: right; }
+.row:hover h3 { color: var(--accent); }
+@media (max-width: 900px) { .row { grid-template-columns: 1fr; gap: 8px; } .row h3, .row p, .row .label { grid-column: auto; text-align: left; } }
+
+.gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.plate { background: var(--panel-2); border-radius: 22px; padding: clamp(16px, 3vw, 40px) clamp(16px, 3vw, 40px) 0; overflow: hidden; display: flex; flex-direction: column; }
+.plate.violet { background: var(--panel); }
+.plate .win { margin-top: auto; }
+.plate .cap { margin: 0 0 22px; }
+.plate h3 { font: 700 22px/1.1 var(--display); letter-spacing: -0.02em; }
+.plate.wide { grid-column: 1 / -1; }
+@media (max-width: 820px) { .gallery { grid-template-columns: 1fr; } }
 
 /* ---------- android ---------- */
-.android-grid { display: grid; grid-template-columns: minmax(0, 6fr) minmax(0, 5fr); gap: 64px; align-items: center; }
-.phone { justify-self: center; width: min(300px, 100%); border-radius: 38px; padding: 10px; background: #0b0c0f; border: 1px solid var(--shot-edge); box-shadow: 0 30px 70px -28px rgb(16 19 26 / .5); }
-.phone img { border-radius: 30px; }
-.pair { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: end; }
-.list { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 18px; }
-.list li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 14px; }
-.list svg { width: 20px; height: 20px; color: var(--accent); margin-top: 3px; }
-.list b { font-weight: 600; }
-.list span { color: var(--muted); }
-.note { margin-top: 28px; padding: 16px 18px; border-radius: 10px; background: var(--accent-soft); font-size: 14.5px; display: grid; gap: 4px; }
-.note b { font-weight: 600; }
-.plugin-shot { margin-top: 56px; }
-@media (max-width: 900px) { .android-grid { grid-template-columns: 1fr; gap: 40px; } .phone { order: -1; } }
+.android { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 24px; align-items: center; }
+.android .text { grid-column: 1 / span 6; }
+.android .text h2 { font: 800 clamp(44px, 7vw, 104px)/0.9 var(--display); letter-spacing: -0.05em; margin-bottom: 36px; }
+.android .phonebox { grid-column: 8 / span 5; background: var(--panel); border-radius: 28px; padding: 48px 24px; display: grid; place-items: center; }
+.android .phonebox .device { width: min(290px, 80%); }
+.feat { display: grid; gap: 0; border-top: 1px solid var(--ink); }
+.feat li { list-style: none; display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; padding-block: 14px; border-bottom: 1px solid var(--rule); }
+.feat b { font: 600 16px/1.4 var(--display); }
+.feat span { color: var(--muted); font-size: 15px; }
+.feat { padding: 0; margin: 0; }
+.small { margin-top: 22px; color: var(--muted); font-size: 14.5px; max-width: 60ch; }
+.android .btn { margin-top: 28px; display: inline-flex; }
+.wide-plate { margin-top: 24px; }
+@media (max-width: 900px) { .android { grid-template-columns: 1fr; } .android .text, .android .phonebox { grid-column: auto; } .feat li { grid-template-columns: 1fr; gap: 2px; } }
 
 /* ---------- pluginy ---------- */
-.plugins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; }
-.plug { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 18px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--line); }
-.plug h3 { font-size: 16px; font-weight: 600; display: flex; gap: 8px; align-items: center; }
-.plug p { grid-column: 1; color: var(--muted); font-size: 14.5px; }
-.plug .btn { grid-row: 1 / span 2; grid-column: 2; }
-.lock { font: 500 10.5px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); padding: 3px 6px; border-radius: 4px; }
-.plug-foot { margin-top: 22px; color: var(--muted); font-size: 14.5px; max-width: 80ch; }
-@media (max-width: 760px) { .plugins { grid-template-columns: 1fr; } }
+.plugs { border-top: 1px solid var(--ink); }
+.plug { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 6fr) auto; gap: 24px; padding-block: 20px; border-bottom: 1px solid var(--rule); align-items: center; }
+.plug h3 { font: 700 24px/1.1 var(--display); letter-spacing: -0.025em; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.plug p { color: var(--muted); font-size: 15px; }
+.plug a { text-decoration: none; font: 500 13px/1 var(--mono); border: 1px solid var(--ink); border-radius: 99px; padding: 9px 14px; white-space: nowrap; }
+.plug a:hover { background: var(--ink); color: var(--bg); }
+.tag { font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+@media (max-width: 760px) { .plug { grid-template-columns: minmax(0, 1fr) auto; } .plug p { grid-column: 1 / -1; grid-row: 2; } }
 
 /* ---------- pobieranie ---------- */
-.dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.dl a { text-decoration: none; display: grid; gap: 8px; padding: 22px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); transition: border-color .15s, transform .15s; }
-.dl a:hover { border-color: var(--accent); transform: translateY(-2px); }
-.dl .k { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .04em; }
-.dl b { font-size: 18px; font-weight: 600; }
-.dl span { color: var(--muted); font-size: 14px; }
-.dl a.main { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.dl a.main .k, .dl a.main span { color: color-mix(in oklab, var(--accent-ink) 78%, var(--accent)); }
-.steps { margin-top: 28px; color: var(--muted); font-size: 14.5px; display: grid; gap: 6px; max-width: 80ch; }
-@media (max-width: 820px) { .dl { grid-template-columns: 1fr; } }
+.dl h2 { font: 800 clamp(72px, 17vw, 260px)/0.82 var(--display); letter-spacing: -0.06em; margin-bottom: 40px; }
+.dl h2 em { font-size: 1.04em; }
+.dlrow { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 5fr) auto; gap: 24px; align-items: center; text-decoration: none; padding-block: 24px; border-bottom: 1px solid var(--rule); }
+.dlrow:first-of-type { border-top: 1px solid var(--ink); }
+.dlrow b { font: 700 clamp(22px, 2.6vw, 34px)/1.05 var(--display); letter-spacing: -0.03em; }
+.dlrow span { color: var(--muted); font-size: 15px; }
+.dlrow i { font-style: normal; width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--ink); display: grid; place-items: center; transition: background .15s, color .15s; }
+.dlrow i svg { width: 20px; height: 20px; }
+.dlrow:hover i { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.dlrow:hover b { color: var(--accent); }
+.notes { margin-top: 32px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; color: var(--muted); font-size: 14.5px; }
+@media (max-width: 820px) { .dlrow { grid-template-columns: minmax(0, 1fr) auto; } .dlrow span { grid-column: 1; } .dlrow i { grid-row: 1 / span 2; grid-column: 2; } .notes { grid-template-columns: 1fr; } }
 
-footer { border-top: 1px solid var(--line); padding-block: 36px 48px; color: var(--muted); font-size: 14px; }
-footer .wrap { display: flex; gap: 20px; justify-content: space-between; flex-wrap: wrap; align-items: center; }
-footer a { color: var(--ink); }
+footer { margin-top: 120px; border-top: 1px solid var(--rule); }
+footer .wrap { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding-block: 28px 44px; font-size: 14px; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -175,159 +184,128 @@ footer a { color: var(--ink); }
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="mark" viewBox="0 0 60 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 24L16 33L6 42"/><path d="M21 46L40 46C48 46 53.4 39 53.4 31.5C53.4 24 48 18.2 42 18.2C36.5 18.2 32.8 22.5 32.8 26.7C32.8 30.5 35.6 33.2 39 33.2C41.8 33.2 43.7 31.3 43.7 29.6"/></g></symbol>
-    <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-gh" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></symbol>
-    <symbol id="i-term" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></g></symbol>
-    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.5 4.5 2.5 6.5 7 7-4.5.5-6.5 2.5-7 7-.5-4.5-2.5-6.5-7-7 4.5-.5 6.5-2.5 7-7Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-flow" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="15" width="6" height="6" rx="1.5"/><path d="M9 6h4a2 2 0 0 1 2 2v7"/></g></symbol>
-    <symbol id="i-cpu" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></g></symbol>
-    <symbol id="i-mic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></g></symbol>
-    <symbol id="i-key" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M15 8l2 2"/></g></symbol>
-    <symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></g></symbol>
-    <symbol id="i-puzzle" viewBox="0 0 24 24"><path d="M10 3h4v3a2 2 0 1 0 4 0V5h3v5h-1a2 2 0 1 0 0 4h1v5h-5v-1a2 2 0 1 0-4 0v1H5v-5h1a2 2 0 1 0 0-4H5V5h5Z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
-    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
-    <symbol id="i-ring" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
-    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-dl" viewBox="0 0 24 24"><path d="M12 4v11m-5-5 5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   </defs>
 </svg>
 
-<div class="alpha" role="note"><div class="wrap"><b>Alpha</b><span>Hermitty 0.1.0 jest we wczesnych testach i może zawierać błędy. Zgłaszaj je na <a href="https://github.com/JogiFPV2/terminalx/issues">GitHubie</a>.</span></div></div>
-
-<header class="nav">
+<header class="top">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="Hermitty, na górę strony"><span class="tile"><svg><use href="#mark"/></svg></span>hermit<b>tty</b></a>
-    <nav aria-label="Sekcje"><a href="#funkcje">Funkcje</a><a href="#zrzuty">Zrzuty</a><a href="#android">Android</a><a href="#pluginy">Pluginy</a><a href="https://github.com/JogiFPV2/terminalx">GitHub</a></nav>
-    <a class="btn sm pri" href="#pobierz"><svg><use href="#i-dl"/></svg>Pobierz</a>
+    <a class="brand" href="#top" aria-label="Hermitty, na górę strony"><span class="tile"><svg><use href="#mark"/></svg></span>hermitty</a>
+    <span class="pill" title="Wersja testowa, może zawierać błędy">alpha 0.1</span>
+    <nav aria-label="Sekcje"><a href="#funkcje">Funkcje</a><a href="#android">Android</a><a href="#pluginy">Pluginy</a><a href="https://github.com/JogiFPV2/terminalx">GitHub</a></nav>
+    <a class="get" href="#pobierz">Pobierz</a>
   </div>
 </header>
 
 <main id="top">
-  <section class="hero">
-    <div class="wrap hero-grid">
-      <div>
-        <div class="prompt">PS C:\&gt; hermitty<i></i></div>
-        <h1>Terminale, agenci AI i&nbsp;workflow w&nbsp;<em>jednym lekkim oknie</em>.</h1>
-        <p class="lead">PowerShell, CMD, WSL i SSH w workspace'ach z zakładkami. Każdy workspace ma agenta AI, który czyta terminale i wykonuje komendy za Twoją zgodą.</p>
+  <div class="hero wrap">
+    <h1>Terminal <span class="l2"><em>z agentem</em> AI,</span> w&nbsp;jednym oknie.</h1>
+    <div class="hero-meta">
+      <p class="lead">PowerShell, CMD, WSL i SSH w workspace'ach z zakładkami. Każdy workspace ma agenta, który czyta terminale, wykonuje komendy za Twoją zgodą i buduje workflow z opisu.</p>
+      <div class="facts" aria-label="Liczby">
+        <div><b>3 MB</b><span>instalator</span></div>
+        <div><b>50</b><span>nodów workflow</span></div>
+        <div><b>86 KB</b><span>aplikacja na Androida</span></div>
       </div>
-      <div class="hero-side">
-        <div class="facts" aria-label="Liczby">
-          <div><b>3 MB</b><span>instalator</span></div>
-          <div><b>50</b><span>nodów workflow</span></div>
-          <div><b>86 KB</b><span>aplikacja na Androida</span></div>
-        </div>
-        <div class="cta">
-          <a class="btn pri" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe"><svg><use href="#i-dl"/></svg>Pobierz dla Windows</a>
-          <a class="btn" href="#android">Aplikacja na Androida</a>
-        </div>
+      <div class="act">
+        <a class="btn pri" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe"><span>Pobierz dla Windows<small>0.1.0-alpha · 3 MB</small></span><svg><use href="#i-dl"/></svg></a>
+        <a class="btn" href="#android"><span>Aplikacja na Androida<small>APK · 86 KB</small></span><svg><use href="#i-arrow"/></svg></a>
       </div>
-      <div class="hero-shot shot"><img src="img/main.webp" width="1440" height="880" alt="Hermitty: terminal z historią gita i panel agenta AI"></div>
     </div>
-  </section>
+
+    <div class="stagebox">
+      <div class="win"><img src="img/main.webp" width="2720" height="1720" alt="Hermitty: terminal z historią gita i panel agenta AI"></div>
+      <div class="device" aria-hidden="true"><img src="img/android.webp" width="1080" height="1500" alt=""></div>
+    </div>
+    <div class="cap"><span class="label">Workspace „Hermitty” · terminal i agent</span><span class="label">Wersja alpha. Może zawierać błędy</span></div>
+  </div>
+
+  <div class="marquee" aria-hidden="true">
+    <div>
+      <span>PowerShell</span><span>CMD</span><span>WSL</span><span>SSH</span><span><em>Claude</em></span><span>GPT</span><span>Gemini</span><span>Ollama</span><span>ComfyUI</span><span>MCP</span>
+      <span>PowerShell</span><span>CMD</span><span>WSL</span><span>SSH</span><span><em>Claude</em></span><span>GPT</span><span>Gemini</span><span>Ollama</span><span>ComfyUI</span><span>MCP</span>
+    </div>
+  </div>
 
   <section id="funkcje">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="eyebrow"><b>01</b> · Funkcje</span>
-        <h2>Wszystko, czego potrzebujesz przy pracy w terminalu</h2>
-        <p>Jedno okno zamiast kilku aplikacji. Klucze API leżą w Menedżerze poświadczeń Windows, a pluginy działają w izolacji.</p>
+      <div class="head">
+        <h2>Jedno okno, <em>wiele</em> narzędzi.</h2>
+        <p>Klucze API leżą w Menedżerze poświadczeń Windows. Pluginy działają w izolacji, każdy z jawnie podanymi uprawnieniami.</p>
       </div>
-      <div class="feats">
-        <div class="feat"><svg><use href="#i-term"/></svg><h3>Workspace'y i zakładki</h3><p>Zakładki przeciągasz myszą i dzielisz na panele. W trybie „Okna” każda zakładka jest swobodnym oknem. Zamknięte da się przywrócić przez 20 sekund.</p></div>
-        <div class="feat"><svg><use href="#i-spark"/></svg><h3>Agent i podagenci</h3><p>Agent prowadzi cały workspace i zleca zadania podagentom w zakładkach. Wybierasz uprawnienia, możesz dodawać załączniki, a każda rozmowa trafia do historii.</p></div>
-        <div class="feat"><svg><use href="#i-flow"/></svg><h3>Workflow z nodów</h3><p>Terminal, AI, grafika, wideo, pliki i sieć. Workflow uruchamia harmonogram, push do gita albo zmiana pliku. Agent zbuduje go z opisu.</p></div>
-        <div class="feat"><svg><use href="#i-cpu"/></svg><h3>Lokalne AI</h3><p>Obrazy i wideo na Twojej karcie graficznej przez ComfyUI, instalowane jednym kliknięciem. Modele Ollamy dzielą z nim jedną kolejkę GPU.</p></div>
-        <div class="feat"><svg><use href="#i-mic"/></svg><h3>Głos</h3><p>Dyktujesz wiadomość agentowi, a odpowiedzi możesz słuchać. Czytać może Windows offline albo głos providera.</p></div>
-        <div class="feat"><svg><use href="#i-key"/></svg><h3>Konta i providerzy</h3><p>Anthropic, OpenAI, Google, OpenRouter, Ollama i inni. Każdy provider może mieć kilka kluczy, które przełączają się przy limicie. Limity planów subskrypcji widać na paskach.</p></div>
-        <div class="feat"><svg><use href="#i-server"/></svg><h3>SSH i SFTP</h3><p>Vault hostów z grupami i tagami. Logowanie kluczem albo przez agenta SSH, przekierowania portów i dwupanelowy SFTP.</p></div>
-        <div class="feat"><svg><use href="#i-puzzle"/></svg><h3>Pluginy</h3><p>Notatki, Quota, Klucze API, Procesy w tle, Telefon i inne. Każdy działa w sandboxie z jawnymi uprawnieniami.</p></div>
+      <div class="rows">
+        <div class="row"><h3>Workspace'y</h3><p>Zakładki przeciągasz myszą i dzielisz na panele. W trybie „Okna” każda zakładka jest swobodnym oknem. Zamknięte da się przywrócić przez 20 sekund.</p><span class="label">Terminal</span></div>
+        <div class="row"><h3>Agent i podagenci</h3><p>Agent prowadzi workspace, podagenci pracują w zakładkach. Wybierasz uprawnienia, możesz dodawać załączniki, a każda rozmowa trafia do historii.</p><span class="label">AI</span></div>
+        <div class="row"><h3>Workflow</h3><p>50 nodów: terminal, AI, grafika, wideo, pliki i sieć. Workflow uruchamia harmonogram, push do gita albo zmiana pliku.</p><span class="label">Automatyzacja</span></div>
+        <div class="row"><h3>Lokalne AI</h3><p>Obrazy i wideo na Twojej karcie graficznej przez ComfyUI, instalowane jednym kliknięciem. Modele Ollamy dzielą z nim kolejkę GPU.</p><span class="label">GPU</span></div>
+        <div class="row"><h3>Głos</h3><p>Dyktujesz wiadomość agentowi, a odpowiedzi możesz słuchać. Czytać może Windows offline albo głos providera.</p><span class="label">Mikrofon</span></div>
+        <div class="row"><h3>Konta i klucze</h3><p>Każdy provider może mieć kilka kluczy, które przełączają się przy limicie. Limity planów Claude, Codex i Gemini widać na paskach.</p><span class="label">Providerzy</span></div>
+        <div class="row"><h3>SSH i SFTP</h3><p>Vault hostów, logowanie kluczem i przez agenta SSH, przekierowania portów, dwupanelowy SFTP.</p><span class="label">Serwery</span></div>
       </div>
     </div>
   </section>
 
-  <section id="zrzuty">
+  <section>
     <div class="wrap">
-      <div class="sec-head">
-        <span class="eyebrow"><b>02</b> · Zrzuty ekranu</span>
-        <h2>Zobacz, jak to wygląda</h2>
-      </div>
-      <div class="tabs" role="tablist" aria-label="Zrzuty ekranu" id="tabs">
-        <button role="tab" id="t-flow" aria-controls="p-flow" aria-selected="true">Workflow</button>
-        <button role="tab" id="t-win" aria-controls="p-win" aria-selected="false">Tryb okien</button>
-        <button role="tab" id="t-prov" aria-controls="p-prov" aria-selected="false">Konta i providerzy</button>
-        <button role="tab" id="t-plug" aria-controls="p-plug" aria-selected="false">Pluginy</button>
-      </div>
-      <div class="stage">
-        <figure role="tabpanel" id="p-flow" aria-labelledby="t-flow"><div class="shot"><img src="img/workflow.webp" width="1440" height="880" alt="Edytor workflow z nodami" loading="lazy"></div><figcaption>Raport poranny: harmonogram, pobranie strony, streszczenie AI, warunek, tłumaczenie, grafika i notatka. Po lewej 50 nodów w kategoriach.</figcaption></figure>
-        <figure role="tabpanel" id="p-win" aria-labelledby="t-win" hidden><div class="shot"><img src="img/windows.webp" width="1440" height="880" alt="Tryb okien" loading="lazy"></div><figcaption>Tryb „Okna”: każda zakładka jest oknem, które przesuwasz i zmieniasz jego rozmiar. Aktywne jest na wierzchu, pozostałe są przyciemnione.</figcaption></figure>
-        <figure role="tabpanel" id="p-prov" aria-labelledby="t-prov" hidden><div class="shot"><img src="img/settings-providers.webp" width="1440" height="880" alt="Ustawienia kont i providerów" loading="lazy"></div><figcaption>Karta providera: klucze API, domyślny model i konta subskrypcji z paskami zużycia.</figcaption></figure>
-        <figure role="tabpanel" id="p-plug" aria-labelledby="t-plug" hidden><div class="shot"><img src="img/settings-plugins.webp" width="1440" height="880" alt="Lista pluginów" loading="lazy"></div><figcaption>Pluginy z uprawnieniami. Każdy włączasz osobno, konfigurujesz i importujesz z pliku .zip.</figcaption></figure>
+      <div class="gallery">
+        <figure class="plate violet wide" style="margin:0"><div class="cap"><h3>Workflow z opisu</h3><span class="label">Harmonogram → strona → streszczenie → grafika</span></div><div class="win"><img src="img/workflow.webp" width="2720" height="1720" alt="Edytor workflow z nodami" loading="lazy"></div></figure>
+        <figure class="plate" style="margin:0"><div class="cap"><h3>Tryb okien</h3><span class="label">Aktywne na wierzchu</span></div><div class="win"><img src="img/windows.webp" width="2720" height="1720" alt="Tryb okien" loading="lazy"></div></figure>
+        <figure class="plate" style="margin:0"><div class="cap"><h3>Konta i providerzy</h3><span class="label">Klucze · limity · modele</span></div><div class="win"><img src="img/settings-providers.webp" width="2720" height="1720" alt="Ustawienia kont i providerów" loading="lazy"></div></figure>
       </div>
     </div>
   </section>
 
   <section id="android">
     <div class="wrap">
-      <div class="android-grid">
-        <div>
-          <div class="sec-head" style="margin-bottom:0">
-            <span class="eyebrow"><b>03</b> · Hermitty na Androida</span>
-            <h2>Telefon przy komputerze, bez sięgania do kieszeni</h2>
-            <p>Mała aplikacja łączy telefon z Hermitty. Wszystko obsługujesz z paska bocznego na komputerze, także gdy telefon jest zablokowany.</p>
-          </div>
-          <ul class="list">
-            <li><svg><use href="#i-bell"/></svg><div><b>Powiadomienia.</b> <span>Widzisz je na komputerze, odpowiadasz w komunikatorach i zamykasz je jednym kliknięciem.</span></div></li>
-            <li><svg><use href="#i-msg"/></svg><div><b>SMS-y.</b> <span>Rozmowy z nazwami kontaktów, czytanie i wysyłanie z klawiatury.</span></div></li>
-            <li><svg><use href="#i-mic"/></svg><div><b>Zdalny dyktafon.</b> <span>Nagrywanie włączasz z komputera skrótem Ctrl+Alt+R. Nagranie trafia na komputer, gdzie odsłuchasz je albo zamienisz na tekst.</span></div></li>
-            <li><svg><use href="#i-ring"/></svg><div><b>Znajdź telefon i bateria.</b> <span>Dzwonek na pełnej głośności. Stan baterii widać na pasku statusu.</span></div></li>
-            <li><svg><use href="#i-shield"/></svg><div><b>Prywatność.</b> <span>Połączenie jest szyfrowane AES-256-GCM, a kody logowania i BLIK zamieniają się w kropki, zanim opuszczą telefon.</span></div></li>
+      <div class="android">
+        <div class="text">
+          <h2>Telefon <em>przy</em> komputerze.</h2>
+          <ul class="feat">
+            <li><b>Powiadomienia</b><span>Widzisz je w Hermitty, odpowiadasz w komunikatorach i zamykasz je jednym kliknięciem.</span></li>
+            <li><b>SMS-y</b><span>Rozmowy z nazwami kontaktów, czytanie i wysyłanie z klawiatury.</span></li>
+            <li><b>Zdalny dyktafon</b><span>Nagrywanie włączasz skrótem Ctrl+Alt+R, także przy zablokowanym ekranie. Nagranie trafia na komputer i da się je zamienić na tekst.</span></li>
+            <li><b>Znajdź telefon</b><span>Dzwonek na pełnej głośności. Stan baterii widać na pasku statusu.</span></li>
+            <li><b>Prywatność</b><span>Połączenie jest szyfrowane AES-256-GCM. Kody logowania i BLIK zamieniają się w kropki, zanim opuszczą telefon.</span></li>
           </ul>
-          <div class="note"><b>Android 10 lub nowszy.</b><span>Telefon i komputer w tej samej sieci Wi-Fi albo w Tailscale. Aplikacja jest instalowana z pliku APK, poza Sklepem Play.</span></div>
-          <div class="cta"><a class="btn pri" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk"><svg><use href="#i-dl"/></svg>Pobierz APK (86 KB)</a></div>
+          <p class="small">Android 10 lub nowszy. Telefon i komputer w tej samej sieci Wi-Fi albo w Tailscale. Aplikację instalujesz z pliku APK, poza Sklepem Play.</p>
+          <a class="btn pri" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk"><span>Pobierz APK<small>Android 10+ · 86 KB</small></span><svg><use href="#i-dl"/></svg></a>
         </div>
-        <div class="phone"><img src="img/android.webp" width="1080" height="1500" alt="Aplikacja Hermitty na Androidzie: parowanie i uprawnienia" loading="lazy"></div>
+        <div class="phonebox"><div class="device"><img src="img/android.webp" width="1080" height="1500" alt="Aplikacja Hermitty na Androidzie: parowanie i uprawnienia" loading="lazy"></div></div>
       </div>
-      <div class="plugin-shot shot"><img src="img/phone-plugin.webp" width="1440" height="880" alt="Plugin Telefon w pasku bocznym Hermitty: powiadomienia, dyktafon" loading="lazy"></div>
+      <figure class="plate violet wide-plate" style="margin-inline:0"><div class="cap" style="margin-top:0"><h3>Plugin Telefon</h3><span class="label">Powiadomienia · SMS · dyktafon · bateria</span></div><div class="win"><img src="img/phone-plugin.webp" width="2720" height="1720" alt="Plugin Telefon w pasku bocznym Hermitty" loading="lazy"></div></figure>
     </div>
   </section>
 
   <section id="pluginy">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="eyebrow"><b>04</b> · Pluginy</span>
-        <h2>Każdy plugin do pobrania osobno</h2>
-        <p>Wszystkie pluginy są już w aplikacji. Paczka .zip przyda się do ponownej instalacji: Ustawienia → Pluginy → Importuj.</p>
+      <div class="head">
+        <h2>Pluginy <em>osobno</em>.</h2>
+        <p>Wszystkie są już w aplikacji. Plik .zip przyda się do ponownej instalacji: Ustawienia → Pluginy → Importuj. Pluginy wbudowane korzystają z uprawnień zarezerwowanych dla aplikacji, więc nie da się ich zaimportować.</p>
       </div>
-      <div class="plugins">
-        <div class="plug"><h3>Notatki</h3><p>Notatki i foldery w pasku bocznym, każda w osobnym pliku .md.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.notes-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Procesy w tle</h3><p>Zakładkę z działającym procesem odkładasz do paska bocznego, a proces działa dalej.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.bcgrnd_process-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Monitor zasobów</h3><p>CPU i RAM na pasku statusu.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.sysmon-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Porty</h3><p>Zajęte porty i procesy, które ich używają.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.ports-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Pomodoro</h3><p>Licznik pracy i przerw z powiadomieniem.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.pomodoro-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Klucze API <span class="lock">wbudowany</span></h3><p>Providerzy i klucze z sejfu systemu, kopiowanie jednym kliknięciem.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.keys-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Quota <span class="lock">wbudowany</span></h3><p>Zużycie planów Claude, Codex, Gemini i Cursor oraz limitów API, na paskach.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.quota-1.0.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
-        <div class="plug"><h3>Telefon <span class="lock">wbudowany</span></h3><p>Powiadomienia, SMS-y i dyktafon z telefonu z Androidem.</p><a class="btn sm" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.phone-0.1.0.zip"><svg><use href="#i-dl"/></svg>.zip</a></div>
+      <div class="plugs">
+        <div class="plug"><h3>Notatki</h3><p>Notatki i foldery w pasku bocznym, każda w osobnym pliku .md.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.notes-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Procesy w tle</h3><p>Zakładkę z działającym procesem odkładasz do paska bocznego, a proces działa dalej.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.bcgrnd_process-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Monitor zasobów</h3><p>CPU i RAM na pasku statusu.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.sysmon-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Porty</h3><p>Zajęte porty i procesy, które ich używają.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.ports-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Pomodoro</h3><p>Licznik pracy i przerw z powiadomieniem.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.pomodoro-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Klucze API <span class="tag">wbudowany</span></h3><p>Providerzy i klucze z sejfu systemu, kopiowanie jednym kliknięciem.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.keys-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Quota <span class="tag">wbudowany</span></h3><p>Zużycie planów Claude, Codex, Gemini i Cursor oraz limitów API, na paskach.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.quota-1.0.0.zip">.zip ↓</a></div>
+        <div class="plug"><h3>Telefon <span class="tag">wbudowany</span></h3><p>Powiadomienia, SMS-y i dyktafon z telefonu z Androidem.</p><a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.phone-0.1.0.zip">.zip ↓</a></div>
       </div>
-      <p class="plug-foot">Pluginy oznaczone jako „wbudowany” korzystają z uprawnień zarezerwowanych dla aplikacji: sejfu kluczy, logowań narzędzi i telefonu. Działają tylko w wersji dostarczonej z Hermitty, a import pliku .zip je odrzuci. Własne pluginy opisuje <a href="https://github.com/JogiFPV2/terminalx/blob/main/docs/PLUGINS.md">dokumentacja</a>.</p>
     </div>
   </section>
 
-  <section id="pobierz">
+  <section id="pobierz" class="dl">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="eyebrow"><b>05</b> · Pobieranie</span>
-        <h2>Pobierz Hermitty 0.1.0-alpha</h2>
-        <p>Windows 10 i 11. Zainstalowana aplikacja sama pobiera kolejne wersje.</p>
-      </div>
-      <div class="dl">
-        <a class="main" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe"><span class="k">WINDOWS · INSTALATOR</span><b>Hermitty-0.1.0-alpha-setup.exe</b><span>Zalecany. Skrót w menu Start i automatyczne aktualizacje.</span></a>
-        <a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-portable.exe"><span class="k">WINDOWS · BEZ INSTALACJI</span><b>Hermitty-0.1.0-alpha-portable.exe</b><span>Jeden plik exe, dane w folderze obok.</span></a>
-        <a href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk"><span class="k">ANDROID 10+</span><b>Hermitty-Telefon-0.1.0-alpha.apk</b><span>Aplikacja na telefon do pluginu Telefon.</span></a>
-      </div>
-      <div class="steps">
+      <h2>Pobierz<em>.</em></h2>
+      <a class="dlrow" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe"><b>Windows · instalator</b><span>Hermitty-0.1.0-alpha-setup.exe. Skrót w menu Start i automatyczne aktualizacje.</span><i><svg><use href="#i-dl"/></svg></i></a>
+      <a class="dlrow" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-portable.exe"><b>Windows · bez instalacji</b><span>Jeden plik exe, dane zapisuje w folderze obok.</span><i><svg><use href="#i-dl"/></svg></i></a>
+      <a class="dlrow" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk"><b>Android 10+</b><span>Hermitty-Telefon-0.1.0-alpha.apk, potrzebny do pluginu Telefon.</span><i><svg><use href="#i-dl"/></svg></i></a>
+      <div class="notes">
+        <p>To wersja alpha. Może zawierać błędy, więc nie powierzaj jej jeszcze krytycznej pracy. Błędy zgłaszaj na <a href="https://github.com/JogiFPV2/terminalx/issues">GitHubie</a>.</p>
         <p>Instalator nie ma jeszcze certyfikatu, więc Windows SmartScreen pokaże ostrzeżenie. Kliknij „Więcej informacji”, a potem „Uruchom mimo to”.</p>
-        <p>Telefon: otwórz pobrany plik APK i zezwól na instalację. W Hermitty włącz plugin Telefon (Ustawienia → Pluginy), kliknij + w jego sekcji i wpisz kod w aplikacji.</p>
-        <p>Wszystkie pliki i opis zmian są w <a href="https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha">wydaniu na GitHubie</a>.</p>
+        <p>Telefon: włącz plugin Telefon w Ustawienia → Pluginy, kliknij + w jego sekcji i wpisz kod w aplikacji na telefonie.</p>
       </div>
     </div>
   </section>
@@ -335,37 +313,9 @@ footer a { color: var(--ink); }
 
 <footer>
   <div class="wrap">
-    <span>Hermitty 0.1.0-alpha. Wersja testowa: może zawierać błędy.</span>
-    <span><a href="https://github.com/JogiFPV2/terminalx">GitHub</a> · <a href="https://github.com/JogiFPV2/terminalx/issues">Zgłoś błąd</a></span>
+    <span>Hermitty 0.1.0-alpha · Windows 10/11 · Android 10+</span>
+    <span><a href="https://github.com/JogiFPV2/terminalx">GitHub</a> · <a href="https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha">Wydanie</a> · <a href="https://github.com/JogiFPV2/terminalx/issues">Zgłoś błąd</a></span>
   </div>
 </footer>
-
-<script>
-// Zrzuty ekranu: zakładki z automatycznym przełączaniem co 6 s; pauza po najechaniu albo wyborze ręcznym.
-(() => {
-  const list = document.getElementById('tabs');
-  const tabs = [...list.querySelectorAll('[role="tab"]')];
-  let i = 0, timer = 0, manual = false;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function show(n) {
-    i = (n + tabs.length) % tabs.length;
-    tabs.forEach((t, k) => {
-      t.setAttribute('aria-selected', String(k === i));
-      t.tabIndex = k === i ? 0 : -1;
-      document.getElementById(t.getAttribute('aria-controls')).hidden = k !== i;
-    });
-  }
-  function schedule() { clearTimeout(timer); if (!manual && !reduce) timer = setTimeout(() => { show(i + 1); schedule(); }, 6000); }
-  tabs.forEach((t, k) => t.addEventListener('click', () => { manual = true; list.classList.add('paused'); show(k); clearTimeout(timer); }));
-  list.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    manual = true; list.classList.add('paused'); show(i + (e.key === 'ArrowRight' ? 1 : -1)); tabs[i].focus(); clearTimeout(timer);
-  });
-  const stage = document.querySelector('.stage');
-  stage.addEventListener('mouseenter', () => { clearTimeout(timer); list.classList.add('paused'); });
-  stage.addEventListener('mouseleave', () => { if (!manual) { list.classList.remove('paused'); show(i); schedule(); } });
-  schedule();
-})();
-</script>
 </body>
 </html>
