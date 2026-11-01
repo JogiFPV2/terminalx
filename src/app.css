@@ -82,6 +82,21 @@ select.inp { padding: 5px 6px; }
 .lrow .acts .icobtn.del:hover { color: var(--destructive); }
 .form { border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: var(--background); }
 .picon { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: var(--muted); color: var(--primary); flex: none; }
+/* Karta providera: klucze API i konta subskrypcji pod nagłówkiem providera. */
+.pcard { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; flex: none; }
+.pcard > .lrow { border-top: 0; }
+.pcard .psub { display: flex; align-items: center; gap: 6px; padding: 8px 10px 2px 54px; border-top: 1px dashed var(--border); }
+.pcard .sublabel { font-size: 10.5px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted-foreground); cursor: default; }
+.pcard .icobtn.sm { width: 22px; height: 20px; }
+.pcard .krow { display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 54px; min-width: 0; flex-wrap: wrap; }
+.pcard .krow .kico { color: var(--muted-foreground); display: grid; flex: none; }
+.pcard .krow .info { flex: 1 1 200px; min-width: 0; }
+.pcard .krow .info b { font-weight: 500; font-size: 12.5px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.pcard .krow .info small { color: var(--muted-foreground); font-size: 11.5px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard .krow .acts { display: flex; gap: 2px; margin-left: auto; align-items: center; }
+.pcard .krow .acts .icobtn.del:hover { color: var(--destructive); }
+.pcard .form { margin: 6px 10px 6px 54px; }
+.pcard > :last-child { padding-bottom: 8px; }
 pre.code { margin: 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; background: var(--term-bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; overflow: auto; white-space: pre-wrap; }
 .err-box { border: 1px solid color-mix(in oklab, var(--destructive) 45%, var(--border)); color: var(--destructive); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
 

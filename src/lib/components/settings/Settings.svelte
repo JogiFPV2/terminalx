@@ -14,7 +14,6 @@
   import Remote from './Remote.svelte';
   import Local from './Local.svelte';
   import Mcp from './Mcp.svelte';
-  import Accounts from './Accounts.svelte';
   import Fallback from './Fallback.svelte';
   import Skills from './Skills.svelte';
   import Voice from './Voice.svelte';
@@ -50,7 +49,7 @@
       {:else if ui.settingsPage === 'terminal'}<TerminalPage />
       {:else if ui.settingsPage === 'shortcuts'}<Shortcuts />
       {:else if ui.settingsPage === 'agents'}<Agents />
-      {:else if ui.settingsPage === 'providers'}<Accounts /><hr class="sep" /><Providers />
+      {:else if ui.settingsPage === 'providers'}<Providers />
       {:else if ui.settingsPage === 'fallback'}<Fallback />
       {:else if ui.settingsPage === 'skills'}<Skills />
       {:else if ui.settingsPage === 'voice'}<Voice />
@@ -73,7 +72,6 @@
   nav button.on { background: var(--accent); color: var(--foreground); }
   .grp { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted-foreground); padding: 12px 10px 4px; opacity: .8; }
   .grp:first-child { padding-top: 2px; }
-  .sep { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
   section { position: relative; padding: 18px 20px 28px; display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow: auto; }
   .closer { position: absolute; right: 12px; top: 12px; z-index: 5; background: var(--card); }
   .closer:hover { background: var(--muted); }

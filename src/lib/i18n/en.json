@@ -918,7 +918,29 @@
     "Nagranie ma limit 10 minut.": "Recordings are limited to 10 minutes.",
     "Dyktowanie potrzebuje providera OpenAI albo zgodnego z OpenAI (np. Groq) z kluczem API. Ustaw go w Ustawienia → Głos.": "Dictation needs an OpenAI or OpenAI-compatible provider (e.g. Groq) with an API key. Set it in Settings → Voice.",
     "Brak providera do dyktowania. Ustaw go w Ustawienia → Głos.": "No dictation provider. Set it in Settings → Voice.",
-    "Brak providera do czytania. Ustaw go w Ustawienia → Głos albo wybierz głosy systemu.": "No provider for reading aloud. Set it in Settings → Voice or choose system voices."
+    "Brak providera do czytania. Ustaw go w Ustawienia → Głos albo wybierz głosy systemu.": "No provider for reading aloud. Set it in Settings → Voice or choose system voices.",
+    "Provider może mieć kilka kluczy API, np. prywatny i firmowy. W czacie i profilu agenta wybierasz provider, klucz (albo „automatycznie”) i model. Przy „automatycznie” klucz z limitem albo bez środków odpoczywa minutę, a zapytanie idzie następnym kluczem. Klucze leżą w Menedżerze poświadczeń Windows; agenci i pluginy ich nie widzą. Konta subskrypcji (Claude Code, Codex) służą zakładkom terminala, wybierasz je ręcznie i nie przełączają się same.": "A provider can have several API keys, e.g. personal and work. In the chat and agent profile you pick the provider, the key (or “automatic”) and the model. With “automatic”, a key that hits a limit or runs out of credit rests for a minute and the request goes to the next key. Keys live in Windows Credential Manager; agents and plugins never see them. Subscription accounts (Claude Code, Codex) are for terminal tabs: you pick them by hand and they never switch on their own.",
+    "Klucz główny": "Main key",
+    "Dodaj klucz API": "Add API key",
+    "Zapisz klucz": "Save key",
+    "Wklej klucz API.": "Paste the API key.",
+    "klucz główny (także grafika, głos i saldo)": "main key (also used for images, voice and balance)",
+    "Brak klucza. Dodaj go przyciskiem +.": "No key. Add one with the + button.",
+    "Bez klucza (lokalnie).": "No key (local).",
+    "Testuj połączenie i pobierz listę modeli": "Test the connection and fetch the model list",
+    "Domyślny model tego providera (gdy wybierasz sam provider)": "This provider's default model (used when you pick just the provider)",
+    "Kolejne klucze dodajesz na karcie providera (+ przy „Klucze API”).": "Add more keys on the provider card (+ next to “API keys”).",
+    "Inne subskrypcje": "Other subscriptions",
+    "Narzędzia bez providera API w aplikacji: limity planu z logowania na tym komputerze.": "Tools without an API provider in the app: plan limits from the login on this computer.",
+    "Subskrypcje · zakładki terminala": "Subscriptions · terminal tabs",
+    "Logowanie narzędzia na tym komputerze. Konto wybierasz w menu zakładki terminala (prawy przycisk → Konto); nie przełącza się samo i nie służy do czatu w aplikacji.": "The tool's login on this computer. Pick the account in the terminal tab menu (right click → Account); it never switches on its own and isn't used for the app's chat.",
+    "Automatycznie (przełączanie przy limicie)": "Automatic (switch on limit)",
+    "przełącza przy limicie": "switches on limit",
+    "tylko ten klucz": "this key only",
+    "Klucz API (automatycznie: przełącza przy limicie)": "API key (automatic: switches on limit)",
+    "Szukaj klucza…": "Search keys…",
+    "np. Prywatny": "e.g. Personal",
+    "Klucze API · przełączanie przy limicie": "API keys · switch on limit"
   },
   "patterns": [
     [
@@ -1408,6 +1430,26 @@
     [
       "Tempo: {0}×",
       "Speed: {0}×"
+    ],
+    [
+      "{0}: klucz „{1}” ma limit albo brak środków. Odpowiada klucz „{2}”.",
+      "{0}: key “{1}” hit a limit or ran out of credit. Key “{2}” is answering."
+    ],
+    [
+      "limit albo brak środków · odpoczywa do {0}",
+      "limit or no credit · resting until {0}"
+    ],
+    [
+      "{0} (tylko ten)",
+      "{0} (this one only)"
+    ],
+    [
+      "Nazwa konta {0}",
+      "{0} account name"
+    ],
+    [
+      "{0} · domyślne",
+      "{0} · default"
     ]
   ]
 }

@@ -4,7 +4,7 @@
   import { agentState, sendToAgent, sendToSub, stopAgent, resolveApproval, newChat, ensureChatId, listChats, openChat, deleteChat, type ChatMeta } from '../agent.svelte';
   import { track, clamp } from '../util';
   import { PERM_LABEL, PROVIDER_TYPES, isChat } from '../defaults';
-  import { resolveModel, listModels } from '../ai';
+  import { resolveModel, listModels, usableKeys } from '../ai';
   import { prepare, fmtSize, saveAudio } from '../attach';
   import { voice, startRec, stopRec, cancelRec, transcribe, toggleSpeak, stopSpeaking } from '../voice.svelte';
   import { mediaSrc } from '../workflow/media';
@@ -49,11 +49,19 @@
   }
   function pickProvider(id: string) {
     const r = resolveModel(id, null);
-    ws.chatModel = { provider: r.p.id, model: r.model };
+    ws.chatModel = { provider: r.p.id, model: r.model, key: null };
   }
+  // Klucz zostaje przy zmianie modelu tego samego providera.
+  const curKey = $derived(ws.chatModel ? ws.chatModel.key || null : agent?.provider === eff?.p.id ? agent?.key || null : null);
   function pickModel(v: string) {
-    if (v.includes(SEP)) { const [provider, model] = v.split(SEP); ws.chatModel = { provider, model }; }
-    else if (eff) ws.chatModel = { provider: eff.p.id, model: v };
+    const [provider, model] = v.includes(SEP) ? v.split(SEP) : [eff?.p.id || '', v];
+    if (provider) ws.chatModel = { provider, model, key: provider === eff?.p.id ? curKey : null };
+  }
+  // Klucz: widoczny, gdy provider ma ich kilka; „automatycznie” przełącza przy limicie.
+  const keys = $derived(eff ? usableKeys(eff.p).filter((k) => k.hasKey) : []);
+  const keyItems = $derived([{ value: 'auto', label: 'Automatycznie', hint: 'przełącza przy limicie' }, ...keys.map((k) => ({ value: k.id, label: k.name, hint: 'tylko ten klucz' }))]);
+  function pickKey(v: string) {
+    if (eff) ws.chatModel = { provider: eff.p.id, model: eff.model, key: v === 'auto' ? null : v };
   }
   function toggleStar(v: string) {
     const [provider, model] = v.split(SEP);
@@ -331,6 +339,10 @@
       <Combo value={eff?.p.id || ''} label={eff?.p.name || 'Brak providera'} icon="bot" title="Provider" placeholder="Szukaj providera…"
         items={providerItems}
         onpick={pickProvider} />
+      {#if keys.length > 1}
+        <Combo value={curKey || 'auto'} label={keys.find((k) => k.id === curKey)?.name || 'Auto'} icon="key" title="Klucz API (automatycznie: przełącza przy limicie)" placeholder="Szukaj klucza…"
+          items={keyItems} onpick={pickKey} />
+      {/if}
       <Combo value={eff ? eff.p.id + SEP + eff.model : ''} label={eff?.model || '—'} icon="spark" title="Model (gwiazdka: na górę listy)" placeholder="Szukaj albo wpisz model…" custom={true}
         items={modelItems} loading={loadingModels} onopen={loadModels} onpick={pickModel}
         starred={(v) => { const [p, m] = v.split(SEP); return isStar(p, m); }} onstar={toggleStar} />

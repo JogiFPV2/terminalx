@@ -4,7 +4,7 @@ import { call } from './ipc';
 import { app, notify } from './state.svelte';
 import { isChat } from './defaults';
 import { onGpu } from './gpu';
-import type { Provider } from './types';
+import type { Provider, ProviderKey } from './types';
 import { emptyUsage, addUsage, tokensOf, parseLimits } from './usage';
 import { expandAttachments } from './attach';
 
@@ -35,6 +35,8 @@ export interface CompleteOpts {
   temperature?: number;
   topP?: number;
   json?: boolean;
+  /** Klucz providera (id z `providerKeys`); brak = automatycznie, z przełączaniem przy limicie. */
+  keyId?: string | null;
   signal?: { aborted: boolean };
 }
 export interface CompleteResult { text: string; toolCalls: ToolCall[]; content: Block[]; stop: string; model: string }
@@ -44,17 +46,28 @@ export function resolveModel(providerId?: string | null, model?: string | null):
   const explicit = providerId ? app.providers.find((x) => x.id === providerId && isChat(x)) : undefined;
   const p = explicit || app.providers.find((x) => x.id === app.defModel.provider) || app.providers.find(isChat);
   if (!p) throw new Error('Brak skonfigurowanych providerów. Dodaj providera w Ustawienia → Konta i providerzy.');
-  const m = explicit ? (model || p.models[0] || app.defModel.model) : (p.id === app.defModel.provider ? app.defModel.model : p.models[0]);
+  const m = explicit ? (model || p.defModel || p.models[0] || app.defModel.model) : (p.id === app.defModel.provider ? app.defModel.model : p.defModel || p.models[0]);
   return { p, model: m };
 }
 
-const ref = (p: Provider) => ({ type: p.type, url: p.url, keyRef: p.keyRef });
+export const MAIN_KEY = 'main';
+/** Klucze providera: główny i dodatkowe. */
+export function providerKeys(p: Provider): ProviderKey[] {
+  return [{ id: MAIN_KEY, name: p.keyName || 'Główny', keyRef: p.keyRef, hasKey: p.hasKey }, ...(p.keys || [])];
+}
+/** Klucze, których można użyć w czacie (Ollama i lokalne serwery działają też bez klucza). */
+export const usableKeys = (p: Provider) => {
+  const all = providerKeys(p), withKey = all.filter((k) => k.hasKey);
+  return withKey.length ? withKey : all.slice(0, 1);
+};
+
+const ref = (p: Provider, keyRef = p.keyRef) => ({ type: p.type, url: p.url, keyRef });
 
 function openaiPath(p: Provider) { return p.type === 'ollama' ? '/v1/chat/completions' : p.type === 'google' ? '/v1beta/openai/chat/completions' : '/chat/completions'; }
 
 /* ---------- Anthropic ---------- */
 
-async function anthropic(p: Provider, model: string, o: CompleteOpts): Promise<CompleteResult> {
+async function anthropic(p: Provider, model: string, o: CompleteOpts, keyRef = p.keyRef): Promise<CompleteResult> {
   const body: Record<string, unknown> = {
     model,
     max_tokens: o.maxTokens || 16000,
@@ -69,13 +82,13 @@ async function anthropic(p: Provider, model: string, o: CompleteOpts): Promise<C
   let res: any;
   try {
     res = await call('ai_request', {
-      provider: ref(p), method: 'POST', path: '/v1/messages',
+      provider: ref(p, keyRef), method: 'POST', path: '/v1/messages',
       body: useFallback ? { ...body, fallbacks: 'default' } : body,
       headers: useFallback ? { 'anthropic-beta': 'server-side-fallback-2026-07-01' } : null,
     });
   } catch (e) {
     if (useFallback && /fallback|beta/i.test(String(e))) {
-      res = await call('ai_request', { provider: ref(p), method: 'POST', path: '/v1/messages', body, headers: null });
+      res = await call('ai_request', { provider: ref(p, keyRef), method: 'POST', path: '/v1/messages', body, headers: null });
     } else throw e;
   }
   recordUsage(p, res);
@@ -124,7 +137,7 @@ function toOpenAi(messages: AMsg[], system?: string, pdf = false) {
   return out;
 }
 
-async function openai(p: Provider, model: string, o: CompleteOpts): Promise<CompleteResult> {
+async function openai(p: Provider, model: string, o: CompleteOpts, keyRef = p.keyRef): Promise<CompleteResult> {
   // PDF jako część `file` przyjmują OpenAI i OpenRouter; lokalne serwery (Ollama, LM Studio) nie.
   const pdf = p.type === 'openai' || /openrouter\.ai/.test(p.url);
   const body: Record<string, unknown> = { model, messages: toOpenAi(o.messages, o.system, pdf), max_tokens: o.maxTokens || 4096 };
@@ -132,7 +145,7 @@ async function openai(p: Provider, model: string, o: CompleteOpts): Promise<Comp
   if (o.topP != null) body.top_p = o.topP;
   if (o.json) body.response_format = { type: 'json_object' };
   if (o.tools?.length) body.tools = o.tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
-  const res: any = await call('ai_request', { provider: ref(p), method: 'POST', path: openaiPath(p), body, headers: null });
+  const res: any = await call('ai_request', { provider: ref(p, keyRef), method: 'POST', path: openaiPath(p), body, headers: null });
   recordUsage(p, res);
   const msg = res.choices?.[0]?.message || {};
   const text = (msg.content || '').trim();
@@ -167,37 +180,61 @@ export function fallbackChain(first: { p: Provider; model: string }) {
 }
 
 const fallbackNoted = new Map<string, number>();
-/** Provider z limitem odpoczywa minutę: kolejne kroki agenta idą od razu do zastępstwa. */
+/** Klucz (albo provider) z limitem odpoczywa minutę: kolejne kroki agenta idą od razu do następnego. */
 const limitedUntil = new Map<string, number>();
 const COOLDOWN = 60_000;
+/** Do kiedy klucz odpoczywa po limicie (0 = dostępny); pokazuje to strona providerów. */
+export function keyLimitedUntil(providerId: string, keyId: string) {
+  let t = 0;
+  for (const [k, v] of limitedUntil) if (k.startsWith(`${providerId}|${keyId}|`) && v > Date.now()) t = Math.max(t, v);
+  return t;
+}
+
+interface Step { p: Provider; model: string; k: ProviderKey }
+
+/** Kolejność prób: klucze pierwszego providera (wskazany albo wszystkie), potem zastępstwa z ich kluczami. */
+function attempts(first: { p: Provider; model: string }, keyId?: string | null): Step[] {
+  const out: Step[] = [];
+  for (const [i, x] of fallbackChain(first).entries()) {
+    const keys = usableKeys(x.p);
+    const chosen = i === 0 && keyId ? keys.filter((k) => k.id === keyId) : [];
+    for (const k of chosen.length ? chosen : keys) out.push({ ...x, k });
+  }
+  return out;
+}
 
 export async function complete(o: CompleteOpts): Promise<CompleteResult> {
   const first = resolveModel(o.providerId, o.model);
   o = { ...o, messages: await expandAttachments(o.messages) };
   // Ollama liczy na tej samej karcie co ComfyUI: przez wspólną kolejkę GPU (agenci, nody, snippety).
-  const run = (p: Provider, model: string) => onGpu(p.type === 'ollama' ? `ollama:${model}` : '', () => (p.type === 'anthropic' ? anthropic(p, model, o) : openai(p, model, o)));
-  const all = fallbackChain(first);
-  const key = (x: { p: Provider; model: string }) => `${x.p.id}|${x.model}`;
+  const run = (s: Step) => onGpu(s.p.type === 'ollama' ? `ollama:${s.model}` : '', () => (s.p.type === 'anthropic' ? anthropic(s.p, s.model, o, s.k.keyRef) : openai(s.p, s.model, o, s.k.keyRef)));
+  const all = attempts(first, o.keyId);
+  const id = (s: Step) => `${s.p.id}|${s.k.id}|${s.model}`;
+  const resting = (s: Step) => (limitedUntil.get(id(s)) || 0) > Date.now();
   // Odpoczywający idą na koniec (nie wypadają: gdy wszyscy mają limit, i tak trzeba kogoś zapytać).
-  const chain = all.length > 1 ? [...all.filter((x) => !((limitedUntil.get(key(x)) || 0) > Date.now())), ...all.filter((x) => (limitedUntil.get(key(x)) || 0) > Date.now())] : all;
+  const chain = all.length > 1 ? [...all.filter((s) => !resting(s)), ...all.filter(resting)] : all;
+  const label = (s: Step) => `${s.p.name}${usableKeys(s.p).length > 1 ? ` (${s.k.name})` : ''} · ${s.model}`;
   let lastErr: unknown;
-  for (const [i, { p, model }] of chain.entries()) {
+  for (const [i, s] of chain.entries()) {
     if (i > 0 && o.signal?.aborted) break;
     try {
-      const r = await run(p, model);
-      limitedUntil.delete(`${p.id}|${model}`);
-      if (p.id !== first.p.id || model !== first.model) {
+      const r = await run(s);
+      limitedUntil.delete(id(s));
+      if (s !== all[0]) {
         // Raz na minutę na parę, żeby pętla agenta nie zasypała powiadomieniami.
-        const k = `${first.p.id}|${first.model}>${p.id}|${model}`;
+        const k = `${id(all[0])}>${id(s)}`;
         if (Date.now() - (fallbackNoted.get(k) || 0) > 60_000) {
           fallbackNoted.set(k, Date.now());
-          notify(`${first.p.name} · ${first.model}: limit albo brak środków. Odpowiada zastępstwo ${p.name} · ${model}.`, 'warning', 6000);
+          const sameProvider = s.p.id === all[0].p.id && s.model === all[0].model;
+          notify(sameProvider
+            ? `${all[0].p.name}: klucz „${all[0].k.name}” ma limit albo brak środków. Odpowiada klucz „${s.k.name}”.`
+            : `${label(all[0])}: limit albo brak środków. Odpowiada zastępstwo ${label(s)}.`, 'warning', 6000);
         }
       }
       return r;
     } catch (e) {
       if (!isLimitError(e)) throw e;
-      if (all.length > 1) limitedUntil.set(`${p.id}|${model}`, Date.now() + COOLDOWN);
+      if (all.length > 1) limitedUntil.set(id(s), Date.now() + COOLDOWN);
       if (i === chain.length - 1) throw e;
       lastErr = e;
     }

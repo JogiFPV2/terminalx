@@ -39,6 +39,15 @@ export const PROVIDER_TYPES: Record<Provider['type'], ProviderTypeDef> = {
 
 /** Providerzy, którzy umieją czat (agenci, snippety, nody AI). */
 export const isChat = (p: Provider) => PROVIDER_TYPES[p.type]?.chat !== false;
+/** Znak usługi providera (ikony `svc-*`): po typie, a dla zgodnych z OpenAI po adresie. */
+export function providerIcon(p: Provider) {
+  const u = p.url.toLowerCase();
+  if (/openrouter/.test(u)) return 'svc-openrouter';
+  if (/deepseek/.test(u)) return 'svc-deepseek';
+  if (/z\.ai|bigmodel/.test(u)) return 'svc-zai';
+  if (/opencode/.test(u)) return 'svc-opencode';
+  return ({ anthropic: 'svc-claude', openai: 'svc-openai', google: 'svc-gemini', ollama: 'svc-ollama', comfy: 'cpu' } as Record<string, string>)[p.type] || 'key';
+}
 /** Providerzy grafiki i wideo. */
 export const isMedia = (p: Provider) => !!PROVIDER_TYPES[p.type]?.media;
 

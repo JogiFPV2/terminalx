@@ -180,7 +180,7 @@ async function runSub(ws: Workspace, tab: Tab, content: string | Block[], signal
   agentState.subBusy[tab.id] = 'pracuje';
   try {
     for (let step = 0; step < 12 && !signal.aborted; step++) {
-      const r = await complete({ providerId: p.provider, model: p.model, system, messages, tools, maxTokens: 8000, signal });
+      const r = await complete({ providerId: p.provider, model: p.model, keyId: p.key, system, messages, tools, maxTokens: 8000, signal });
       messages.push({ role: 'assistant', content: r.content });
       if (r.text) post(ws, { role: 'sub', who, text: r.text });
       if (!r.toolCalls.length) return r.text || '(podagent zakończył bez raportu)';
@@ -300,7 +300,7 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
     tools.push(...skillDefs(skills));
     for (let step = 0; step < 16 && !signal.aborted; step++) {
       const system = `${p.prompt}${skillPrompt(skills)}\n\nSystem: Windows. Workspace „${ws.name}”. Zakładki:\n${tabsSummary(ws)}\n\nUżywaj identyfikatorów zakładek z listy. Pracę w konkretnym terminalu deleguj podagentom, gdy zakładka ma podagenta albo zadanie wymaga kilku kroków.${mcp.defs.length ? ' Narzędzia z prefiksem serwera (np. github__…) pochodzą z serwerów MCP.' : ''}`;
-      const r = await complete({ providerId: ws.chatModel?.provider || p.provider, model: ws.chatModel?.model || p.model, system, messages: history, tools, maxTokens: 16000, signal });
+      const r = await complete({ providerId: ws.chatModel?.provider || p.provider, model: ws.chatModel?.model || p.model, keyId: ws.chatModel ? ws.chatModel.key : p.key, system, messages: history, tools, maxTokens: 16000, signal });
       history.push({ role: 'assistant', content: r.content });
       if (r.text) post(ws, { role: 'agent', who: p.name, text: r.text });
       if (!r.toolCalls.length) break;

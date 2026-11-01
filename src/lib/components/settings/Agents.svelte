@@ -3,6 +3,7 @@
   import { app, notify } from '../../state.svelte';
   import { TOOLS, PERM_LABEL, isChat } from '../../defaults';
   import { nid } from '../../util';
+  import { usableKeys } from '../../ai';
   import type { AgentProfile } from '../../types';
 
   let edit = $state<AgentProfile | null>(null);
@@ -35,6 +36,7 @@
     }
   }
   const models = (pid: string) => app.providers.find((p) => p.id === pid)?.models || [];
+  const keysOf = (pid: string) => { const p = app.providers.find((x) => x.id === pid); return p ? usableKeys(p).filter((k) => k.hasKey) : []; };
   function toggleMcp(id: string) {
     if (!edit) return;
     const cur = edit.mcp ?? app.mcp.map((s) => s.id);
@@ -65,12 +67,19 @@
       <div class="field"><span class="flabel">Uprawnienia</span>
         <div class="seg">{#each Object.entries(PERM_LABEL) as [k, l]}<button class:on={edit.perm === k} onclick={() => (edit!.perm = k as any)}>{l}</button>{/each}</div></div>
       <div class="field"><label for="aProv">Provider</label>
-        <select class="inp" id="aProv" bind:value={edit.provider} onchange={() => (edit!.model = models(edit!.provider)[0] || '')}>
+        <select class="inp" id="aProv" bind:value={edit.provider} onchange={() => { edit!.model = app.providers.find((p) => p.id === edit!.provider)?.defModel || models(edit!.provider)[0] || ''; edit!.key = null; }}>
           {#each app.providers.filter(isChat) as p}<option value={p.id}>{p.name}</option>{/each}</select></div>
       <div class="field"><label for="aModel">Model</label>
         {#if models(edit.provider).length}
           <select class="inp" id="aModel" bind:value={edit.model}>{#each models(edit.provider) as m}<option value={m}>{m}</option>{/each}</select>
         {:else}<input class="inp" id="aModel" bind:value={edit.model} placeholder="nazwa modelu" />{/if}</div>
+      {#if keysOf(edit.provider).length > 1}
+        <div class="field"><label for="aKey">Klucz API</label>
+          <select class="inp" id="aKey" value={edit.key || ''} onchange={(e) => (edit!.key = e.currentTarget.value || null)}>
+            <option value="">Automatycznie (przełączanie przy limicie)</option>
+            {#each keysOf(edit.provider) as k}<option value={k.id}>{k.name} (tylko ten)</option>{/each}
+          </select></div>
+      {/if}
     </div>
     <div class="field"><span class="flabel">Narzędzia</span>
       <div class="checks">{#each Object.entries(TOOLS[edit.kind]) as [k, l]}<label><input type="checkbox" checked={edit.tools.includes(k)} onchange={() => toggleTool(k)} />{l}</label>{/each}</div></div>

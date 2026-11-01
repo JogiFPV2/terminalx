@@ -1,15 +1,21 @@
 <script lang="ts">
+  // Konta subskrypcji z limitami planu. Na stronie providerów każdy provider pokazuje swoje (`only`),
+  // a usługi bez providera API (Cursor, OpenCode) są w osobnej grupie.
   import Icon from '../../Icon.svelte';
   import { app, ui } from '../../state.svelte';
   import { ACCOUNT_SERVICES, PLAN_SERVICES, planUsage, loginAccount, addAccount, removeAccount, type PlanUsage } from '../../accounts';
   import type { AccountService, ToolAccount } from '../../types';
 
+  let { only }: { only: string[] } = $props();
+
   interface Row { key: string; service: string; title: string; from: string; account: ToolAccount | null }
   let usage = $state<Record<string, { data?: PlanUsage; error?: string; busy?: boolean }>>({});
   let adding = $state<{ service: AccountService; name: string } | null>(null);
 
-  const rows = $derived<Row[]>(PLAN_SERVICES.flatMap((s) => [
-    { key: s.id, service: s.id, title: s.name, from: s.from, account: null },
+  const services = $derived(PLAN_SERVICES.filter((s) => only.includes(s.id)));
+  const multi = $derived(services.filter((s) => s.id in ACCOUNT_SERVICES).map((s) => s.id as AccountService));
+  const rows = $derived<Row[]>(services.flatMap((s) => [
+    { key: s.id, service: s.id, title: s.id in ACCOUNT_SERVICES ? `${s.name} · domyślne` : s.name, from: s.from, account: null },
     ...app.accounts.filter((a) => a.service === s.id).map((a) => ({ key: `${s.id}@${a.id}`, service: s.id, title: `${s.name} · ${a.name}`, from: 'osobne konto w Hermitty', account: a })),
   ]));
 
@@ -18,9 +24,8 @@
     try { usage[r.key] = { data: await planUsage(r.service, r.account?.id) }; }
     catch (e) { usage[r.key] = { error: String(e).replace(/^Error: /, '') }; }
   }
-  // Limity czytamy raz po otwarciu strony; dalej przycisk „odśwież”.
-  let loaded = false;
-  $effect(() => { if (!loaded) { loaded = true; for (const r of rows) load(r); } });
+  // Limity czytamy po pojawieniu się wiersza; dalej przycisk „odśwież”.
+  $effect(() => { for (const r of rows) if (!usage[r.key]) load(r); });
 
   async function confirmAdd() {
     if (!adding) return;
@@ -46,27 +51,30 @@
   const tone = (p: number) => (p >= 95 ? 'var(--destructive)' : p >= 80 ? 'var(--chart-3)' : 'var(--chart-1)');
 </script>
 
-<div class="pagehead"><h2>Konta subskrypcji</h2><div><button class="icobtn" title="Dodaj konto Claude Code albo Codex" onclick={() => (adding = { service: 'claude', name: '' })}><Icon name="plus" /></button></div></div>
-<p class="hint">Limity planów (Claude Pro/Max, ChatGPT, Google, Cursor) z logowania narzędzi na tym komputerze. Claude Code i Codex mogą mieć kilka kont, np. prywatne i firmowe: każde ma własne logowanie, a zakładkę terminala przypinasz do konta w jej menu (prawy przycisk → Konto). Konta nie przełączają się same, bo regulaminy usług nie pozwalają omijać limitów planu kilkoma kontami.</p>
-
-{#if adding}
-  <div class="form">
-    <h3 style="margin:0">Nowe konto</h3>
-    <div class="grid2">
-      <div class="field"><label for="accSvc">Narzędzie</label>
-        <select class="inp" id="accSvc" bind:value={adding.service}>{#each Object.entries(ACCOUNT_SERVICES) as [k, v]}<option value={k}>{v.name}</option>{/each}</select></div>
-      <div class="field"><label for="accName">Nazwa</label><input class="inp" id="accName" bind:value={adding.name} placeholder="np. Firma" /></div>
-    </div>
-    <p class="hint">Po dodaniu otworzy się zakładka z <code>{ACCOUNT_SERVICES[adding.service].login}</code>, gdzie logujesz się na to konto. Logowanie zostaje w folderze konta w danych Hermitty.</p>
-    <div class="formbtns"><button class="btn" onclick={() => (adding = null)}>Anuluj</button><button class="btn pri" onclick={confirmAdd}>Dodaj i zaloguj</button></div>
+{#if rows.length}
+  <div class="psub">
+    <span class="sublabel" title="Logowanie narzędzia na tym komputerze. Konto wybierasz w menu zakładki terminala (prawy przycisk → Konto); nie przełącza się samo i nie służy do czatu w aplikacji.">Subskrypcje · zakładki terminala</span>
+    {#if multi.length}<button class="icobtn sm" title="Dodaj konto {multi.map((m) => ACCOUNT_SERVICES[m].name).join(' albo ')}" onclick={() => (adding = { service: multi[0], name: '' })}><Icon name="plus" size={13} /></button>{/if}
   </div>
-{/if}
 
-<div class="list">
+  {#if adding}
+    <div class="form">
+      <div class="grid2">
+        {#if multi.length > 1}
+          <div class="field"><label for="accSvc">Narzędzie</label>
+            <select class="inp" id="accSvc" bind:value={adding.service}>{#each multi as k}<option value={k}>{ACCOUNT_SERVICES[k].name}</option>{/each}</select></div>
+        {/if}
+        <div class="field"><label for="accName">Nazwa konta {ACCOUNT_SERVICES[adding.service].name}</label><input class="inp" id="accName" bind:value={adding.name} placeholder="np. Firma" /></div>
+      </div>
+      <p class="hint">Otworzy się zakładka z <code>{ACCOUNT_SERVICES[adding.service].login}</code>, gdzie logujesz się na to konto. Logowanie zostaje w folderze konta w danych Hermitty.</p>
+      <div class="formbtns"><button class="btn" onclick={() => (adding = null)}>Anuluj</button><button class="btn pri" onclick={confirmAdd}>Dodaj i zaloguj</button></div>
+    </div>
+  {/if}
+
   {#each rows as r (r.key)}
     {@const u = usage[r.key]}
-    <div class="lrow">
-      <div class="picon"><Icon name={r.account ? 'key' : 'spark'} /></div>
+    <div class="krow">
+      <span class="kico"><Icon name={r.account ? 'key' : 'spark'} size={13} /></span>
       <div class="info">
         <b>{r.title}{#if u?.data?.plan}<span class="chip">{u.data.plan}</span>{/if}</b>
         {#if u?.data?.windows.length}
@@ -79,6 +87,7 @@
               </div>
             {/each}
           </div>
+        {:else if u?.data?.text}<small>{u.data.text}</small>
         {:else if u?.error}<small class:err={!/^Brak logowania|nie jest jeszcze zalogowane/.test(u.error)} title={u.error}>{u.error}</small>
         {:else if u?.busy}<small>Sprawdzam…</small>
         {:else}<small>{r.from}</small>{/if}
@@ -92,11 +101,11 @@
       </div>
     </div>
   {/each}
-</div>
+{/if}
 
 <style>
   .err { color: var(--destructive) !important; white-space: normal !important; }
-  .wins { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-width: 420px; }
+  .wins { display: flex; flex-direction: column; gap: 4px; margin-top: 5px; max-width: 420px; }
   .win { display: grid; grid-template-columns: 74px 1fr 92px; gap: 8px; align-items: center; font-size: 11.5px; color: var(--muted-foreground); }
   .wl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar { height: 5px; border-radius: 3px; background: var(--muted); overflow: hidden; }

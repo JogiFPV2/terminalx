@@ -77,7 +77,8 @@ export interface Workspace {
   z: string[];
   chat: ChatMsg[];
   /** Provider i model wybrane w panelu czatu; bez nich obowiązują ustawienia profilu agenta. */
-  chatModel?: { provider: string; model: string } | null;
+  /** `key`: wybrany klucz providera; brak = automatycznie (przełączanie przy limicie). */
+  chatModel?: { provider: string; model: string; key?: string | null } | null;
   /** Bieżąca rozmowa w historii (chats/<id>.json) i czas jej rozpoczęcia. */
   chatId?: string;
   chatCreated?: number;
@@ -85,13 +86,23 @@ export interface Workspace {
 
 export type ProviderType = 'anthropic' | 'openai' | 'compat' | 'ollama' | 'google' | 'fal' | 'replicate' | 'comfy';
 
+/** Dodatkowy klucz API providera (np. firmowy obok prywatnego); sam klucz leży w Menedżerze poświadczeń. */
+export interface ProviderKey { id: string; name: string; keyRef: string; hasKey: boolean }
+
 export interface Provider {
   id: string;
   type: ProviderType;
   name: string;
   url: string;
+  /** Klucz główny (używają go też grafika, wideo, głos i saldo). */
   keyRef: string;
   hasKey: boolean;
+  /** Nazwa klucza głównego na listach wyboru. */
+  keyName?: string;
+  /** Kolejne klucze: czat przełącza się na nie, gdy klucz ma limit albo brak środków. */
+  keys?: ProviderKey[];
+  /** Model wybierany po wskazaniu samego providera. */
+  defModel?: string;
   models: string[];
 }
 
@@ -101,6 +112,8 @@ export interface AgentProfile {
   name: string;
   provider: string;
   model: string;
+  /** Klucz providera; brak = automatycznie. */
+  key?: string | null;
   perm: PermMode;
   tools: string[];
   prompt: string;
