@@ -103,6 +103,8 @@ export interface StatusBarItem extends Disposable {
   tooltip?: string;
   icon?: string;
   variant?: 'default' | 'warning' | 'error';
+  /** Krótki pasek przed tekstem: zużycie w procentach (0–100), null = bez paska. */
+  bar?: number | null;
   /** Gdzie widać element: dolny pasek statusu (domyślnie) albo górny pasek okna. */
   place?: 'top' | 'bottom';
   onClick?: () => void;

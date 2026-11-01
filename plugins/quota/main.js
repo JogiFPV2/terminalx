@@ -9,22 +9,32 @@ const FILE = 'quota.json';
 const BALANCE_MS = 5 * 60_000;
 const PLAN_MS = 5 * 60_000;
 const SERVICES = [
-  { id: 'claude', name: 'Claude', from: 'konto Pro/Max zalogowane w Claude Code' },
-  { id: 'codex', name: 'Codex', from: 'konto ChatGPT zalogowane w Codex CLI' },
-  { id: 'gemini', name: 'Gemini', from: 'konto Google (Google AI Pro/Ultra) zalogowane w Gemini CLI' },
-  { id: 'cursor', name: 'Cursor', from: 'konto zalogowane w aplikacji Cursor' },
-  { id: 'zai', name: 'z.ai', from: 'GLM Coding Plan, klucz providera z.ai z Ustawień' },
-  { id: 'opencode', name: 'OpenCode Go', from: 'logowanie OpenCode (Zen/Go)' },
-  { id: 'openrouter', name: 'OpenRouter', from: 'kredyty, klucz providera OpenRouter z Ustawień' },
+  { id: 'claude', name: 'Claude', icon: 'svc-claude', from: 'konto Pro/Max zalogowane w Claude Code' },
+  { id: 'codex', name: 'Codex', icon: 'svc-openai', from: 'konto ChatGPT zalogowane w Codex CLI' },
+  { id: 'gemini', name: 'Gemini', icon: 'svc-gemini', from: 'konto Google (Google AI Pro/Ultra) zalogowane w Gemini CLI' },
+  { id: 'cursor', name: 'Cursor', icon: 'svc-cursor', from: 'konto zalogowane w aplikacji Cursor' },
+  { id: 'zai', name: 'z.ai', icon: 'svc-zai', from: 'GLM Coding Plan, klucz providera z.ai z Ustawień' },
+  { id: 'opencode', name: 'OpenCode Go', icon: 'svc-opencode', from: 'logowanie OpenCode (Zen/Go)' },
+  { id: 'openrouter', name: 'OpenRouter', icon: 'svc-openrouter', from: 'kredyty, klucz providera OpenRouter z Ustawień' },
 ];
+
+/** Znak usługi providera API: po typie, a dla zgodnych z OpenAI po adresie. */
+function providerIcon(p) {
+  const h = String(p.host || '').toLowerCase();
+  if (/openrouter/.test(h)) return 'svc-openrouter';
+  if (/deepseek/.test(h)) return 'svc-deepseek';
+  if (/z\.ai|bigmodel/.test(h)) return 'svc-zai';
+  if (/opencode/.test(h)) return 'svc-opencode';
+  return { anthropic: 'svc-claude', openai: 'svc-openai', google: 'svc-gemini', ollama: 'svc-ollama' }[p.type] || 'activity';
+}
 
 /** Usługi z dodatkowymi kontami (Claude Code, Codex): każde konto osobno, id `usługa@konto`. */
 let accounts = [];
 function services() {
   const out = [];
   for (const s of SERVICES) {
-    out.push({ ...s, svc: s.id, account: null });
-    for (const a of accounts.filter((x) => x.service === s.id)) out.push({ id: `${s.id}@${a.id}`, name: `${s.name} · ${a.name}`, from: 'osobne konto (Ustawienia → Konta i providerzy)', svc: s.id, account: a.id });
+    out.push({ ...s, svc: s.id, account: null, short: '' });
+    for (const a of accounts.filter((x) => x.service === s.id)) out.push({ id: `${s.id}@${a.id}`, name: `${s.name} · ${a.name}`, icon: s.icon, short: a.name, from: 'osobne konto (Ustawienia → Konta i providerzy)', svc: s.id, account: a.id });
   }
   return out;
 }
@@ -95,20 +105,22 @@ async function balance(p) {
 }
 
 /** Tekst, podpowiedź i kolor dla jednego providera. */
-function view(p, u, c, bal) {
+function view(p, u, c, bal, named) {
   const usedNow = used(u, c.period);
   const per = c.period === 'day' ? 'dziś' : 'w tym miesiącu';
   const tip = [p.name + (p.host ? ` (${p.host})` : '')];
-  let text, variant = 'default';
+  let text, variant = 'default', bar = null;
   const tok = live(u?.limits?.tokens) || live(u?.limits?.input);
   if (c.budget > 0) {
     const rem = Math.max(0, c.budget - usedNow), pct = rem / c.budget;
-    text = `${fmt(rem)} · ${Math.round(pct * 100)}%`;
+    text = `${Math.round((1 - pct) * 100)}% · ${fmt(rem)}`;
+    bar = (1 - pct) * 100;
     variant = pct < 0.05 ? 'error' : pct < 0.2 ? 'warning' : 'default';
     tip.push(`Zostało ${fmt(rem)} z ${fmt(c.budget)} tokenów (${c.period === 'day' ? 'limit dzienny' : 'limit miesięczny'})`);
   } else if (tok) {
     const pct = tok.limit ? tok.remaining / tok.limit : 1;
-    text = `${fmt(tok.remaining)}/${fmt(tok.limit)}`;
+    text = `${Math.round((1 - pct) * 100)}%${tok.reset ? ' ' + left(tok.reset) : ''}`;
+    bar = (1 - pct) * 100;
     variant = pct < 0.05 ? 'error' : pct < 0.2 ? 'warning' : 'default';
   } else if (bal) {
     text = bal.text;
@@ -126,7 +138,7 @@ function view(p, u, c, bal) {
   if (req) tip.push(`Zapytania: ${req.remaining} z ${req.limit}`);
   if (bal) tip.push(`Saldo: ${bal.text}`);
   tip.push('Kliknij: ustawienia Quota');
-  return { text: `${p.name} ${text}`, tooltip: tip.join('\n'), variant };
+  return { text: named ? `${p.name} ${text}` : text, tooltip: tip.join('\n'), variant, bar, icon: providerIcon(p) };
 }
 
 async function update() {
@@ -142,7 +154,6 @@ async function update() {
     let it = items.get('plan:' + s.id);
     if (!it) {
       it = tx.ui.statusBar.createItem({ id: `plan-${s.id}`, alignment: 'right', priority: 70 - i / 100 });
-      it.icon = 'activity';
       it.onClick = openSettings;
       items.set('plan:' + s.id, it);
     }
@@ -154,13 +165,14 @@ async function update() {
     let it = items.get(p.id);
     if (!it) {
       it = tx.ui.statusBar.createItem({ id: `quota-${p.id}`, alignment: 'right', priority: 60 - i / 100 });
-      it.icon = 'activity';
       it.onClick = openSettings;
       items.set(p.id, it);
     }
     const c = pc(p.id);
     const bal = c.budget > 0 ? null : await balance(p);
-    Object.assign(it, view(p, info.usage[p.id], c, bal));
+    // Nazwa tylko bez znaku usługi albo gdy kilku pokazanych providerów ma ten sam znak (np. dwa klucze OpenAI).
+    const icon = providerIcon(p), named = icon === 'activity' || shown.some((x) => x !== p && providerIcon(x) === icon);
+    Object.assign(it, view(p, info.usage[p.id], c, bal, named));
     it.place = cfg.place;
     it.show();
   }
@@ -195,7 +207,9 @@ async function refreshPlans(force = false) {
 
 function planView(s, d) {
   const w = d.windows.slice(0, 2);
-  const text = `${s.name} ${[d.text, ...w.map(winText)].filter(Boolean).join(' · ')}`.trim();
+  // Jak w Orca: znak usługi, pasek najbardziej zużytego okna, potem „0% 5h · 58% 7h 7m”.
+  // Nazwa jest w podpowiedzi; przy dodatkowym koncie na pasku zostaje jego nazwa.
+  const text = `${s.short ? s.short + ' ' : ''}${[...w.map(winText), d.text].filter(Boolean).join(' · ')}`.trim();
   const max = Math.max(0, ...d.windows.map((x) => x.usedPercent));
   const tip = [`${s.name}${d.plan ? ` (${d.plan})` : ''}`];
   for (const x of d.windows) tip.push(`${x.label}: zużyto ${Math.round(x.usedPercent)}%${x.resetsAt ? `, reset za ${left(x.resetsAt)}` : ''}`);
@@ -203,7 +217,7 @@ function planView(s, d) {
   const at = plans[s.id]?.at;
   if (at) { const t = new Date(at); tip.push(`Odczyt: ${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`); }
   tip.push('Kliknij: ustawienia Quota');
-  return { text, tooltip: tip.join('\n'), variant: max >= 95 ? 'error' : max >= 80 ? 'warning' : 'default' };
+  return { text, tooltip: tip.join('\n'), variant: max >= 95 ? 'error' : max >= 80 ? 'warning' : 'default', icon: s.icon, bar: d.windows.length ? max : null };
 }
 
 function renderPlans() {

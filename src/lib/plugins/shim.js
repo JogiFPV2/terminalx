@@ -64,6 +64,7 @@
       get tooltip() { return state.tooltip; }, set tooltip(v) { state.tooltip = String(v || ''); schedule(); },
       get icon() { return state.icon; }, set icon(v) { state.icon = String(v || ''); schedule(); },
       get variant() { return state.variant; }, set variant(v) { state.variant = v || 'default'; schedule(); },
+      get bar() { return state.bar ?? null; }, set bar(v) { state.bar = v == null || !isFinite(v) ? null : Number(v); schedule(); },
       get place() { return state.place; }, set place(v) { state.place = v === 'top' ? 'top' : 'bottom'; schedule(); },
       get onClick() { return onClick; }, set onClick(fn) { onClick = fn; schedule(); },
       show() { state.visible = true; schedule(); },

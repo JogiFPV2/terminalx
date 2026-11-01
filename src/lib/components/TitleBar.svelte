@@ -7,7 +7,8 @@
   import { isTauri } from '../ipc';
   import { BRAND } from '../defaults';
   import { upd, installUpdate } from '../update.svelte';
-  import { plug, emit } from '../plugins/host.svelte';
+  import { plug } from '../plugins/host.svelte';
+  import PluginStatus from './PluginStatus.svelte';
 
   let strip: HTMLDivElement;
   let maximized = $state(false);
@@ -61,9 +62,7 @@
     </button>
   {/if}
   {#each plug.status.filter((s) => s.visible && s.place === 'top').sort((a, b) => b.priority - a.priority) as s (s.pluginId + s.id)}
-    <button class="pitem {s.variant}" title={s.tooltip} disabled={!s.clickable} onclick={() => emit(s.pluginId, 'statusClick', { id: s.id })}>
-      {#if s.icon}<Icon name={s.icon} size={12} />{/if}{s.text}
-    </button>
+    <PluginStatus {s} />
   {/each}
   <button class="icobtn" title="Paleta komend (Ctrl+K)" onclick={() => (ui.palette = true)}><Icon name="search" /></button>
   <button class="icobtn" class:on={app.layout.agentOpen} title="Panel agenta (Ctrl+Shift+A)" onclick={() => (app.layout.agentOpen = !app.layout.agentOpen)}><Icon name="sparks" /></button>
@@ -95,9 +94,9 @@
   .winctl button { width: 46px; display: grid; place-items: center; color: var(--muted-foreground); }
   .winctl button:hover { background: var(--accent); color: var(--foreground); }
   .winctl .close:hover { background: #e81123; color: #fff; }
-  .pitem { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .pitem:hover:not(:disabled) { background: var(--accent); color: var(--foreground); }
-  .pitem:disabled { cursor: default; }
-  .pitem.warning { color: var(--chart-3); }
-  .pitem.error { color: var(--destructive); }
+  .titlebar :global(.pitem) { display: flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .titlebar :global(.pitem:hover:not(:disabled)) { background: var(--accent); color: var(--foreground); }
+  .titlebar :global(.pitem:disabled) { cursor: default; }
+  .titlebar :global(.pitem.warning:not(.hasbar)) { color: var(--chart-3); }
+  .titlebar :global(.pitem.error:not(.hasbar)) { color: var(--destructive); }
 </style>

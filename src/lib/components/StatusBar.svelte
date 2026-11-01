@@ -3,7 +3,8 @@
   import { app, ui, curWs, curTab, shellName } from '../state.svelte';
   import * as sessions from '../terminal/sessions.svelte';
   import { agentState } from '../agent.svelte';
-  import { plug, emit } from '../plugins/host.svelte';
+  import { plug } from '../plugins/host.svelte';
+  import PluginStatus from './PluginStatus.svelte';
   import { BRAND } from '../defaults';
   import { remote } from '../remote.svelte';
 
@@ -24,9 +25,7 @@
   {#if ui.pending.length}<span title="Do przywrócenia (Ctrl+Shift+T)"><Icon name="undo" size={12} />{ui.pending.length}</span>{/if}
   <div class="spacer"></div>
   {#each items as s (s.pluginId + s.id)}
-    <button class="pitem {s.variant}" title={s.tooltip} disabled={!s.clickable} onclick={() => emit(s.pluginId, 'statusClick', { id: s.id })}>
-      {#if s.icon}<Icon name={s.icon} size={12} />{/if}{s.text}
-    </button>
+    <PluginStatus {s} />
   {/each}
   {#if tab && agentState.subBusy[tab.id]}<span title="Podagent: {agentState.subBusy[tab.id]}"><span class="sub busy"></span></span>
   {:else if agentState.busy[ws.id]}<span title="Agent pracuje"><span class="sub busy"></span></span>{/if}
@@ -42,7 +41,8 @@
   .status button:hover:not(:disabled) { background: var(--accent); color: var(--foreground); }
   .status button:disabled { cursor: default; }
   .cwd { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
-  .warn, .pitem.warning { color: var(--chart-3); }
-  .pitem.error { color: var(--destructive); }
+  .warn, .status :global(.pitem.warning:not(.hasbar)) { color: var(--chart-3); }
+  .status :global(.pitem.error:not(.hasbar)) { color: var(--destructive); }
+  .status :global(.pitem) { display: flex; align-items: center; gap: 5px; }
   .live { color: var(--chart-1) !important; }
 </style>

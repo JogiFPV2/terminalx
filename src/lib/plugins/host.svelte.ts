@@ -35,7 +35,7 @@ export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'c
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
-export interface StatusReg { pluginId: string; id: string; text: string; tooltip: string; icon: string; variant: string; visible: boolean; clickable: boolean; priority: number; place: 'top' | 'bottom' }
+export interface StatusReg { pluginId: string; id: string; text: string; tooltip: string; icon: string; variant: string; visible: boolean; clickable: boolean; priority: number; place: 'top' | 'bottom'; bar: number | null }
 export interface CommandReg { pluginId: string; id: string; title: string; keybinding: string }
 
 export const plug = $state({
@@ -243,9 +243,9 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
     case 'sidebar.reveal': { delete app.layout.collapsed[pluginId]; if (app.layout.side < 140) app.layout.side = 240; return null; }
     case 'sidebar.remove': plug.sections = plug.sections.filter((s) => !(s.pluginId === pluginId && s.id === a.id)); return null;
     case 'status.create':
-      if (!plug.status.some((s) => s.pluginId === pluginId && s.id === a.id)) plug.status.push({ pluginId, id: a.id, text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false, priority: a.priority || 0, place: 'bottom' });
+      if (!plug.status.some((s) => s.pluginId === pluginId && s.id === a.id)) plug.status.push({ pluginId, id: a.id, text: '', tooltip: '', icon: '', variant: 'default', visible: false, clickable: false, priority: a.priority || 0, place: 'bottom', bar: null });
       return null;
-    case 'status.update': { const s = plug.status.find((x) => x.pluginId === pluginId && x.id === a.id); if (s) Object.assign(s, { text: a.text, tooltip: a.tooltip, icon: a.icon, variant: a.variant, visible: a.visible, clickable: a.clickable, place: a.place === 'top' ? 'top' : 'bottom' }); return null; }
+    case 'status.update': { const s = plug.status.find((x) => x.pluginId === pluginId && x.id === a.id); if (s) Object.assign(s, { text: a.text, tooltip: a.tooltip, icon: a.icon, variant: a.variant, visible: a.visible, clickable: a.clickable, place: a.place === 'top' ? 'top' : 'bottom', bar: Number.isFinite(a.bar) ? Math.max(0, Math.min(100, a.bar)) : null }); return null; }
     case 'status.remove': plug.status = plug.status.filter((s) => !(s.pluginId === pluginId && s.id === a.id)); return null;
     case 'command.register':
       plug.commands = plug.commands.filter((c) => !(c.pluginId === pluginId && c.id === a.id));

@@ -95,6 +95,16 @@ export const ICONS: Record<string, string> = {
   dots: '<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
   // Znak Hermitty: „>_”, którego kursor zwija się w spiralę muszli kraba-pustelnika.
   logo: '<g stroke-width="2.1"><path d="M1.5 8.46L5.93 12.44L1.5 16.43"/><path d="M8.15 18.2L16.56 18.2L17.8 17.85L18.96 17.32L19.93 16.65L20.77 15.81L21.48 14.92L21.97 13.95L22.32 12.93L22.5 11.91L22.5 10.89L22.32 9.96L22.01 9.08L21.61 8.28L21.08 7.57L20.46 6.99L19.8 6.51L19.04 6.2L18.34 5.97L17.58 5.89L16.87 5.93L16.16 6.06L15.54 6.33L14.97 6.64L14.48 7.04L14.08 7.53L13.77 8.01L13.55 8.54L13.42 9.12L13.37 9.65L13.46 10.14L13.55 10.63L13.77 11.11L14.04 11.51L14.35 11.82L14.7 12.09L15.06 12.31L15.46 12.44L15.85 12.53L16.25 12.53L16.61 12.49L16.96 12.4L17.27 12.22L17.58 12L17.8 11.78L17.98 11.51L18.11 11.25L18.2 10.94"/></g>',
+  // Znaki usług AI dla pluginu Quota: uproszczone, rozpoznawalne po kształcie i kolorze.
+  'svc-claude': '<g stroke="#D97757" stroke-width="2.6"><path d="M12 2.5v19M2.5 12h19M5.3 5.3l13.4 13.4M18.7 5.3 5.3 18.7"/></g>',
+  'svc-openai': '<g stroke-width="1.6"><rect x="8.3" y="2.8" width="7.4" height="18.4" rx="3.7"/><rect x="8.3" y="2.8" width="7.4" height="18.4" rx="3.7" transform="rotate(60 12 12)"/><rect x="8.3" y="2.8" width="7.4" height="18.4" rx="3.7" transform="rotate(120 12 12)"/></g>',
+  'svc-gemini': '<defs><linearGradient id="svcGem" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4C8DF6"/><stop offset="1" stop-color="#A56CF0"/></linearGradient></defs><path fill="url(#svcGem)" stroke="none" d="M12 2c.7 5.3 4.7 9.3 10 10-5.3.7-9.3 4.7-10 10-.7-5.3-4.7-9.3-10-10 5.3-.7 9.3-4.7 10-10z"/>',
+  'svc-cursor': '<g stroke-width="1.7"><path d="M12 2.5 20.5 7.3v9.4L12 21.5 3.5 16.7V7.3z"/><path d="M3.5 7.3 12 12l8.5-4.7M12 12v9.5"/></g>',
+  'svc-zai': '<rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" stroke="none"/><path d="M8.5 8.5h7l-7 7h7" stroke="var(--background)" stroke-width="2"/>',
+  'svc-opencode': '<rect x="5" y="3" width="14" height="18" rx="1.5" stroke-width="1.8"/><rect x="9" y="9.5" width="6" height="7.5" fill="currentColor" stroke="none"/>',
+  'svc-openrouter': '<path stroke-width="1.8" d="M3 12h4.5c3 0 4-5 7-5H20M3 12h4.5c3 0 4 5 7 5H20M17 4.2 19.8 7 17 9.8M17 14.2l2.8 2.8-2.8 2.8"/>',
+  'svc-deepseek': '<path fill="#4D6BFE" stroke="none" d="M21 7.5c-.6 0-1 .5-1.5.9-1.2-2.6-3.9-4.4-7-4.4a7.8 7.8 0 0 0-7.8 7.8c0 4.3 3.5 7.7 7.8 7.7 2.8 0 5.3-1.5 6.7-3.8-1 .5-2.1.8-3.3.8-3.6 0-6.5-2.6-6.5-5.7 0-1.4.6-2.7 1.6-3.7-.3 3.4 2.4 6.2 5.8 6.2 2.5 0 4.6-1.5 5.5-3.6.4-1 .4-2 .2-3.2.2-.3.5-.6.5-1z"/>',
+  'svc-ollama': '<g stroke-width="1.7"><path d="M7 21v-6.5C7 11 9.2 9 12 9s5 2 5 5.5V21"/><path d="M8.5 10.3 7.6 4.5c-.1-.8.8-1.2 1.3-.6l2 2.6M15.5 10.3l.9-5.8c.1-.8-.8-1.2-1.3-.6l-2 2.6"/><path d="M10.3 15.5h.01M13.7 15.5h.01"/></g>',
 };
 
 export function icon(name: string, cls = 'i'): string {
