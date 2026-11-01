@@ -48,7 +48,7 @@ class MainActivity : Activity() {
     private val fg get() = if (dark) Color.rgb(236, 236, 238) else Color.rgb(24, 24, 27)
     private val muted get() = if (dark) Color.rgb(150, 150, 158) else Color.rgb(106, 106, 116)
     private val card get() = if (dark) Color.rgb(30, 30, 34) else Color.rgb(242, 242, 245)
-    private val brand = Color.rgb(255, 90, 31)
+    private val brand = Color.rgb(110, 95, 232)
     private val ok = Color.rgb(34, 170, 90)
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -27,8 +27,8 @@
   {#each items as s (s.pluginId + s.id)}
     <PluginStatus {s} />
   {/each}
-  {#if tab && agentState.subBusy[tab.id]}<span title="Podagent: {agentState.subBusy[tab.id]}"><span class="sub busy"></span></span>
-  {:else if agentState.busy[ws.id]}<span title="Agent pracuje"><span class="sub busy"></span></span>{/if}
+  {#if tab && agentState.subBusy[tab.id]}<span title="Podagent: {agentState.subBusy[tab.id]}"><span class="sdot busy"></span></span>
+  {:else if agentState.busy[ws.id]}<span title="Agent pracuje"><span class="sdot busy"></span></span>{/if}
   <button class:live={remote.running} title={remote.running ? `Zdalny dostęp: ${app.remote.mode === 'tailscale' ? 'Tailscale' : 'Wi-Fi'}, połączone urządzenia: ${remote.clients.length}` : 'Zdalny dostęp wyłączony'}
     onclick={() => { ui.settingsPage = 'remote'; ui.settingsOpen = true; }}><Icon name={remote.running ? 'wifi' : 'phone'} size={12} />{#if remote.clients.length}{remote.clients.length}{/if}</button>
   <span title="Pamięć rdzenia {BRAND.name} (bez WebView2 i powłok)"><Icon name="cpu" size={12} />{mb(ui.stats.appMem)}</span>

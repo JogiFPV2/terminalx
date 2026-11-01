@@ -486,7 +486,7 @@ function injectStyles(doc) {
     .ph-rec.on{background:color-mix(in oklab,var(--destructive) 16%,transparent);border-color:color-mix(in oklab,var(--destructive) 50%,transparent);color:var(--destructive);font-variant-numeric:tabular-nums}
     .ph-rec.on svg{fill:currentColor}
     .ph-tabs{display:flex;gap:2px;margin:8px 0 6px;border-bottom:1px solid var(--border)}
-    .ph-tabs button{padding:5px 7px;font-size:12px;color:var(--muted-foreground);border-bottom:2px solid transparent;margin-bottom:-1px}
+    .ph-tabs button{padding:5px 6px;font-size:12px;white-space:nowrap;color:var(--muted-foreground);border-bottom:2px solid transparent;margin-bottom:-1px}
     .ph-tabs button.on{color:var(--foreground);border-color:var(--primary)}
     .ph-tabs i{font-style:normal;font-size:10px;background:var(--muted);border-radius:8px;padding:0 5px;margin-left:2px}
     .ph-list{display:flex;flex-direction:column;gap:2px;max-height:420px;overflow:auto}

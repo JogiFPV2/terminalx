@@ -1,84 +1,112 @@
-# Hermitty
+<p align="center"><img src="src-tauri/icons/128x128.png" width="88" alt="Hermitty"></p>
 
-Lekki menedżer terminali i workflow z AI dla Windows, Linuksa i macOS. Tauri 2 (Rust) + Svelte 5 + xterm.js. Interfejs po polsku i angielsku.
+<h1 align="center">Hermitty</h1>
 
-## Uruchomienie
+<p align="center"><b>Terminale, agenci AI i workflow w jednym lekkim oknie. Do tego telefon z Androidem przy komputerze.</b></p>
 
-**Gotowa aplikacja** (po zbudowaniu):
+<p align="center">
+  <a href="https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha"><b>Pobierz 0.1.0-alpha</b></a> ·
+  <a href="https://hermitty.mypinsy.com">Strona</a> ·
+  <a href="docs/FUNKCJE.md">Wszystkie funkcje</a> ·
+  <a href="docs/PLUGINS.md">Pluginy dla twórców</a>
+</p>
 
-- `release\Hermitty.exe` – uruchamiany bezpośrednio, bez instalacji.
-- `release\Hermitty_0.1.0_x64-setup.exe` – instalator dla bieżącego użytkownika (skrót w menu Start, odinstalowanie z ustawień Windows).
+> [!WARNING]
+> **To jest wersja alpha.** Hermitty jest we wczesnych testach i może zawierać błędy. Nie powierzaj jej jeszcze krytycznej pracy. Błędy i pomysły zgłaszaj w [Issues](https://github.com/JogiFPV2/terminalx/issues).
 
-**Ze źródeł:**
+![Hermitty: terminal i agent AI](docs/screenshots/main.png)
+
+## Co to jest
+
+Hermitty to aplikacja na Windows: menedżer terminali z wbudowanym asystentem AI. Pracujesz w workspace'ach z zakładkami (PowerShell, CMD, WSL, SSH). Każdy workspace ma agenta, który czyta terminale, uruchamia komendy za Twoją zgodą i zleca zadania podagentom w zakładkach. Instalator ma ok. 3 MB, a uruchomiona aplikacja z jednym terminalem zajmuje ok. 95 MB RAM.
+
+| | |
+|---|---|
+| **Terminale i workspace'y** | Zakładki z drag & drop, podział paneli, tryb „Okna” z przyciemnianiem nieaktywnych, panel plików, zamykanie z 20-sekundowym cofnięciem. |
+| **Agent i podagenci** | Agent na workspace, podagent na zakładkę, uprawnienia (tylko odczyt / pytaj / automatycznie), załączniki, historia rozmów, serwery MCP, skille. |
+| **Workflow** | 50 nodów w 10 kategoriach: terminal, AI, grafika, wideo, logika, pliki, sieć. Wyzwalacze cron, git i zmiana pliku. Agent buduje workflow z opisu. |
+| **Lokalne AI** | Grafika i wideo na własnej karcie przez ComfyUI (instalacja jednym kliknięciem, gotowe modele), Ollama, wspólna kolejka GPU. |
+| **Głos** | Dyktowanie wiadomości do agenta i czytanie odpowiedzi na głos. |
+| **Konta i providerzy** | Anthropic, OpenAI, Google, OpenRouter, Ollama i inne. Kilka kluczy na providera z przełączaniem przy limicie, zastępstwa między providerami, limity planów subskrypcji. Klucze leżą w Menedżerze poświadczeń Windows. |
+| **SSH i SFTP** | Vault hostów, klucze, agent SSH, przekierowania portów, dwupanelowy SFTP. |
+| **Pluginy** | Izolowane w sandboxie, z jawnymi uprawnieniami. Każdy plugin do pobrania osobno (niżej). |
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/workflow.png" alt="Workflow"></td>
+    <td><img src="docs/screenshots/windows.png" alt="Tryb okien"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/settings-providers.png" alt="Konta i providerzy"></td>
+    <td><img src="docs/screenshots/settings-plugins.png" alt="Pluginy"></td>
+  </tr>
+</table>
+
+## Hermitty na Androida
+
+<img src="docs/screenshots/android.png" width="260" align="right" alt="Aplikacja Hermitty na Androida">
+
+Mała aplikacja (ok. 90 KB) łączy telefon z Hermitty na komputerze. Obsługujesz ją z paska bocznego (plugin **Telefon**):
+
+- **Powiadomienia** z telefonu na komputerze: odpowiadasz (np. w komunikatorach) i zamykasz je bez sięgania po telefon.
+- **SMS-y**: lista rozmów, czytanie i wysyłanie.
+- **Zdalny dyktafon**: nagrywanie włączasz z komputera (Ctrl+Alt+R), także przy zablokowanym ekranie. Nagranie trafia na komputer, gdzie odsłuchasz je albo zamienisz na tekst.
+- **Znajdź telefon** (dzwonek na pełnej głośności) i **bateria** w pasku statusu.
+
+**Bezpieczeństwo.** Połączenie jest szyfrowane (AES-256-GCM) kluczem z jednorazowego parowania. Kody logowania i BLIK telefon zamienia na kropki, zanim cokolwiek wyśle. Pluginy innych autorów nie mają dostępu do telefonu.
+
+**Wymagania:** Android 10 lub nowszy, telefon i komputer w tej samej sieci Wi-Fi albo w [Tailscale](https://tailscale.com).
+
+**Instalacja:** pobierz plik APK z [wydania](https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha) i otwórz go na telefonie. Potem w Hermitty: Ustawienia → Pluginy → włącz **Telefon** → w pasku bocznym kliknij **+** i wpisz kod w aplikacji. Aplikacja przeprowadzi Cię przez uprawnienia. Jeśli przełącznik jest wyszarzony: Informacje o aplikacji → ⋮ → „Zezwól na ustawienia z ograniczeniami”.
+
+<br clear="right">
+
+![Plugin Telefon](docs/screenshots/phone-plugin.png)
+
+## Pobieranie
+
+Wszystkie pliki są w wydaniu [**v0.1.0-alpha**](https://github.com/JogiFPV2/terminalx/releases/tag/v0.1.0-alpha).
+
+| Plik | Opis |
+|---|---|
+| [Hermitty-0.1.0-alpha-setup.exe](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe) | Instalator dla Windows 10/11 (aktualizuje się sam) |
+| [Hermitty-0.1.0-alpha-portable.exe](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-portable.exe) | Wersja bez instalacji |
+| [Hermitty-Telefon-0.1.0-alpha.apk](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk) | Aplikacja na Androida |
+
+Instalator nie ma jeszcze certyfikatu, więc Windows SmartScreen pokaże ostrzeżenie. Wybierz „Więcej informacji” → „Uruchom mimo to”.
+
+### Pluginy
+
+Pluginy są już w aplikacji. Osobne paczki służą do ponownej instalacji albo aktualizacji przez Ustawienia → Pluginy → Importuj. Plugin oznaczony 🔒 korzysta z uprawnień dostępnych tylko wbudowanym pluginom (sejf kluczy, logowania narzędzi, telefon), więc działa wyłącznie w wersji dostarczonej z aplikacją.
+
+| Plugin | Co robi | Pobierz |
+|---|---|---|
+| Notatki | Notatki i foldery w pasku bocznym, każda notatka w osobnym pliku `.md` | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.notes-1.0.0.zip) |
+| Procesy w tle | Odkładanie zakładek z działającym procesem do paska bocznego | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.bcgrnd_process-1.0.0.zip) |
+| Monitor zasobów | CPU i RAM na pasku statusu | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.sysmon-1.0.0.zip) |
+| Porty | Lista zajętych portów z procesami | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.ports-1.0.0.zip) |
+| Pomodoro | Licznik pracy i przerw | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.pomodoro-1.0.0.zip) |
+| Klucze API 🔒 | Providerzy i klucze z sejfu systemu, kopiowanie jednym kliknięciem | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.keys-1.0.0.zip) |
+| Quota 🔒 | Zużycie planów (Claude, Codex, Gemini, Cursor…) i limitów API z paskami | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.quota-1.0.0.zip) |
+| Telefon 🔒 | Powiadomienia, SMS-y i dyktafon z telefonu z Androidem | [zip](https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/tx.phone-0.1.0.zip) |
+
+Własne pluginy: [docs/PLUGINS.md](docs/PLUGINS.md) i typy w [plugins/sdk](plugins/sdk/hermitty-plugin.d.ts).
+
+## Budowanie ze źródeł
 
 ```powershell
 npm install
-npm run app:dev      # tryb deweloperski z przeładowaniem
-npm run app:build    # wersja release + instalator NSIS
-npm run plugins:pack # pluginy z plugins/ → release/plugins/*.zip
-npm test             # testy: przepisy modeli vs. definicje nodów ComfyUI, katalog, słowniki
+npm run app:dev       # tryb deweloperski
+npm run app:build     # wersja release + instalator NSIS
+npm run plugins:pack  # pluginy → release/plugins/*.zip
+npm test
+
+cd android; ./gradlew assembleRelease   # APK (podpis: android/keystore.properties)
 ```
 
-Lokalny build release z paczką aktualizacji potrzebuje klucza podpisu: `TAURI_SIGNING_PRIVATE_KEY` (ścieżka do `~/.tauri/terminalx.key` albo jego treść).
+Wymagania: Node.js 20+, Rust (toolchain MSVC), Visual Studio Build Tools („Desktop development with C++”). Do APK: JDK 17 i Android SDK 36. Paczki aktualizacji podpisuje klucz `TAURI_SIGNING_PRIVATE_KEY`.
 
-**Wydanie**: tag `v*` (np. `git tag v0.2.0 && git push --tags`) uruchamia GitHub Actions, który buduje instalatory dla Windows, Linuksa (AppImage, deb) i macOS (Apple Silicon i Intel), podpisuje paczki aktualizacji i tworzy szkic wydania z `latest.json`. Zainstalowana aplikacja sprawdza aktualizacje po starcie i co 6 godzin; przycisk pojawia się w pasku tytułu. Wersja jest w jednym miejscu: `package.json`.
-
-Wymagania do budowania: Node.js 20+, Rust (rustup, toolchain MSVC), Visual Studio Build Tools z „Desktop development with C++”. WebView2 jest wbudowany w Windows 11.
-
-`npm run dev` uruchamia sam interfejs w przeglądarce z atrapą rdzenia (bez prawdziwych terminali), co przydaje się przy pracy nad wyglądem.
-
-## Co działa
-
-- **Terminale**: PowerShell 7, Windows PowerShell, CMD, każda wykryta dystrybucja WSL, Git Bash. ConPTY, xterm.js z renderowaniem WebGL, kopiowanie i wklejanie (Ctrl+C z zaznaczeniem, Ctrl+V, PPM), wyszukiwanie (Ctrl+Shift+F), podświetlanie słów kluczowych, zapis ekranu do pliku, ponowne uruchomienie po zakończeniu procesu.
-- **Panel plików zakładki** (ikona folderu na pasku zakładek albo w belce okna): pliki i foldery bieżącego katalogu terminala, odświeżane po każdej komendzie; dwuklik w folder wpisuje `cd` w terminalu. Katalog zgłasza sama powłoka przy każdym prompcie (PowerShell, CMD, WSL, Git Bash; profil i własny prompt zostają bez zmian).
-- **Workspace'y** jako zakładki w pasku tytułu: drag & drop, zmiana nazwy dwuklikiem, kolor.
-- **Zakładki**: drag & drop, menu `+` z wyborem rodzaju, menu PPM, podział na dwa panele (poziomo i pionowo, z przeciąganym podziałem), zmiana nazwy (F2 albo dwuklik).
-- **Tryb „Okna”**: każda zakładka jako okno. Przesuwanie, zmiana rozmiaru z każdej krawędzi i rogu, maksymalizacja, aktywne na wierzchu, nieaktywne przyciemnione (poziom w Ustawienia → Wygląd), rozmieszczanie kafelkowe.
-- **Zamykanie z cofnięciem**: zakładka, workspace, notatka, prompt. Proces działa jeszcze 20 s (czas ustawiany), a „Przywróć” albo Ctrl+Shift+T odkłada element na miejsce.
-- **Panele o zmiennej szerokości**: pasek boczny (zwija się do ikon) i panel agenta.
-- **Motywy**: 13 wbudowanych (m.in. Ametyst, Retro CRT, Neon, Fiord, Papier, Pastel, Ocean, Monochrom, Zachód) z własnymi czcionkami. Import z tweakcn: link, nazwa, galeria gotowych motywów jednym kliknięciem albo wklejony kod (CSS razem z `layout.tsx`; czcionki z `next/font/google` i zmiennych `--font-*` są pobierane z Google Fonts raz i trzymane lokalnie w folderze `fonts`). Tryb jasny, ciemny i systemowy; paleta terminala liczona z motywu.
-- **AI**: providerzy Anthropic, OpenAI, zgodni z OpenAI i Ollama. Klucze w Menedżerze poświadczeń Windows, test połączenia i pobieranie listy modeli, domyślny model.
-- **Agent workspace'u i podagenci zakładek**: agent czyta zakładki, uruchamia komendy po zatwierdzeniu, deleguje zadania podagentom (równolegle) i uruchamia workflow. Tryby uprawnień: tylko odczyt, pytaj, automatycznie; lista komend, które zawsze wymagają zgody. Profile i przypisania w Ustawienia → Agenci. Pod polem wiadomości wybór providera i modelu rozmowy (osobno dla każdego workspace'u) z wyszukiwaniem i listą modeli pobraną od providera; można też wpisać własny model. Modele oznaczone gwiazdką są na górze listy (także z innych providerów).
-- **Załączniki w czacie**: obrazy, wideo, PDF, pliki tekstowe i kod, inne pliki. Spinacz, przeciągnięcie na panel albo Ctrl+V (zrzut ekranu). Duże obrazy są zmniejszane, z wideo trafia kilka klatek (modele czatu nie przyjmują plików wideo), plik tekstowy idzie jako treść, PDF jako dokument (Anthropic, OpenAI, OpenRouter). Kopie leżą w `attachments/<rozmowa>/`, a agent dostaje ich ścieżki, więc może z nimi pracować w terminalu. Agent może przekazać załączniki podagentowi.
-- **Rozmowa wprost z podagentem**: przy polu wiadomości wybierasz adresata (agent albo podagent zakładki); podagent pamięta wątek.
-- **Historia rozmów** (ikona zegara w panelu agenta): każda rozmowa z agentem i podagentami zapisuje się sama, z wyszukiwaniem po treści i filtrem workspace'u. Otwarta rozmowa wraca z kontekstem modelu, więc można ją kontynuować; usunięcie kasuje też jej załączniki. Ikona dymku z plusem zaczyna nową rozmowę.
-- **Konta i providerzy** (Ustawienia → Konta i providerzy): każdy provider to karta z kluczami API, domyślnym modelem i kontami subskrypcji tej samej firmy. Provider może mieć kilka kluczy (np. prywatny i firmowy); w czacie i profilu agenta wybierasz provider, klucz albo „automatycznie” i model. Przy „automatycznie” klucz z limitem (429) albo bez środków (402) odpoczywa minutę, a zapytanie idzie następnym kluczem. Limity planów subskrypcji (Claude, Codex, Gemini, Cursor, OpenCode Go) z paskami zużycia i czasem do resetu. Claude Code i Codex mogą mieć kilka kont (np. prywatne i firmowe): każde ma własny folder logowania, logujesz się oficjalnym `claude` / `codex login` w zakładce otwartej przez aplikację, a zakładkę terminala przypinasz do konta w jej menu (`CLAUDE_CONFIG_DIR` / `CODEX_HOME`, tylko powłoki Windows). Konta nie przełączają się same: regulaminy usług nie pozwalają omijać limitów planu kilkoma kontami.
-- **Zastępstwa** (Ustawienia → Zastępstwa): łańcuch providerów API. Gdy provider odpowie limitem (429), brakiem środków (402) albo przeciążeniem (503, 529), zapytanie agenta, snippeta albo noda idzie do następnego z listy, a provider z limitem odpoczywa minutę.
-- **Skille** (Ustawienia → Skille): instrukcje do konkretnych zadań w formacie `SKILL.md` z plikami pomocniczymi, tworzone w aplikacji albo importowane z folderu lub .zip. Przypinane profilom agentów i podagentów; model widzi nazwy i opisy, a treść wczytuje narzędziem `use_skill`, gdy jej potrzebuje.
-- **Głos** (Ustawienia → Głos): mikrofon w panelu agenta nagrywa wiadomość i zamienia ją na tekst u providera zgodnego z OpenAI (OpenAI, Groq, lokalny Whisper). Tekst trafia do pola wiadomości albo od razu do agenta, a nagranie zostaje w rozmowie do odsłuchania. Odpowiedzi agenta (i opcjonalnie podagentów) mogą być czytane na głos głosami Windows (offline) albo przez `/audio/speech` providera; kod jest pomijany. Mikrofon działa tylko w trakcie nagrywania, a pluginy nie mają do niego dostępu.
-- **Serwery MCP** (Ustawienia → Serwery MCP): lokalne (komenda, np. `npx`, `uvx`, z argumentami, zmiennymi i tokenem) i zdalne (Streamable HTTP z nagłówkami i tokenem Bearer). Import konfiguracji z Claude Desktop, Claude Code, Cursora i VS Code. Tokeny w Menedżerze poświadczeń. Serwer startuje przy pierwszym użyciu i kończy się z aplikacją (z całym drzewem procesów). Narzędzia trafiają do agentów i podagentów; w Ustawienia → Agenci wybierasz, które serwery widzi profil. W trybie „pytaj” narzędzia zmieniające coś czekają na zgodę, profil „tylko odczyt” dostaje tylko narzędzia oznaczone jako bezpieczne.
-- **Snippety**: komendy i prompty AI ze zmiennymi oraz własnym providerem i modelem (albo domyślnym). Dostępne z Ustawień i z palety komend.
-- **Biblioteka promptów**: foldery w folderach, prompty bazowe.
-- **Grafika i wideo w workflow** (jak we Florze): nody Generuj obraz, Edytuj obraz, Powiększ, Usuń tło, Generuj wideo, Obraz → wideo, Plik z dysku, Ostatnia klatka i Połącz klipy (te dwa wymagają ffmpeg), Zapisz media. Podgląd wyników w nodzie, podgląd pełnoekranowy, uruchamianie pojedynczego noda. Providerzy: fal.ai i Replicate (setki modeli: Flux, Imagen, Kling, Veo, Seedance, Hailuo…), OpenAI (gpt-image-1, Sora) i Google (Gemini, Imagen, Veo). Każdy node AI widzi obrazy z wejścia (np. „Opisz obraz”). Wyniki trafiają do folderu `media` w danych aplikacji.
-- **Lokalne AI** (Ustawienia → Lokalne AI): grafika i wideo na własnej karcie graficznej przez ComfyUI, bez opłat. Instalacja jednym kliknięciem (wersja przenośna dla NVIDIA, AMD i Intel) albo wskazanie istniejącego ComfyUI. Katalog modeli z oceną, czy pasują do komputera (pamięć karty i RAM): Z-Image Turbo, FLUX.2 Klein 4B (także edycja obrazu), SDXL, LTX-Video 2B, Wan 2.1 1.3B, Wan 2.2 5B, BiRefNet (usuwanie tła), SeedVR2 (powiększanie), a dla mocniejszych komputerów Qwen-Image 2512 i Wan 2.2 14B. Pobieranie z postępem i wznawianiem, wspólne pliki pobierają się raz. Własne workflow z ComfyUI (Export (API)) z podstawianiem promptu, obrazu, seeda, proporcji i długości klipu. ComfyUI startuje dopiero, gdy workflow go potrzebuje, i zamyka się po bezczynności (domyślnie 5 min). Zadania lokalne idą przez jedną kolejkę: na karcie jest zawsze jeden model, przed grafiką aplikacja zwalnia modele Ollamy, a przy zmianie modelu pamięć ComfyUI. Kolejność nodów jest układana tak, żeby model zmieniał się jak najrzadziej. W nodzie widać kroki i podgląd generowanego obrazu na żywo. Na Linuksie i macOS instalacja idzie przez `uv` (kod ComfyUI, Python 3.12 i PyTorch dla CUDA, ROCm albo Metal). Zdalny ComfyUI: mocniejszy komputer w sieci albo serwer z GPU w chmurze jako osobny provider. Katalog modeli aktualizuje się z repozytorium (`catalog/models.json`), a pobrane pliki są sprawdzane sumą SHA-256. Ollama (agenci, snippety, nody) i ComfyUI dzielą jedną kolejkę GPU.
-- **Workflow**: 50 nodów w 10 kategoriach. Niezmienione nody AI, grafiki i wideo biorą wynik z poprzedniego uruchomienia (Shift + uruchom liczy wszystko od nowa). **Partia**: ten sam workflow dla listy promptów albo folderu obrazów i wideo, po kolei. **Galeria** wyników z promptem, modelem i seedem („powtórz z tym seedem”). Agent workspace'u buduje workflow z opisu słownego (narzędzia `list_node_types` i `build_workflow`). Dalej: i własne nody (także graficzne i wideo), połączenia przeciągane z kropki, ustawienia noda AI (prompt bazowy, prompt dodatkowy, provider i model, tokeny, liczba wyników, format), uruchamianie z podglądem wyników, wyzwalacze cron, git i zmiana pliku działające w tle.
-- **Pluginy**: izolowane iframe z uprawnieniami z `plugin.json`, import .zip z przeglądem uprawnień, włączanie i wyłączanie, konfiguracja. Wbudowane: Notatki, Quota (zużycie planów subskrypcji Claude, Codex, Gemini, Cursor, z.ai, OpenCode Go i OpenRouter z logowań narzędzi na tym komputerze, z czasem do resetu; ile tokenów zostało u providerów API: własny limit dzienny lub miesięczny, limity API z nagłówków, saldo OpenRouter/DeepSeek; na górnym albo dolnym pasku), Klucze API (providerzy z opcjonalnym linkiem i wieloma kluczami; klucze w Menedżerze poświadczeń, na liście częściowo ukryte, kopiowanie jednym kliknięciem), Procesy w tle (zaparkowane zakładki zostają z prawej strony paska zakładek: klik pokazuje terminal, dwuklik przywraca), Monitor zasobów, Porty, Pomodoro. Specyfikacja: [docs/PLUGINS.md](docs/PLUGINS.md).
-- **SSH i Vault hostów** (pasek boczny → Hosty): siatka, lista i drzewo grup, wyszukiwarka, tagi, wykrywanie dystrybucji. Logowanie hasłem, kluczem (hasła w Menedżerze poświadczeń) albo przez agenta SSH (OpenSSH agent, Pageant, `SSH_AUTH_SOCK`), generator kluczy ed25519, potwierdzenie odcisku klucza hosta przy pierwszym połączeniu i ostrzeżenie przy jego zmianie. Zakładka SSH działa jak terminal, więc agent, snippety, podział i Procesy w tle obsługują też SSH.
-- **SFTP**: dwa panele (komputer i serwer), przeciąganie plików i całych folderów między nimi, postęp transferu, nowy folder, zmiana nazwy, usuwanie (foldery z zawartością), edycja plików tekstowych na serwerze.
-- **Przekierowania portów**: lokalne (-L), zdalne (-R) i SOCKS (-D), z automatycznym startem przy połączeniu.
-- **Zdalny dostęp z telefonu** (Ustawienia → Zdalny dostęp): w sieci Wi-Fi albo przez Tailscale (z dowolnego miejsca, bez publicznego IP). Parowanie kodem QR z potwierdzeniem na komputerze, szyfrowanie każdej wiadomości kluczem urządzenia, uprawnienia per urządzenie (podgląd, sterowanie, pełny). Telefon w przeglądarce: terminale na żywo z paskiem klawiszy, czat z agentem i zatwierdzanie komend, Procesy w tle.
-- **Telefon z Androidem** (plugin Telefon, domyślnie wyłączony): aplikacja Hermitty na Androida (`android/`, APK ok. 90 KB, bez bibliotek) połączona z komputerem przez szyfrowany mostek (AES-256-GCM, klucz urządzenia z parowania jednorazowym kodem lub kodem QR, licznik ramek przeciw powtórzeniom). W pasku bocznym: powiadomienia telefonu z odpowiadaniem i zamykaniem, SMS-y (rozmowy, wysyłanie), zdalny dyktafon (start/stop z komputera także przy zablokowanym ekranie, nagranie Opus trafia na komputer, odsłuch i zamiana na tekst przez Ustawienia → Głos), „znajdź telefon” i bateria w pasku statusu. Kody jednorazowe z SMS-ów i powiadomień telefon maskuje przed wysłaniem. Telefon znajduje komputer w sieci Wi-Fi sam, poza domem przez Tailscale. Po restarcie telefonu połączenie wraca samo, a zdalny dyktafon po jednym otwarciu aplikacji (wymóg Androida 14+). Budowanie: `cd android && ./gradlew assembleRelease` (podpis: `android/keystore.properties` poza repozytorium).
-- **Monitoring** (pasek boczny): CPU z wykresem, RAM, dysk, sieć, GPU (NVIDIA) i opóźnienie dla tego komputera i wybranych hostów SSH (Linux, odczyt `/proc` przez istniejące połączenie, bez agenta na serwerze). Kolumny i odświeżanie do wyboru; odpytuje tylko przy otwartej zakładce.
-- **Eksplorator i wiersz poleceń**: „Otwórz w Hermitty” w menu folderu (instalator; w wersji portable przełącznik w Ustawienia → Ogólne), `--open-terminal-path <folder>` i `--open-terminal-shell <powłoka>`. Kolejne uruchomienie otwiera terminal w działającej kopii.
-- **Język**: polski albo angielski (automatycznie z systemu, zmiana w Ustawienia → Ogólne). Słowniki w `src/lib/i18n/`.
-- **Paleta komend** (Ctrl+K), zapamiętywanie układu i sesji, tryb portable (folder `data` obok exe).
-
-## Zużycie zasobów
-
-Instalator ma około 3 MB, a plik exe 8,5 MB. Pamięć (prywatna, rdzeń i WebView2, bez samych powłok) wynosi około 95 MB z jednym terminalem i około 150 MB z trzema. Domyślny „Tryb lekki” (Ustawienia → Ogólne) wyłącza GPU w WebView2. Bez niego zużycie rośnie do około 210 MB, w zamian za płynniejsze przewijanie bardzo dużego wyjścia.
-
-## Czego jeszcze nie ma
-
-- **Grafika i wideo**: adaptery providerów są sprawdzone na atrapie API, nie na prawdziwych kluczach. Nazwy pól wejściowych różnią się między modelami; gdy model nie przyjmie obrazu, ustaw „Pole obrazu wejściowego” albo „Parametry modelu (JSON)” w zaawansowanych ustawieniach noda.
-- **Lokalne AI**: przepisy modeli są sprawdzone względem definicji nodów ComfyUI 0.43 i na atrapie serwera (kolejka, podgląd, błędy, zwalnianie pamięci), ale nie były jeszcze uruchomione na prawdziwych modelach. Czasy generowania zależą od karty; przy 16 GB RAM większe modele wideo mocno korzystają z dysku. Instalacja przez `uv` na Linuksie i macOS nie była jeszcze uruchomiona na tych systemach.
-- **Zdalny dostęp P2P bez Tailscale** (iroh): wymaga natywnej aplikacji mobilnej (Tauri 2 na Android/iOS), której tu nie zbudowano.
-- **Agent SSH**: zaimplementowany, ale nie testowany z prawdziwym agentem (Pageant, OpenSSH).
-- **Plany subskrypcji w Quota**: korzystają z nieoficjalnych endpointów usług (tych samych co ich własne narzędzia), więc mogą przestać działać po zmianie po stronie usługi. Parsowanie odpowiedzi jest przetestowane na przykładach; z prawdziwymi kontami sprawdzony tylko format OpenRouter.
-- **MCP**: obsługiwane są serwery stdio i Streamable HTTP; starszy transport HTTP+SSE (osobny adres `/sse`) i logowanie OAuth do serwerów zdalnych jeszcze nie. Zasoby i prompty MCP nie są używane, tylko narzędzia.
-- **Tłumaczenie**: teksty składane w kodzie z wielu części mogą zostać po polsku; słownik uzupełnia się w `src/lib/i18n/en.json`.
-- **Podpis kodu Windows**: instalator nie ma certyfikatu, więc SmartScreen pokaże ostrzeżenie przy pierwszym uruchomieniu.
-- Zdalny dostęp w sieci Wi-Fi działa po HTTP (treść jest szyfrowana kluczem urządzenia, ale strona klienta przychodzi bez TLS, więc ktoś w tej samej sieci mógłby ją podmienić przy kolejnym otwarciu). W Tailscale ruch jest dodatkowo szyfrowany przez WireGuard.
-- Paleta komend nie ma jeszcze edycji skrótów, a po restarcie aplikacji zakładki uruchamiają świeże powłoki (historia ekranu nie jest zapisywana).
+Linux i macOS: kod jest przenośny (Tauri 2), ale wersje alpha są budowane i testowane tylko na Windows.
 
 ## Struktura
 
@@ -90,11 +118,13 @@ src/                 interfejs (Svelte 5)
   lib/gpu.ts         kolejka GPU (ComfyUI + Ollama)
   lib/i18n/          słowniki tłumaczeń
   lib/components/    widoki, ustawienia
-src-tauri/src/       rdzeń w Ruście: pty.rs, sys.rs, store.rs, ai.rs, media.rs, local.rs (ComfyUI, pobieranie, sprzęt), monitor.rs, ssh.rs
+src-tauri/src/       rdzeń w Ruście: pty.rs, sys.rs, store.rs, ai.rs, media.rs, local.rs (ComfyUI, pobieranie, sprzęt), monitor.rs, ssh.rs, remote.rs, phone.rs
 catalog/             katalog modeli lokalnych pobierany przez aplikację
 tests/               testy (npm test)
 .github/workflows/   CI i wydania
 plugins/             wbudowane pluginy + sdk/hermitty-plugin.d.ts
+android/             aplikacja na Androida (Kotlin, bez bibliotek)
+site/                strona hermitty.mypinsy.com
 docs/PLUGINS.md      specyfikacja pluginów
 PLAN.md              plan i architektura
 ```

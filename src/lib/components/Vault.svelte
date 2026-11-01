@@ -62,7 +62,7 @@
     <div class="top">
       <span class="os" style:--c={d?.c || 'var(--muted-foreground)'} title={d?.name || 'nieznany system'}>{d?.label || 'SSH'}</span>
       <div class="ttl"><b>{h.name}</b><small>{h.user}@{h.host}{h.port !== 22 ? `:${h.port}` : ''}</small></div>
-      {#if connected(h)}<span class="sub" title="Połączony"></span>{/if}
+      {#if connected(h)}<span class="sdot" title="Połączony"></span>{/if}
     </div>
     {#if h.tags.length || h.forwards.length}
       <div class="tags">{#each h.tags as t}<span class="chip">{t}</span>{/each}{#if h.forwards.length}<span class="chip pri"><Icon name="ext" size={11} />{h.forwards.length}</span>{/if}</div>
@@ -106,7 +106,7 @@
         {@const d = distro(h)}
         <div class="lrow">
           <span class="os sm" style:--c={d?.c || 'var(--muted-foreground)'}>{d?.label || 'SSH'}</span>
-          <div class="info"><b>{h.name}{#if connected(h)} <span class="sub"></span>{/if}</b><small class="mono">{h.user}@{h.host}:{h.port}</small></div>
+          <div class="info"><b>{h.name}{#if connected(h)} <span class="sdot"></span>{/if}</b><small class="mono">{h.user}@{h.host}:{h.port}</small></div>
           <div class="meta">{#if h.group}<span class="chip">{h.group}</span>{/if}{#each h.tags as t}<span class="chip">{t}</span>{/each}</div>
           <div class="acts">
             <button class="icobtn" title="SSH" onclick={() => openSsh(h.id)}><Icon name="terminal" size={14} /></button><button class="icobtn" title="SFTP" onclick={() => openSftp(h.id)}><Icon name="folder" size={14} /></button>

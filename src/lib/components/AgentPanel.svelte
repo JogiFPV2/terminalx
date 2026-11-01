@@ -249,7 +249,7 @@
   <div class="subs">
     {#each subs as t (t.id)}
       {@const k = tabKind(t)}
-      <div class="subrow" title={app.agents.find((a) => a.id === t.subagent)?.name}><span class="sub" class:busy={!!agentState.subBusy[t.id]}></span><span class="ki" style:color={k.c}><Icon name={k.icon} size={13} /></span><span class="nm">{t.title}</span><span class="st">{agentState.subBusy[t.id] || ''}</span></div>
+      <div class="subrow" title={app.agents.find((a) => a.id === t.subagent)?.name}><span class="sdot" class:busy={!!agentState.subBusy[t.id]}></span><span class="ki" style:color={k.c}><Icon name={k.icon} size={13} /></span><span class="nm">{t.title}</span><span class="st">{agentState.subBusy[t.id] || ''}</span></div>
     {/each}
   </div>
   {/if}

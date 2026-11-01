@@ -40,9 +40,9 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .btn.ghost { border-color: transparent; color: var(--muted-foreground); }
 .btn.ghost:hover { background: var(--accent); color: var(--foreground); filter: none; }
 .badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 500; padding: 1px 4px; border-radius: 4px; letter-spacing: .02em; flex: none; background: color-mix(in oklab, var(--c) 16%, transparent); color: var(--c); }
-.sub { width: 6px; height: 6px; border-radius: 50%; background: var(--chart-1); box-shadow: 0 0 0 2px color-mix(in oklab, var(--chart-1) 25%, transparent); flex: none; }
-.sub.busy { background: var(--chart-3); box-shadow: 0 0 0 2px color-mix(in oklab, var(--chart-3) 25%, transparent); animation: pulse 1.4s infinite; }
-.sub.off { background: var(--muted-foreground); box-shadow: none; }
+.sdot { width: 6px; height: 6px; border-radius: 50%; background: var(--chart-1); box-shadow: 0 0 0 2px color-mix(in oklab, var(--chart-1) 25%, transparent); flex: none; }
+.sdot.busy { background: var(--chart-3); box-shadow: 0 0 0 2px color-mix(in oklab, var(--chart-3) 25%, transparent); animation: pulse 1.4s infinite; }
+.sdot.off { background: var(--muted-foreground); box-shadow: none; }
 @keyframes pulse { 50% { opacity: .4; } }
 .chip { font-size: 11px; padding: 1px 7px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted-foreground); white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .chip.ok { color: var(--chart-1); border-color: color-mix(in oklab, var(--chart-1) 40%, var(--border)); }

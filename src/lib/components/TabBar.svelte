@@ -53,8 +53,8 @@
         {:else}
           <span class="tt">{t.title}</span>
         {/if}
-        {#if agentState.subBusy[t.id]}<span class="sub busy" title="Podagent: {agentState.subBusy[t.id]}"></span>
-        {:else if t.subagent}<span class="sub" title="Podagent przypisany"></span>{/if}
+        {#if agentState.subBusy[t.id]}<span class="sdot busy" title="Podagent: {agentState.subBusy[t.id]}"></span>
+        {:else if t.subagent}<span class="sdot" title="Podagent przypisany"></span>{/if}
         <button class="x" title="Zamknij (Ctrl+Shift+W)" onclick={(e) => { e.stopPropagation(); closeTab(t.id); }}><Icon name="x" size={12} /></button>
       </div>
     {/each}

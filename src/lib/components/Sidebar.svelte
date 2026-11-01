@@ -38,7 +38,7 @@
         {@const k = tabKind(t)}
         <button class:on={t.id === ws.activeTab} onclick={() => activateTab(t.id)} title={t.title}>
           <span class="ki" style:color={k.c}><Icon name={k.icon} size={14} /></span><span class="tt">{t.title}</span>
-          {#if agentState.subBusy[t.id]}<span class="sub busy"></span>{:else if t.subagent}<span class="sub"></span>{/if}
+          {#if agentState.subBusy[t.id]}<span class="sdot busy"></span>{:else if t.subagent}<span class="sdot"></span>{/if}
         </button>
       {/each}
     </div>
