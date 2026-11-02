@@ -41,6 +41,9 @@ pub struct Device {
     added: u64,
     #[serde(default)]
     last_seen: Option<u64>,
+    /// Ostatni adres telefonu w sieci: tu komputer puka, żeby telefon wrócił sam.
+    #[serde(default)]
+    addr: String,
 }
 
 #[derive(Serialize, Deserialize, Default)]
@@ -262,7 +265,7 @@ async fn session(app: AppHandle, stream: TcpStream, addr: SocketAddr) -> Result<
         device_id = URL_SAFE_NO_PAD.encode(rand_bytes::<12>());
         let key = rand_bytes::<32>();
         crate::ai::secret_store(&key_ref(&device_id), &STANDARD.encode(key))?;
-        saved.devices.push(Device { id: device_id.clone(), name: name.clone(), model: model.clone(), added: now_ms(), last_seen: Some(now_ms()) });
+        saved.devices.push(Device { id: device_id.clone(), name: name.clone(), model: model.clone(), added: now_ms(), last_seen: Some(now_ms()), addr: addr.ip().to_string() });
         save(&app, &saved);
         let msg = json!({"t":"paired","device":device_id,"key":STANDARD.encode(key),"pc":saved.pc_id,"name":pc_name()});
         write_frame(&mut w, &tx_dir.seal(msg.to_string().as_bytes())).await.map_err(|e| e.to_string())?;
@@ -271,6 +274,7 @@ async fn session(app: AppHandle, stream: TcpStream, addr: SocketAddr) -> Result<
         d.name = name.clone();
         if !model.is_empty() { d.model = model.clone(); }
         d.last_seen = Some(now_ms());
+        d.addr = addr.ip().to_string();
         save(&app, &saved);
     }
     write_frame(&mut w, &tx_dir.seal(json!({"t":"ready","name":pc_name()}).to_string().as_bytes())).await.map_err(|e| e.to_string())?;
@@ -385,6 +389,35 @@ async fn discovery(sock: UdpSocket, pc_id: String, port: u16, mut stop: tokio::s
     }
 }
 
+/// Pukanie do telefonów offline: krótki pakiet UDP na ostatni adres telefonu i rozgłoszenie w sieci.
+/// Telefon wstaje z uśpienia i łączy się od razu, zamiast czekać na swoją kolejną próbę.
+async fn waker(app: AppHandle, state: Arc<PhoneState>, pc_id: String, port: u16, mut stop: tokio::sync::watch::Receiver<bool>) {
+    let Ok(sock) = UdpSocket::bind(("0.0.0.0", 0)).await else { return };
+    let _ = sock.set_broadcast(true);
+    let msg = format!("HERMITTY!{pc_id}");
+    let started = Instant::now();
+    loop {
+        let online: Vec<String> = state.conns.lock().await.keys().cloned().collect();
+        let offline: Vec<String> = load(&app).devices.into_iter().filter(|d| !online.contains(&d.id)).map(|d| d.addr).collect();
+        if !offline.is_empty() {
+            let mut targets: Vec<std::net::Ipv4Addr> = offline.iter().filter_map(|a| a.parse().ok()).filter(|a: &std::net::Ipv4Addr| !a.is_loopback()).collect();
+            targets.push(std::net::Ipv4Addr::BROADCAST);
+            for iface in if_addrs::get_if_addrs().unwrap_or_default() {
+                if let if_addrs::IfAddr::V4(v4) = &iface.addr { if let Some(b) = v4.broadcast { if !iface.is_loopback() { targets.push(b); } } }
+            }
+            targets.sort();
+            targets.dedup();
+            for t in targets { let _ = sock.send_to(msg.as_bytes(), (t, port)).await; }
+        }
+        // Po starcie komputera często, potem rzadziej.
+        let every = if started.elapsed() < Duration::from_secs(120) { 3 } else { 10 };
+        tokio::select! {
+            _ = tokio::time::sleep(Duration::from_secs(every)) => {}
+            _ = stop.changed() => break,
+        }
+    }
+}
+
 /* ---------- komendy ---------- */
 
 #[derive(Serialize)]
@@ -404,7 +437,8 @@ pub async fn phone_start(app: AppHandle, state: State<'_, Arc<PhoneState>>, port
     let udp = UdpSocket::bind(("0.0.0.0", port)).await.map_err(|e| format!("Port UDP {port} jest zajęty: {e}"))?;
     let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
     let pc_id = load(&app).pc_id;
-    tauri::async_runtime::spawn(discovery(udp, pc_id, port, stop_rx.clone()));
+    tauri::async_runtime::spawn(discovery(udp, pc_id.clone(), port, stop_rx.clone()));
+    tauri::async_runtime::spawn(waker(app.clone(), state.inner().clone(), pc_id, port, stop_rx.clone()));
     let app2 = app.clone();
     let mut stop = stop_rx;
     tauri::async_runtime::spawn(async move {

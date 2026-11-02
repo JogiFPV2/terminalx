@@ -46,6 +46,13 @@ export async function loginAccount(service: AccountService, id: string | null) {
   await sessions.write(tab.panes[0].id, ACCOUNT_SERVICES[service].login + '\r');
 }
 
+/** Nowa zakładka terminala z wpisaną komendą narzędzia CLI. `run: false` wpisuje bez Enter (np. instalacja do potwierdzenia). */
+export async function cliInTab(title: string, command: string, run = true, accounts?: Record<string, string>) {
+  const tab = newTab(loginShell(), undefined, undefined, accounts);
+  tab.title = title;
+  await sessions.write(tab.panes[0].id, command + (run ? '\r' : ''));
+}
+
 export function addAccount(service: AccountService, name: string): ToolAccount {
   const acc: ToolAccount = { id: nid('acc').toLowerCase().replace(/[^a-z0-9_-]/g, ''), service, name: name.trim() || `${ACCOUNT_SERVICES[service].name} ${app.accounts.filter((a) => a.service === service).length + 2}` };
   app.accounts.push(acc);

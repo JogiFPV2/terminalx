@@ -27,7 +27,7 @@ Hermitty to aplikacja na Windows: menedżer terminali z wbudowanym asystentem AI
 | **Workflow** | 50 nodów w 10 kategoriach: terminal, AI, grafika, wideo, logika, pliki, sieć. Wyzwalacze cron, git i zmiana pliku. Agent buduje workflow z opisu. |
 | **Lokalne AI** | Grafika i wideo na własnej karcie przez ComfyUI (instalacja jednym kliknięciem, gotowe modele), Ollama, wspólna kolejka GPU. |
 | **Głos** | Dyktowanie wiadomości do agenta i czytanie odpowiedzi na głos. |
-| **Konta i providerzy** | Anthropic, OpenAI, Google, OpenRouter, Ollama i inne. Kilka kluczy na providera z przełączaniem przy limicie, zastępstwa między providerami, limity planów subskrypcji. Klucze leżą w Menedżerze poświadczeń Windows. |
+| **Konta i providerzy** | Anthropic, OpenAI, Google, OpenRouter, Ollama i inne, a także zainstalowane CLI (Claude Code, Codex, Gemini CLI, Amp, OpenCode, Cursor…) z ich własnym logowaniem. Kilka kluczy na providera z przełączaniem przy limicie, zastępstwa między providerami, limity planów subskrypcji. Klucze leżą w Menedżerze poświadczeń Windows. |
 | **SSH i SFTP** | Vault hostów, klucze, agent SSH, przekierowania portów, dwupanelowy SFTP. |
 | **Pluginy** | Izolowane w sandboxie, z jawnymi uprawnieniami. Każdy plugin do pobrania osobno (niżej). |
 

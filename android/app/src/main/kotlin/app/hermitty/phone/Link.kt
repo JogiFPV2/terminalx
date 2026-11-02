@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
+import android.os.PowerManager
 import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -37,6 +38,7 @@ object Link {
 
     private lateinit var ctx: Context
     private var thread: Thread? = null
+    private var wakeThread: Thread? = null
     private val wake = Object()
     private val pool = Executors.newFixedThreadPool(2)
     private val listeners = mutableSetOf<() -> Unit>()
@@ -69,6 +71,7 @@ object Link {
         init(c)
         if (thread?.isAlive == true) { kick(); return }
         thread = Thread(::loop, "hermitty-link").apply { isDaemon = true; start() }
+        wakeThread = Thread(::listenWake, "hermitty-wake").apply { isDaemon = true; start() }
         val cm = ctx.getSystemService(ConnectivityManager::class.java)
         cm.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) = kick()
@@ -78,6 +81,42 @@ object Link {
 
     /** Budzi pętlę (zmiana sieci, nowe parowanie, ręczne „Połącz”). */
     fun kick() = synchronized(wake) { wake.notifyAll() }
+
+    /** Próba połączenia teraz, z krótką blokadą uśpienia (telefon z wygaszonym ekranem zasnąłby w połowie). */
+    fun wakeUp() {
+        if (state == State.ONLINE || state == State.UNPAIRED) return
+        runCatching {
+            ctx.getSystemService(PowerManager::class.java)
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "hermitty:link").acquire(20_000)
+        }
+        kick()
+    }
+
+    /**
+     * Komputer po starcie (i co kilka sekund, póki telefon jest offline) wysyła na ostatni adres telefonu
+     * pakiet „HERMITTY!<id komputera>”. Telefon łączy się od razu, nie czekając na swoją kolejną próbę.
+     */
+    private fun listenWake() {
+        while (true) {
+            val p = Store.pairing()
+            if (p == null) { sleep(60_000); continue }
+            try {
+                DatagramSocket(null).use { s ->
+                    s.reuseAddress = true
+                    s.bind(InetSocketAddress(p.port))
+                    val buf = ByteArray(128)
+                    val expected = "HERMITTY!${p.pcId}"
+                    while (Store.pairing()?.pcId == p.pcId) {
+                        val pkt = DatagramPacket(buf, buf.size)
+                        s.receive(pkt)
+                        if (String(pkt.data, 0, pkt.length) == expected) wakeUp()
+                    }
+                }
+            } catch (e: Exception) {
+                Thread.sleep(30_000)
+            }
+        }
+    }
 
     private fun sleep(ms: Long) = synchronized(wake) { wake.wait(ms) }
 
@@ -114,7 +153,7 @@ object Link {
             if (Store.pairing() == null) continue
             set(State.OFFLINE)
             sleep(backoff)
-            backoff = (backoff * 2).coerceAtMost(60_000)
+            backoff = (backoff * 2).coerceAtMost(30_000)
         }
     }
 

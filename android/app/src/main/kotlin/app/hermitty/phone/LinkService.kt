@@ -40,6 +40,11 @@ class LinkService : Service() {
     private var offLink: (() -> Unit)? = null
     private var lastBattery = -1 to false
 
+    // Odblokowanie ekranu: dobry moment na próbę połączenia, gdy telefon spał.
+    private val screen = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) = Link.wakeUp()
+    }
+
     private val battery = object : BroadcastReceiver() {
         override fun onReceive(c: Context, i: Intent) {
             val b = Info.battery(c)
@@ -58,6 +63,7 @@ class LinkService : Service() {
         )
         offLink = Link.onChange { update() }
         registerReceiver(battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        registerReceiver(screen, IntentFilter(Intent.ACTION_SCREEN_ON).apply { addAction(Intent.ACTION_USER_PRESENT) })
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,6 +90,7 @@ class LinkService : Service() {
         micReady = false
         offLink?.invoke()
         runCatching { unregisterReceiver(battery) }
+        runCatching { unregisterReceiver(screen) }
         super.onDestroy()
     }
 

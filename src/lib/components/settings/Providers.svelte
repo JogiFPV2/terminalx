@@ -3,8 +3,9 @@
   // i konta subskrypcji tej samej firmy z limitami planu (do zakładek terminala, wybierane ręcznie).
   import Icon from '../../Icon.svelte';
   import Accounts from './Accounts.svelte';
+  import CliTools from './CliTools.svelte';
   import { app, notify } from '../../state.svelte';
-  import { PROVIDER_TYPES, isChat, isMedia, providerIcon } from '../../defaults';
+  import { PROVIDER_TYPES, isChat, isMedia, providerIcon, CLI_DEFAULT_MODEL } from '../../defaults';
   import { PLAN_SERVICES } from '../../accounts';
   import { listModels, providerKeys, keyLimitedUntil, MAIN_KEY } from '../../ai';
   import { call } from '../../ipc';
@@ -16,6 +17,7 @@
   const PLAN_OF: Partial<Record<Provider['type'], string[]>> = { anthropic: ['claude'], openai: ['codex'], google: ['gemini'] };
   const optionalKey = (p: Provider) => p.type === 'ollama' || p.type === 'comfy';
 
+  let tab = $state<'api' | 'cli'>('api');
   let edit = $state<Provider | null>(null);
   let isNew = $state(false);
   let key = $state('');
@@ -29,6 +31,7 @@
   $effect(() => {
     // Stan kluczy sprawdzamy w magazynie systemowym, bo zapisany stan aplikacji go nie zna.
     for (const p of app.providers) {
+      if (p.type === 'cli') continue;
       call<boolean>('secret_has', { keyRef: p.keyRef }).then((h) => { if (p.hasKey !== h) p.hasKey = h; });
       for (const k of p.keys || []) call<boolean>('secret_has', { keyRef: k.keyRef }).then((h) => { if (k.hasKey !== h) k.hasKey = h; });
     }
@@ -110,23 +113,33 @@
   const allModels = $derived(app.providers.filter(isChat).flatMap((p) => p.models.map((m) => ({ p, m }))));
 </script>
 
-<div class="pagehead"><h2>Konta i providerzy</h2><div><button class="icobtn" title="Dodaj providera" onclick={create}><Icon name="plus" /></button></div></div>
-<p class="hint">Provider może mieć kilka kluczy API, np. prywatny i firmowy. W czacie i profilu agenta wybierasz provider, klucz (albo „automatycznie”) i model. Przy „automatycznie” klucz z limitem albo bez środków odpoczywa minutę, a zapytanie idzie następnym kluczem. Klucze leżą w Menedżerze poświadczeń Windows; agenci i pluginy ich nie widzą. Konta subskrypcji (Claude Code, Codex) służą zakładkom terminala, wybierasz je ręcznie i nie przełączają się same.</p>
+<div class="pagehead"><h2>Konta i providerzy</h2><div>
+  <div class="seg" role="tablist">
+    <button role="tab" aria-selected={tab === 'api'} class:on={tab === 'api'} onclick={() => (tab = 'api')}><Icon name="key" />API</button>
+    <button role="tab" aria-selected={tab === 'cli'} class:on={tab === 'cli'} onclick={() => (tab = 'cli')}><Icon name="terminal" />CLI</button>
+  </div>
+  {#if tab === 'api'}<button class="icobtn" title="Dodaj providera" onclick={create}><Icon name="plus" /></button>{/if}
+</div></div>
 
 <div class="field" style="max-width:440px">
   <label for="defModel">Domyślny model (agenci, snippety i nody bez własnego wyboru)</label>
   <select class="inp" id="defModel" value="{app.defModel.provider}|{app.defModel.model}"
     onchange={(e) => { const [p, ...m] = e.currentTarget.value.split('|'); app.defModel = { provider: p, model: m.join('|') }; }}>
-    {#each allModels as { p, m }}<option value="{p.id}|{m}">{m} · {p.name}</option>{/each}
+    {#each allModels as { p, m }}<option value="{p.id}|{m}">{p.type === 'cli' && m === CLI_DEFAULT_MODEL ? 'domyślny' : m} · {p.name}</option>{/each}
   </select>
 </div>
+
+{#if tab === 'cli'}
+  <CliTools />
+{:else}
+<p class="hint">Provider może mieć kilka kluczy API, np. prywatny i firmowy. W czacie i profilu agenta wybierasz provider, klucz (albo „automatycznie”) i model. Przy „automatycznie” klucz z limitem albo bez środków odpoczywa minutę, a zapytanie idzie następnym kluczem. Klucze leżą w Menedżerze poświadczeń Windows; agenci i pluginy ich nie widzą. Konta subskrypcji (Claude Code, Codex) służą zakładkom terminala, wybierasz je ręcznie i nie przełączają się same.</p>
 
 {#if edit}
   <div class="form">
     <h3 style="margin:0">{isNew ? 'Nowy provider' : 'Edytuj providera'}</h3>
     <div class="grid2">
       <div class="field"><label for="pType">Typ</label>
-        <select class="inp" id="pType" bind:value={edit.type} onchange={typeChanged}>{#each Object.entries(PROVIDER_TYPES) as [k, v]}<option value={k}>{v.label}</option>{/each}</select></div>
+        <select class="inp" id="pType" bind:value={edit.type} onchange={typeChanged}>{#each Object.entries(PROVIDER_TYPES).filter(([k]) => k !== 'cli') as [k, v]}<option value={k}>{v.label}</option>{/each}</select></div>
       <div class="field"><label for="pName">Nazwa</label><input class="inp" id="pName" bind:value={edit.name} placeholder="np. Anthropic" /></div>
       <div class="field"><label for="pUrl">Adres API</label><input class="inp" id="pUrl" bind:value={edit.url} spellcheck="false" /></div>
       <div class="field"><label for="pKey">{isNew ? 'Klucz API' : 'Klucz główny'} {optionalKey(edit) ? '(opcjonalny)' : ''}</label>
@@ -140,7 +153,7 @@
   </div>
 {/if}
 
-{#each app.providers as p (p.id)}
+{#each app.providers.filter((x) => x.type !== 'cli') as p (p.id)}
   {@const s = status[p.id]}
   {@const keys = providerKeys(p)}
   {@const shownKeys = keys.filter((k) => k.hasKey)}
@@ -208,6 +221,7 @@
     </div>
     <Accounts only={otherPlans} />
   </div>
+{/if}
 {/if}
 
 <style>

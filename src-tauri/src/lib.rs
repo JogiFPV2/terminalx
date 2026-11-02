@@ -6,6 +6,7 @@ mod plans;
 mod chats;
 mod mcp;
 mod phone;
+mod aicli;
 mod pty;
 mod remote;
 mod skills;
@@ -85,6 +86,7 @@ pub fn run() {
         .manage(Arc::new(ssh::SshState::default()))
         .manage(Arc::new(remote::RemoteState::default()))
         .manage(Arc::new(phone::PhoneState::default()))
+        .manage(Arc::new(aicli::CliState::default()))
         .manage(local::LocalState::default())
         .manage(monitor::MonState::default())
         .manage(mcp::McpState::default())
@@ -271,6 +273,11 @@ pub fn run() {
             remote::remote_set_perm,
             remote::remote_revoke,
             remote::remote_send,
+            aicli::aicli_detect,
+            aicli::aicli_status,
+            aicli::aicli_models,
+            aicli::aicli_run,
+            aicli::aicli_cancel,
             phone::phone_start,
             phone::phone_stop,
             phone::phone_status,

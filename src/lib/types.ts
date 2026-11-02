@@ -84,7 +84,7 @@ export interface Workspace {
   chatCreated?: number;
 }
 
-export type ProviderType = 'anthropic' | 'openai' | 'compat' | 'ollama' | 'google' | 'fal' | 'replicate' | 'comfy';
+export type ProviderType = 'anthropic' | 'openai' | 'compat' | 'ollama' | 'google' | 'fal' | 'replicate' | 'comfy' | 'cli';
 
 /** Dodatkowy klucz API providera (np. firmowy obok prywatnego); sam klucz leży w Menedżerze poświadczeń. */
 export interface ProviderKey { id: string; name: string; keyRef: string; hasKey: boolean }
@@ -104,6 +104,10 @@ export interface Provider {
   /** Model wybierany po wskazaniu samego providera. */
   defModel?: string;
   models: string[];
+  /** Narzędzie w wierszu poleceń (typ 'cli'): id z listy `aicli_detect`, np. claude, codex, gemini. */
+  cli?: string;
+  /** Dodatkowe konto narzędzia (Claude Code, Codex) zamiast domyślnego logowania. */
+  account?: string | null;
 }
 
 export interface AgentProfile {

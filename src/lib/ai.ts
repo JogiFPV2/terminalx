@@ -2,7 +2,7 @@
 // Historia rozmowy jest trzymana w formacie bloków Anthropic; dla OpenAI konwertujemy w locie.
 import { call } from './ipc';
 import { app, notify } from './state.svelte';
-import { isChat } from './defaults';
+import { isChat, CLI_DEFAULT_MODEL } from './defaults';
 import { onGpu } from './gpu';
 import type { Provider, ProviderKey } from './types';
 import { emptyUsage, addUsage, tokensOf, parseLimits } from './usage';
@@ -160,6 +160,41 @@ async function openai(p: Provider, model: string, o: CompleteOpts, keyRef = p.ke
   return { text, toolCalls, content, stop: toolCalls.length ? 'tool_use' : (res.choices?.[0]?.finish_reason || 'stop'), model: res.model || model };
 }
 
+/* ---------- narzędzia CLI (Claude Code, Codex, Gemini CLI…) ---------- */
+
+/** Treść bloku jako tekst: narzędzie CLI dostaje jedną wiadomość, bez obrazów i narzędzi aplikacji. */
+function blockText(b: Block): string {
+  if (b.type === 'text') return b.text || '';
+  if (b.type === 'tool_use') return `[narzędzie ${b.name}: ${JSON.stringify(b.input || {})}]`;
+  if (b.type === 'tool_result') return `[wynik narzędzia: ${typeof b.content === 'string' ? b.content : (b.content || []).map(blockText).join('\n')}]`;
+  if (b.type === 'image') return '[obraz pominięty: narzędzie CLI dostaje tylko tekst]';
+  if (b.type === 'document') return b.source?.type === 'text' ? b.source.data || '' : '[dokument pominięty]';
+  return '';
+}
+const msgText = (m: AMsg) => (typeof m.content === 'string' ? m.content : m.content.map(blockText).filter(Boolean).join('\n'));
+
+/** Rozmowa jako jeden prompt: przy jednej wiadomości sama treść, przy dłuższej zapis rozmowy. */
+export function cliPrompt(messages: AMsg[]) {
+  if (messages.length === 1) return msgText(messages[0]);
+  const lines = messages.map((m) => `${m.role === 'user' ? 'Użytkownik' : 'Asystent'}:\n${msgText(m)}`);
+  return `Rozmowa do tej pory:\n\n${lines.join('\n\n')}\n\nOdpowiedz na ostatnią wiadomość użytkownika (sam tekst odpowiedzi, bez prefiksu „Asystent:”).`;
+}
+
+let cliRuns = 0;
+async function cli(p: Provider, model: string, o: CompleteOpts): Promise<CompleteResult> {
+  const runId = `r${Date.now()}-${++cliRuns}`;
+  // Przerwanie czatu kończy też proces narzędzia.
+  const watch = o.signal && setInterval(() => { if (o.signal?.aborted) call('aicli_cancel', { runId }).catch(() => {}); }, 400);
+  try {
+    const r = await call<{ text: string; usage: any }>('aicli_run', {
+      id: p.cli, model: model && model !== CLI_DEFAULT_MODEL ? model : null, system: o.system || null,
+      prompt: cliPrompt(o.messages), account: p.account || null, runId,
+    });
+    recordUsage(p, { usage: r.usage });
+    return { text: r.text, toolCalls: [], content: [{ type: 'text', text: r.text }], stop: 'end_turn', model };
+  } finally { if (watch) clearInterval(watch); }
+}
+
 /** Błąd, po którym ma sens inny provider: limit zapytań, brak środków albo przeciążenie (nie zły klucz czy treść). */
 export function isLimitError(e: unknown) {
   const s = String(e).replace(/^Error: /, '');
@@ -207,7 +242,7 @@ export async function complete(o: CompleteOpts): Promise<CompleteResult> {
   const first = resolveModel(o.providerId, o.model);
   o = { ...o, messages: await expandAttachments(o.messages) };
   // Ollama liczy na tej samej karcie co ComfyUI: przez wspólną kolejkę GPU (agenci, nody, snippety).
-  const run = (s: Step) => onGpu(s.p.type === 'ollama' ? `ollama:${s.model}` : '', () => (s.p.type === 'anthropic' ? anthropic(s.p, s.model, o, s.k.keyRef) : openai(s.p, s.model, o, s.k.keyRef)));
+  const run = (s: Step) => onGpu(s.p.type === 'ollama' ? `ollama:${s.model}` : '', () => (s.p.type === 'cli' ? cli(s.p, s.model, o) : s.p.type === 'anthropic' ? anthropic(s.p, s.model, o, s.k.keyRef) : openai(s.p, s.model, o, s.k.keyRef)));
   const all = attempts(first, o.keyId);
   const id = (s: Step) => `${s.p.id}|${s.k.id}|${s.model}`;
   const resting = (s: Step) => (limitedUntil.get(id(s)) || 0) > Date.now();
@@ -249,6 +284,7 @@ export async function ask(prompt: string, opts: Omit<CompleteOpts, 'messages'> =
 }
 
 export async function listModels(p: Provider): Promise<string[]> {
+  if (p.type === 'cli') return [CLI_DEFAULT_MODEL, ...(await call<string[]>('aicli_models', { id: p.cli })).filter((m) => m !== CLI_DEFAULT_MODEL)];
   if (p.type === 'anthropic') {
     const r: any = await call('ai_request', { provider: ref(p), method: 'GET', path: '/v1/models?limit=100', body: null, headers: null });
     return (r.data || []).map((m: any) => m.id);

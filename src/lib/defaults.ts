@@ -35,18 +35,27 @@ export const PROVIDER_TYPES: Record<Provider['type'], ProviderTypeDef> = {
   comfy: { label: 'ComfyUI (lokalnie)', url: 'http://127.0.0.1:8188', models: [], chat: false, media: { image: [], edit: [], video: [], i2v: [], upscale: [], rmbg: [] } },
   compat: { label: 'Zgodny z OpenAI', url: 'http://localhost:1234/v1', models: [] },
   ollama: { label: 'Ollama (lokalnie)', url: 'http://localhost:11434', models: [] },
+  // Zainstalowane narzędzie (Claude Code, Codex, Gemini CLI…) z jego własnym logowaniem; dodaje się w zakładce CLI.
+  cli: { label: 'CLI', url: '', models: [] },
 };
+
+/** Model „taki, jak ustawiony w narzędziu” dla providerów CLI. */
+export const CLI_DEFAULT_MODEL = 'domyślny';
 
 /** Providerzy, którzy umieją czat (agenci, snippety, nody AI). */
 export const isChat = (p: Provider) => PROVIDER_TYPES[p.type]?.chat !== false;
 /** Znak usługi providera (ikony `svc-*`): po typie, a dla zgodnych z OpenAI po adresie. */
 export function providerIcon(p: Provider) {
+  if (p.type === 'cli') return cliIcon(p.cli || '');
   const u = p.url.toLowerCase();
   if (/openrouter/.test(u)) return 'svc-openrouter';
   if (/deepseek/.test(u)) return 'svc-deepseek';
   if (/z\.ai|bigmodel/.test(u)) return 'svc-zai';
   if (/opencode/.test(u)) return 'svc-opencode';
   return ({ anthropic: 'svc-claude', openai: 'svc-openai', google: 'svc-gemini', ollama: 'svc-ollama', comfy: 'cpu' } as Record<string, string>)[p.type] || 'key';
+}
+export function cliIcon(id: string) {
+  return ({ claude: 'svc-claude', codex: 'svc-openai', gemini: 'svc-gemini', opencode: 'svc-opencode', cursor: 'svc-cursor', antigravity: 'svc-gemini' } as Record<string, string>)[id] || 'terminal';
 }
 /** Providerzy grafiki i wideo. */
 export const isMedia = (p: Provider) => !!PROVIDER_TYPES[p.type]?.media;
