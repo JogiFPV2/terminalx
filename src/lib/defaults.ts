@@ -176,7 +176,21 @@ export const DEFAULT_CUSTOM_NODES: NodeTypeDef[] = [
     defaults: { base: '', prompt: 'Oceń, czy ta komenda jest bezpieczna do uruchomienia na produkcji. Zwróć JSON: {"ryzyko":"niskie|średnie|wysokie","powód":"…"}\n\n{{input}}', provider: 'anthropic', model: 'claude-haiku-5-5', temperature: 0, maxTokens: 600, topP: 1, results: 1, format: 'json' } },
 ];
 
-export const WS_COLORS = ['var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-1)', 'var(--chart-5)', 'var(--destructive)'];
+/** Kolory workspace'ów z kolorów motywu (pasują do każdego motywu). Pierwsze sześć przydziela się po kolei nowym
+ *  workspace'om; całą listę pokazuje paleta przy zmianie nazwy. */
+export const WS_COLOR_LIST: [string, string][] = [
+  ['var(--chart-2)', 'Niebieski'], ['var(--chart-3)', 'Żółty'], ['var(--chart-4)', 'Fioletowy'], ['var(--chart-1)', 'Zielony'],
+  ['var(--chart-5)', 'Turkusowy'], ['var(--destructive)', 'Czerwony'],
+  ['color-mix(in oklab, var(--chart-3) 50%, var(--destructive))', 'Pomarańczowy'],
+  ['color-mix(in oklab, var(--chart-4) 50%, var(--destructive))', 'Różowy'],
+  ['color-mix(in oklab, var(--chart-2) 50%, var(--chart-4))', 'Indygo'],
+  ['color-mix(in oklab, var(--chart-2) 50%, var(--chart-5))', 'Błękitny'],
+  ['color-mix(in oklab, var(--chart-1) 50%, var(--chart-5))', 'Morski'],
+  ['color-mix(in oklab, var(--chart-1) 50%, var(--chart-3))', 'Oliwkowy'],
+  ['var(--primary-ink)', 'Akcent motywu'],
+  ['var(--muted-foreground)', 'Szary'],
+];
+export const WS_COLORS = WS_COLOR_LIST.slice(0, 6).map(([c]) => c);
 
 export function initialState(defaultShell: string): AppState {
   const tabId = 't-first', paneId = 'p-first';

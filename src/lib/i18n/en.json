@@ -944,7 +944,22 @@
     "Ten workflow zbudował agent. Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.": "The agent built this workflow. Its triggers (schedule, file change, git push) will not start it until you approve it.",
     "Zatwierdź": "Approve",
     "Ufaj oznaczeniu „tylko do odczytu”: takie narzędzia działają bez pytania w trybie „pytaj” i są dostępne w profilach tylko do odczytu": "Trust the “read-only” hint: such tools run without asking in “ask” mode and are available to read-only profiles",
-    "Serwer sam oznacza narzędzia jako tylko do odczytu. Włącz tylko dla serwera, któremu ufasz.": "The server marks its own tools as read-only. Enable only for a server you trust."
+    "Serwer sam oznacza narzędzia jako tylko do odczytu. Włącz tylko dla serwera, któremu ufasz.": "The server marks its own tools as read-only. Enable only for a server you trust.",
+    "Kolor workspace'u": "Workspace color",
+    "Niebieski": "Blue",
+    "Żółty": "Yellow",
+    "Fioletowy": "Purple",
+    "Zielony": "Green",
+    "Turkusowy": "Teal",
+    "Czerwony": "Red",
+    "Pomarańczowy": "Orange",
+    "Różowy": "Pink",
+    "Indygo": "Indigo",
+    "Błękitny": "Sky blue",
+    "Morski": "Sea green",
+    "Oliwkowy": "Olive",
+    "Akcent motywu": "Theme accent",
+    "Szary": "Gray"
   },
   "patterns": [
     [
