@@ -54,6 +54,10 @@ Pakowanie: `powershell scripts/pack-plugins.ps1` tworzy `release/plugins/<id>-<w
 
 Uprawnienia wysokiego ryzyka są oznaczone przy imporcie i na liście pluginów.
 
+### Sieć i zasoby zewnętrzne
+
+Ramka pluginu ma politykę CSP bez dostępu do sieci: `fetch()`, `XMLHttpRequest`, WebSocket, obrazki, dźwięki i czcionki z adresów zewnętrznych są blokowane. Plugin łączy się z siecią wyłącznie przez `tx.net.fetch`, które sprawdza `net:localhost` / `net:*`. Obrazki i dźwięki wstawiaj jako `data:` albo `blob:` (np. `tx.phone.audio` zwraca `data:`), ikony jako wbudowane SVG. Plugin, który przejdzie w swojej ramce na inny adres (`location.href = …`), jest od razu zatrzymywany.
+
 ### Czego plugin nie dostanie nigdy
 
 Importer odrzuca archiwum, które prosi o dowolne z: `secrets`, `keychain`, `credentials`, `keystrokes`, `clipboard:read`, `providers:keys`, `vault:*`. Niezależnie od manifestu host:

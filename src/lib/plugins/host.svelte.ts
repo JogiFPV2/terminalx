@@ -100,8 +100,14 @@ function themeCss() {
   return `:root{${vars.map((v) => `--${v}:${cs.getPropertyValue('--' + v).trim()}`).join(';')};color-scheme:${document.documentElement.classList.contains('dark') ? 'dark' : 'light'}}`;
 }
 
+/** CSP ramki pluginu: bez sieci i bez ładowania czegokolwiek z zewnątrz. Plugin łączy się z siecią tylko przez
+ *  tx.net.fetch, które sprawdza uprawnienia net:*. Bez tego plugin z samym terminal:read mógłby wysłać wyjście
+ *  terminala gdziekolwiek zwykłym fetch() albo obrazkiem. Kod pluginu ładuje się z blob: (moduł ES) albo przez
+ *  new Function (zapasowo), stąd blob: i 'unsafe-eval'; obrazki i dźwięk tylko z data:/blob:. */
+export const PLUGIN_CSP = "default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' blob:; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; base-uri 'none'";
+
 function srcdoc() {
-  return `<!doctype html><html><head><meta charset="utf-8"><style id="tx-theme">${themeCss()}</style><style>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${PLUGIN_CSP}"><style id="tx-theme">${themeCss()}</style><style>
 html,body{margin:0;padding:0;background:transparent;color:var(--foreground);font:13px/1.4 var(--font-sans);overflow:hidden}
 *{box-sizing:border-box} button{font:inherit;color:inherit}
 #tx-dialog-layer{display:none;position:fixed;inset:0;background:rgb(0 0 0 / .45);align-items:center;justify-content:center;padding:24px}
@@ -121,6 +127,16 @@ export function mountFrame(pluginId: string, frame: HTMLIFrameElement) {
   runtimes.set(pluginId, rt);
   frame.setAttribute('sandbox', 'allow-scripts');
   frame.setAttribute('title', `Plugin ${pluginId}`);
+  // Ramka ładuje się raz (srcdoc). Kolejne „load” oznacza, że plugin przeszedł na inny adres: CSP tego nie blokuje,
+  // więc odcinamy go od hosta (wiadomości z nowej strony nie dostaną uprawnień pluginu) i zatrzymujemy.
+  let loads = 0;
+  frame.addEventListener('load', () => {
+    if (++loads !== 2 || runtimes.get(pluginId)?.frame !== frame) return;
+    cleanup(pluginId);
+    plug.crashed[pluginId] = 'Plugin próbował opuścić swoją ramkę (nawigacja do innego adresu) i został zatrzymany.';
+    frame.removeAttribute('srcdoc');
+    frame.src = 'about:blank';
+  });
   frame.srcdoc = srcdoc();
 }
 
