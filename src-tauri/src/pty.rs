@@ -127,11 +127,15 @@ fn now_ms() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0)
 }
 
-/// Integracja z powłoką: przy każdym prompcie powłoka zgłasza bieżący katalog sekwencją OSC
-/// (PowerShell: OSC 7 z zakodowaną ścieżką; cmd i Git Bash: OSC 9;9; WSL: OSC 7 z hostem
-/// wsl.localhost). Prompt użytkownika (profil, oh-my-posh) zostaje bez zmian.
+/// Integracja z powłoką: przy każdym prompcie powłoka zgłasza koniec poprzedniej komendy z kodem wyjścia
+/// (OSC 133;D;kod, w cmd bez kodu) i bieżący katalog (PowerShell: OSC 7 z zakodowaną ścieżką; cmd i Git Bash:
+/// OSC 9;9; WSL: OSC 7 z hostem wsl.localhost). Agent czeka na ten znacznik zamiast zgadywać po ciszy.
+/// Prompt użytkownika (profil, oh-my-posh) zostaje bez zmian.
 const PS_CWD: &str = r#"$global:__txPrompt = $function:prompt
 function global:prompt {
+  $ok = $?
+  $code = if ($ok) { 0 } elseif ($global:LASTEXITCODE) { $global:LASTEXITCODE } else { 1 }
+  [Console]::Write("$([char]27)]133;D;$code$([char]7)")
   $l = $executionContext.SessionState.Path.CurrentLocation
   if ($l.Provider.Name -eq 'FileSystem') {
     $u = ($l.ProviderPath -split '\\' | ForEach-Object { [uri]::EscapeDataString($_) }) -join '/'
@@ -139,8 +143,8 @@ function global:prompt {
   }
   & $global:__txPrompt
 }"#;
-const BASH_WIN_CWD: &str = r#"printf '\033]9;9;%s\007' "$(cygpath -w "$PWD")""#;
-const WSL_CWD: &str = r#"printf '\033]7;file://wsl.localhost/%s%s\007' "$WSL_DISTRO_NAME" "$PWD""#;
+const BASH_WIN_CWD: &str = r#"__tx=$?; printf '\033]133;D;%s\007\033]9;9;%s\007' "$__tx" "$(cygpath -w "$PWD")""#;
+const WSL_CWD: &str = r#"__tx=$?; printf '\033]133;D;%s\007\033]7;file://wsl.localhost/%s%s\007' "$__tx" "$WSL_DISTRO_NAME" "$PWD""#;
 
 /// -EncodedCommand to Base64 z UTF-16LE: skrypt przechodzi bez kłopotów z cudzysłowami.
 fn encode_ps(script: &str) -> String {
@@ -172,7 +176,7 @@ fn build_command(shell: &str, cwd: Option<&str>) -> CommandBuilder {
             "cmd" => {
                 let mut c = CommandBuilder::new("cmd.exe");
                 let base = std::env::var("PROMPT").unwrap_or_else(|_| "$P$G".into());
-                c.env("PROMPT", format!("$E]9;9;$P$E\\{base}"));
+                c.env("PROMPT", format!("$E]133;D$E\\$E]9;9;$P$E\\{base}"));
                 c
             }
             "gitbash" => {

@@ -9,6 +9,7 @@ import { call } from './ipc';
 import { userContent } from './attach';
 import { toolsFor, invoke as mcpInvoke, type Bound } from './mcp.svelte';
 import { autoSpeak } from './voice.svelte';
+import { needsApproval as approvalNeeded, stricter } from './approval';
 import type { AgentProfile, Att, ChatMsg, Skill, Snippet, Tab, Workspace } from './types';
 
 export const agentState = $state({ busy: {} as Record<string, boolean>, subBusy: {} as Record<string, string> });
@@ -42,9 +43,30 @@ export function resolveApproval(ws: Workspace, msgId: string, ok: boolean) {
 }
 
 function needsApproval(p: AgentProfile, command: string) {
-  if (p.perm === 'ask') return true;
-  const c = command.toLowerCase();
-  return app.settings.alwaysAsk.some((s) => s && c.includes(s.toLowerCase()));
+  return approvalNeeded(p.perm, command, app.settings.alwaysAsk);
+}
+
+/* Kolejka na zakładkę: dwa zadania (np. równoległe delegacje albo run_command agenta i podagenta) nie piszą
+ * naraz do jednego terminala i nie mieszają sobie wyjścia. Osobne kolejki na komendy i na całe zadania podagenta,
+ * bo podagent sam uruchamia komendy w tej zakładce. */
+const queues = new Map<string, Promise<unknown>>();
+function queued<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const run = (queues.get(key) || Promise.resolve()).catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  queues.set(key, tail);
+  tail.then(() => { if (queues.get(key) === tail) queues.delete(key); });
+  return run;
+}
+
+/** Najwyżej `n` zadań naraz (limit równoległych podagentów z profilu agenta). */
+function limiter(n: number) {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async <T>(fn: () => Promise<T>): Promise<T> => {
+    if (active >= n) await new Promise<void>((r) => waiting.push(r));
+    active++;
+    try { return await fn(); } finally { active--; waiting.shift()?.(); }
+  };
 }
 
 async function askUser(ws: Workspace, p: AgentProfile, who: string, text: string, approve: { tabId?: string; label?: string; command: string }) {
@@ -60,27 +82,45 @@ async function runInTab(ws: Workspace, p: AgentProfile, tab: Tab, command: strin
   if (p.perm === 'read') return 'Odmowa: ten profil ma uprawnienia tylko do odczytu.';
   const pane = tab.panes[0];
   if (!pane) return 'Ta zakładka nie jest terminalem.';
-  if (needsApproval(p, command) && !(await askUser(ws, p, who, `Chcę uruchomić w „${tab.title}”:`, { tabId: tab.id, command }))) {
-    return 'Użytkownik odrzucił tę komendę. Nie ponawiaj jej; zaproponuj coś innego albo zapytaj.';
-  }
-  if (signal.aborted) return 'Przerwano.';
-  let out = '';
-  let last = Date.now();
-  // Do modelu i tak trafia koniec wyjścia; limit chroni pamięć przy komendzie, która sypie megabajtami.
-  const off = sessions.onOutput((id, data) => { if (id === pane.id) { out = cap(out + data); last = Date.now(); } });
-  try {
-    await sessions.write(pane.id, command.replace(/\r?\n/g, '\r') + '\r');
-    const start = Date.now();
-    await sleep(400);
-    while (Date.now() - start < 120_000 && !signal.aborted) {
-      if (Date.now() - last > 1500 && Date.now() - start > 1200) break;
-      await sleep(200);
+  return queued(`cmd:${tab.id}`, async () => {
+    if (needsApproval(p, command) && !(await askUser(ws, p, who, `Chcę uruchomić w „${tab.title}”:`, { tabId: tab.id, command }))) {
+      return 'Użytkownik odrzucił tę komendę. Nie ponawiaj jej; zaproponuj coś innego albo zapytaj.';
     }
-  } catch (e) {
-    return `Nie udało się wysłać komendy: ${e}`;
-  } finally { off(); }
-  const clean = stripAnsi(out).trim();
-  return clean.length > 6000 ? '…' + clean.slice(-6000) : clean || '(brak wyjścia)';
+    if (signal.aborted) return 'Przerwano.';
+    // Powłoka z integracją zgłasza koniec komendy z kodem wyjścia (OSC 133). Bez niej (SSH, własny PROMPT_COMMAND)
+    // zostaje zgadywanie po ciszy w wyjściu.
+    const integrated = sessions.hasShellIntegration(pane.id);
+    let out = '';
+    let last = Date.now();
+    // Każda wysłana linia kończy się promptem i znacznikiem; blok wielowierszowy (np. pętla w PowerShell) daje mniej.
+    const lines = command.split(/\r?\n/).filter((l) => l.trim()).length || 1;
+    let marks = 0, code: number | null = null;
+    // Do modelu i tak trafia koniec wyjścia; limit chroni pamięć przy komendzie, która sypie megabajtami.
+    const off = sessions.onOutput((id, data) => { if (id === pane.id) { out = cap(out + data); last = Date.now(); } });
+    const offDone = sessions.onCommandDone((id, c) => { if (id === pane.id) { marks++; code = c; last = Date.now(); } });
+    let still = false;
+    try {
+      await sessions.write(pane.id, command.replace(/\r?\n/g, '\r') + '\r');
+      const start = Date.now();
+      await sleep(integrated ? 100 : 400);
+      while (!signal.aborted) {
+        const quiet = Date.now() - last, total = Date.now() - start;
+        // Wszystkie linie zakończone (chwila na dopisanie promptu) albo część i 2 s ciszy.
+        if (marks >= lines ? quiet > 150 : marks > 0 && quiet > 2000) break;
+        if (total > 120_000) { still = true; break; }
+        // Z integracją czekamy na znacznik, a długa cisza oznacza proces, który dalej działa (np. serwer).
+        if (integrated ? quiet > 15_000 : quiet > 1500 && total > 1200) { still = integrated; break; }
+        await sleep(integrated ? 100 : 200);
+      }
+    } catch (e) {
+      return `Nie udało się wysłać komendy: ${e}`;
+    } finally { off(); offDone(); }
+    const clean = stripAnsi(out).trim();
+    const body = clean.length > 6000 ? '…' + clean.slice(-6000) : clean || '(brak wyjścia)';
+    const done = marks > 0;
+    const status = done ? (code == null ? '[komenda zakończona]' : `[kod wyjścia: ${code}]`) : still ? '[komenda nadal działa; użyj read_buffer/read_tab albo wait_for_output, żeby sprawdzić później]' : '';
+    return status ? `${body}\n${status}` : body;
+  });
 }
 
 /** Workflow uruchamiany przez agenta. Nody wykonawcze (komenda, zapis pliku, wysyłka do zakładki, HTTP…) działają
@@ -103,7 +143,8 @@ async function runFlowAsAgent(ws: Workspace, p: AgentProfile, tab: Tab, input: s
 async function runMcp(ws: Workspace, p: AgentProfile, who: string, b: Bound, input: unknown, signal: { aborted: boolean }): Promise<string | Block[]> {
   const args = JSON.stringify(input || {}, null, 1);
   const command = `${b.tool.name} ${args.length > 1500 ? args.slice(0, 1500) + '…' : args}`;
-  const ask = p.perm === 'ask' ? !b.tool.annotations?.readOnlyHint : needsApproval(p, `${b.server.name} ${command}`);
+  // Oznaczenie readOnlyHint ustawia serwer, więc liczy się tylko dla serwerów, którym użytkownik zaufał w ustawieniach.
+  const ask = p.perm === 'ask' ? !(b.server.trustReadOnly && b.tool.annotations?.readOnlyHint) : needsApproval(p, `${b.server.name} ${command}`);
   if (ask && !(await askUser(ws, p, who, 'Chcę użyć narzędzia MCP:', { label: `MCP · ${b.server.name}`, command }))) {
     return 'Użytkownik nie zgodził się na to wywołanie. Nie ponawiaj go bez pytania.';
   }
@@ -178,8 +219,11 @@ function rollback(history: AMsg[]) {
 
 /* ---------- sub-agent ---------- */
 
-async function runSub(ws: Workspace, tab: Tab, content: string | Block[], signal: { aborted: boolean }, messages: AMsg[] = [], direct = false): Promise<string> {
-  const p = profile(tab.subagent || ws.subDefault, 'sub');
+/** `cap`: tryb agenta, który zleca zadanie. Podagent dostaje ostrzejszy z dwóch trybów, więc agent „tylko odczyt”
+ *  nie uruchomi komend przez podagenta w trybie „auto”. Rozmowa bezpośrednia (direct) używa trybu podagenta. */
+async function runSub(ws: Workspace, tab: Tab, content: string | Block[], signal: { aborted: boolean }, messages: AMsg[] = [], direct = false, cap?: AgentProfile['perm']): Promise<string> {
+  const base = profile(tab.subagent || ws.subDefault, 'sub');
+  const p: AgentProfile = cap ? { ...base, perm: stricter(base.perm, cap) } : base;
   const who = `Podagent „${tab.title}”`;
   const tools: ToolDef[] = [];
   if (p.tools.includes('read_buffer')) tools.push({ name: 'read_buffer', description: 'Ostatnie linie wyjścia terminala tej zakładki.', input_schema: { type: 'object', properties: { lines: { type: 'integer', description: 'Liczba linii, domyślnie 60' } } } });
@@ -310,6 +354,8 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
   const signal = { aborted: false };
   aborts.set(ws.id, signal);
   agentState.busy[ws.id] = true;
+  // Limit równoległych podagentów z profilu („Maks. podagentów równolegle”).
+  const slot = limiter(Math.max(1, p.parallel || 3));
   try {
     const mcp = await mcpTools(ws, p);
     tools.push(...mcp.defs);
@@ -341,7 +387,8 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
             const task = String(c.input.task || '');
             const att = c.input.attachments ? lastAtt.get(ws.id) || [] : [];
             post(ws, { role: 'agent', who: `${p.name} → podagent „${t!.title}”`, text: task, att: att.length ? att : undefined });
-            out = await runSub(ws, t!, userContent(`Zadanie od agenta: ${task}`, att), signal);
+            // Jedno zadanie naraz na zakładkę (kolejne czeka) i najwyżej `parallel` podagentów jednocześnie.
+            out = await queued(`sub:${t!.id}`, () => slot(() => runSub(ws, t!, userContent(`Zadanie od agenta: ${task}`, att), signal, [], false, p.perm)));
           } else if (c.name === 'run_workflow') {
             if (!t!.flowId) out = 'To nie jest zakładka workflow.';
             else out = await runFlowAsAgent(ws, p, t!, String(c.input.input || ''), signal);

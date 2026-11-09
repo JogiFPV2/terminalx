@@ -44,7 +44,8 @@ export async function toolsFor(p: AgentProfile): Promise<{ defs: ToolDef[]; boun
   const lists = await Promise.all(servers.map((s) => connect(s).catch((e) => { errors.push(`${s.name}: ${String(e).replace(/^Error: /, '')}`); return [] as McpTool[]; })));
   servers.forEach((s, i) => {
     for (const t of lists[i]) {
-      if (p.perm === 'read' && !t.annotations?.readOnlyHint) continue;
+      // Profil tylko do odczytu: wyłącznie narzędzia oznaczone jako tylko do odczytu na serwerze, któremu użytkownik ufa.
+      if (p.perm === 'read' && !(s.trustReadOnly && t.annotations?.readOnlyHint)) continue;
       let name = `${slug(s.name).slice(0, 20)}__${t.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`.slice(0, 64);
       for (let n = 2; bound.has(name); n++) name = `${name.slice(0, 60)}_${n}`;
       bound.set(name, { server: s, tool: t });

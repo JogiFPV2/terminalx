@@ -115,6 +115,7 @@
       <div class="field"><label for="mTok">Token (opcjonalnie)</label>
         <input class="inp" id="mTok" type="password" autocomplete="off" bind:value={token} placeholder={edit.hasKey ? 'zapisany; zostaw puste, żeby nie zmieniać' : edit.kind === 'http' ? 'wysyłany jako Authorization: Bearer' : 'trafia do zmiennej powyżej'} /></div>
     </div>
+    <div class="checks"><label title="Serwer sam oznacza narzędzia jako tylko do odczytu. Włącz tylko dla serwera, któremu ufasz."><input type="checkbox" bind:checked={edit.trustReadOnly} />Ufaj oznaczeniu „tylko do odczytu”: takie narzędzia działają bez pytania w trybie „pytaj” i są dostępne w profilach tylko do odczytu</label></div>
     {#if edit.kind === 'stdio'}
       <div class="field"><label for="mEnv">Zmienne środowiskowe (KLUCZ=wartość, po jednej w linii)</label><textarea class="inp mono" id="mEnv" rows="3" bind:value={envText} spellcheck="false"></textarea></div>
     {:else}

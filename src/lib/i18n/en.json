@@ -942,7 +942,9 @@
     "np. Prywatny": "e.g. Personal",
     "Klucze API · przełączanie przy limicie": "API keys · switch on limit",
     "Ten workflow zbudował agent. Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.": "The agent built this workflow. Its triggers (schedule, file change, git push) will not start it until you approve it.",
-    "Zatwierdź": "Approve"
+    "Zatwierdź": "Approve",
+    "Ufaj oznaczeniu „tylko do odczytu”: takie narzędzia działają bez pytania w trybie „pytaj” i są dostępne w profilach tylko do odczytu": "Trust the “read-only” hint: such tools run without asking in “ask” mode and are available to read-only profiles",
+    "Serwer sam oznacza narzędzia jako tylko do odczytu. Włącz tylko dla serwera, któremu ufasz.": "The server marks its own tools as read-only. Enable only for a server you trust."
   },
   "patterns": [
     [
@@ -1456,6 +1458,10 @@
     [
       "Chcę uruchomić workflow „{0}”. Nody, które wykonają akcje:",
       "I want to run the workflow “{0}”. Nodes that will take actions:"
+    ],
+    [
+      "Agent workspace'u „{0}” jest zajęty (np. to on uruchomił ten workflow). Uruchom workflow ponownie, gdy agent skończy.",
+      "The agent of workspace “{0}” is busy (e.g. it started this workflow). Run the workflow again when the agent is done."
     ]
   ]
 }

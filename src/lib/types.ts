@@ -155,6 +155,9 @@ export interface McpServer {
   /** Zmienna środowiskowa, do której trafia token serwera stdio. */
   secretEnv: string;
   enabled: boolean;
+  /** Ufaj oznaczeniu „tylko do odczytu” (readOnlyHint) narzędzi tego serwera: w trybie „pytaj” takie narzędzia
+   *  działają bez pytania, a profile tylko do odczytu je dostają. Oznaczenie ustawia sam serwer, więc domyślnie wyłączone. */
+  trustReadOnly?: boolean;
 }
 
 export interface Snippet { id: string; name: string; kind: 'cmd' | 'ai'; body: string; provider: string | null; model: string | null }

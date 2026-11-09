@@ -239,8 +239,11 @@ async function exec(node: FlowNode, input: string, exitIn: number | undefined, v
       return { text: input };
     }
     case 'ai_agent': {
-      const { sendToAgent } = await import('../agent.svelte');
-      const ws = curWs();
+      const { sendToAgent, agentState } = await import('../agent.svelte');
+      // Agent workspace'u, w którym jest ten workflow (nie aktualnie oglądanego).
+      const ws = app.workspaces.find((w) => w.tabs.some((t) => t.flowId === flowId)) || curWs();
+      // Zajęty agent (np. to on uruchomił ten workflow) nie przyjmie zadania; pusty wynik wyglądałby jak sukces.
+      if (agentState.busy[ws.id]) throw new Error(`Agent workspace'u „${ws.name}” jest zajęty (np. to on uruchomił ten workflow). Uruchom workflow ponownie, gdy agent skończy.`);
       const before = ws.chat.length;
       await sendToAgent(ws, f(c.task || '{{input}}'));
       const reply = ws.chat.slice(before).filter((m) => m.role === 'agent').map((m) => m.text).join('\n\n');
@@ -269,7 +272,7 @@ async function exec(node: FlowNode, input: string, exitIn: number | undefined, v
     case 'notify': notify(`${f(c.title)}${input ? ': ' + input.slice(0, 160) : ''}`, 'success', 7000); return { text: input };
     case 'clipboard': await navigator.clipboard.writeText(input).catch(() => {}); return { text: input };
     case 'to_agent': {
-      const ws = curWs();
+      const ws = app.workspaces.find((w) => w.tabs.some((t) => t.flowId === flowId)) || curWs();
       ws.chat.push({ id: nid('m'), role: 'agent', who: 'Workflow', text: input });
       app.layout.agentOpen = true;
       return { text: input };

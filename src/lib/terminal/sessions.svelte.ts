@@ -69,6 +69,14 @@ export function configure(s: Settings) { settingsRef = s; }
 
 export function onOutput(cb: (paneId: string, data: string) => void) { listeners.add(cb); return () => listeners.delete(cb); }
 
+/* Koniec komendy zgłaszany przez powłokę (OSC 133;D;kod, integracja w pty.rs). Wyjście komendy trafia do słuchaczy
+ * onOutput wcześniej niż ten znacznik, bo xterm parsuje dane po ich rozesłaniu. */
+const doneListeners = new Set<(paneId: string, code: number | null) => void>();
+const integrated = new Set<string>();
+export function onCommandDone(cb: (paneId: string, code: number | null) => void) { doneListeners.add(cb); return () => doneListeners.delete(cb); }
+/** Czy powłoka w panelu zgłasza koniec komend (lokalne powłoki tak; SSH i powłoki z własnym PROMPT_COMMAND nie). */
+export const hasShellIntegration = (paneId: string) => integrated.has(paneId);
+
 export function has(paneId: string) { return sessions.has(paneId); }
 
 export function ensureSession(pane: Pane): Session {
@@ -123,6 +131,13 @@ export function ensureSession(pane: Pane): Session {
   // Bieżący katalog zgłaszany przez powłokę (integracja ustawiana w pty.rs): OSC 7 i OSC 9;9.
   const setDir = (d: { cwd: string; dir: string } | null) => { const st = termStatus[pane.id]; if (d && st) { st.cwd = d.cwd; st.dir = d.dir; st.seq++; } };
   term.parser.registerOscHandler(7, (data) => { setDir(parseOsc7(data)); return true; });
+  term.parser.registerOscHandler(133, (data) => {
+    if (data !== 'D' && !data.startsWith('D;')) return false;
+    integrated.add(pane.id);
+    const code = parseInt(data.slice(2), 10);
+    for (const cb of doneListeners) cb(pane.id, Number.isFinite(code) ? code : null);
+    return true;
+  });
   term.parser.registerOscHandler(9, (data) => {
     if (!data.startsWith('9;')) return false;
     const p = data.slice(2).replace(/^"|"$/g, '');
@@ -282,6 +297,7 @@ export function dispose(paneId: string) {
   const s = sessions.get(paneId);
   if (!s) return;
   if (s.ptyId != null) call(cmd(s, 'kill'), { id: s.ptyId }).catch(() => {});
+  integrated.delete(paneId);
   s.ro?.disconnect();
   s.term.dispose();
   s.el.remove();
