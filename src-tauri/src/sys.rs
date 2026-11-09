@@ -93,8 +93,14 @@ fn decode(bytes: &[u8]) -> String {
 }
 
 fn exec_blocking(program: &str, args: &[String], cwd: Option<&str>, timeout_ms: u64) -> Result<ExecResult, String> {
+    exec_env(program, args, cwd, timeout_ms, &[])
+}
+
+/// Uruchomienie programu z dodatkowymi zmiennymi środowiskowymi (bez okna konsoli, z limitem czasu).
+pub(crate) fn exec_env(program: &str, args: &[String], cwd: Option<&str>, timeout_ms: u64, env: &[(&str, &str)]) -> Result<ExecResult, String> {
     let mut cmd = Command::new(program);
     cmd.args(args).stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    cmd.envs(env.iter().copied());
     if let Some(dir) = cwd.filter(|d| !d.is_empty()) {
         cmd.current_dir(dir);
     }

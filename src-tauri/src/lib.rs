@@ -205,6 +205,7 @@ pub fn run() {
             store::plugin_uninstall,
             store::account_remove,
             skills::skill_import,
+            skills::skills_fetch,
             ai::secret_set,
             plans::plan_usage,
             chats::chat_save,

@@ -4,6 +4,47 @@
   import { call, isTauri } from '../../ipc';
   import { nid } from '../../util';
   import type { Skill } from '../../types';
+  import { parseSkillCommand } from '../../skillcmd';
+
+  /* ---------- dodawanie komendą `npx skills add …` ---------- */
+  type Found = { name: string; description: string; body: string; files: Record<string, string>; on: boolean };
+  let cmd = $state('');
+  let fetching = $state(false);
+  let found = $state<Found[] | null>(null);
+  let skipped = $state<string[]>([]);
+  let fromSource = $state('');
+  const exists = (name: string) => app.skills.some((s) => s.name === name);
+
+  async function openSkillsSite() {
+    if (isTauri) { const { openUrl } = await import('@tauri-apps/plugin-opener'); await openUrl('https://skills.sh').catch(() => {}); } else window.open('https://skills.sh', '_blank');
+  }
+
+  async function fetchSkills() {
+    const r = parseSkillCommand(cmd);
+    if ('error' in r) { notify(r.error, 'warning'); return; }
+    if (!isTauri) { notify('Pobieranie skilli działa w aplikacji.', 'warning'); return; }
+    fetching = true; found = null; skipped = [];
+    try {
+      const res = await call<{ skills: Omit<Found, 'on'>[]; skipped: string[] }>('skills_fetch', { source: r.source, skills: r.skills });
+      found = res.skills.map((s) => ({ ...s, on: true }));
+      skipped = res.skipped;
+      fromSource = r.source;
+      if (!found.length) notify('Nie udało się odczytać żadnego skilla z tego źródła.', 'warning');
+    } catch (e) { notify(String(e).replace(/^Error: /, ''), 'error'); }
+    finally { fetching = false; }
+  }
+
+  function importFound() {
+    if (!found) return;
+    let added = 0, updated = 0;
+    for (const f of found.filter((x) => x.on)) {
+      const prev = app.skills.find((s) => s.name === f.name);
+      const skill: Skill = { id: prev?.id || nid('sk'), name: f.name, description: f.description, body: f.body, files: Object.keys(f.files).length ? f.files : undefined };
+      if (prev) { Object.assign(prev, skill); updated++; } else { app.skills.push(skill); added++; }
+    }
+    notify(`Skille z ${fromSource}: dodano ${added}${updated ? `, zaktualizowano ${updated}` : ''}.`, 'success');
+    found = null; skipped = []; cmd = '';
+  }
 
   let edit = $state<Skill | null>(null);
   let isNew = $state(false);
@@ -59,6 +100,32 @@
 </div>
 <p class="hint">Skill to instrukcja na konkretny rodzaj zadania, np. „wdrożenie na staging” albo „przegląd migracji SQL”, z opcjonalnymi plikami pomocniczymi. Format jak <code>SKILL.md</code> w Claude: nagłówek z nazwą i opisem, dalej instrukcje. Przypinasz go agentom i podagentom w ich profilu. Agent widzi nazwy i opisy, a pełną treść wczytuje dopiero wtedy, gdy zadanie jej wymaga, więc wiele skilli nie zapycha mu kontekstu.</p>
 
+<div class="addcmd">
+  <input class="inp mono" bind:value={cmd} placeholder="npx skills add mattpocock/skills" spellcheck="false" aria-label="Komenda dodawania skilli"
+    onkeydown={(e) => e.key === 'Enter' && !fetching && fetchSkills()} disabled={fetching} />
+  <button class="btn pri" onclick={fetchSkills} disabled={fetching || !cmd.trim()}>{#if fetching}<span class="spin"></span>Pobieram…{:else}<Icon name="download" />Pobierz{/if}</button>
+</div>
+<p class="hint small">Komenda z <button class="lnk" onclick={openSkillsSite}>skills.sh</button>: <code>npx skills add owner/repo</code>, link do repozytorium albo samo <code>owner/repo</code>; <code>--skill nazwa</code> wybiera konkretne skille. Hermitty uruchamia <code>npx skills</code> (wymaga Node.js) w folderze tymczasowym, więc nic nie trafia do folderów innych agentów.</p>
+
+{#if found}
+  <div class="form">
+    <h3 style="margin:0">Skille z {fromSource} ({found.filter((f) => f.on).length} z {found.length})</h3>
+    {#if found.length > 1}
+      <div class="row"><button class="btn" onclick={() => found!.forEach((f) => (f.on = true))}>Zaznacz wszystkie</button><button class="btn" onclick={() => found!.forEach((f) => (f.on = false))}>Odznacz wszystkie</button></div>
+    {/if}
+    <div class="found">
+      {#each found as f (f.name)}
+        <label class="frow"><input type="checkbox" bind:checked={f.on} />
+          <span><span class="fhead"><b>{f.name}</b>{#if exists(f.name)}<span class="chip" title="Skill o tej nazwie już jest; import go zaktualizuje">zaktualizuje</span>{/if}{#if Object.keys(f.files).length}<span class="chip">pliki: {Object.keys(f.files).length}</span>{/if}</span>
+            <small>{f.description || f.body.slice(0, 140)}</small></span></label>
+      {/each}
+    </div>
+    {#if skipped.length}<details class="skipped"><summary>Pominięte: {skipped.length}</summary>{#each skipped as s}<div class="mono">{s}</div>{/each}</details>{/if}
+    <div class="formbtns"><button class="btn" onclick={() => { found = null; skipped = []; }}>Anuluj</button>
+      <button class="btn pri" onclick={importFound} disabled={!found.some((f) => f.on)}>Importuj zaznaczone ({found.filter((f) => f.on).length})</button></div>
+  </div>
+{/if}
+
 {#if edit}
   <div class="form">
     <h3 style="margin:0">{isNew ? 'Nowy skill' : 'Edytuj skill'}</h3>
@@ -93,4 +160,21 @@
 <style>
   textarea.mono { font-family: var(--font-mono); font-size: 12px; }
   .files { display: flex; flex-wrap: wrap; gap: 5px; }
+  .addcmd { display: flex; gap: 8px; margin-top: 10px; }
+  .addcmd .inp { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 12px; }
+  .hint.small { font-size: 11.5px; margin-top: 6px; }
+  .found { display: flex; flex-direction: column; gap: 2px; max-height: 360px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; padding: 4px; }
+  .frow { display: flex; gap: 10px; align-items: flex-start; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+  .frow:hover { background: var(--accent); }
+  .frow input { margin-top: 3px; accent-color: var(--primary); }
+  .frow span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .frow .fhead { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+  .frow b { font-weight: 600; }
+  .lnk { background: none; border: 0; padding: 0; color: var(--primary-ink); text-decoration: underline; cursor: pointer; font: inherit; }
+  .frow small { color: var(--muted-foreground); }
+  .skipped { font-size: 11.5px; color: var(--muted-foreground); }
+  .skipped .mono { font-family: var(--font-mono); padding: 2px 0; }
+  .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, currentColor 30%, transparent); border-top-color: currentColor; animation: rot .8s linear infinite; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .row { display: flex; gap: 6px; }
 </style>

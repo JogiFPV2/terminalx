@@ -959,7 +959,20 @@
     "Morski": "Sea green",
     "Oliwkowy": "Olive",
     "Akcent motywu": "Theme accent",
-    "Szary": "Gray"
+    "Szary": "Gray",
+    "Pobierz": "Fetch",
+    "Pobieram…": "Fetching…",
+    "Zaznacz wszystkie": "Select all",
+    "Odznacz wszystkie": "Deselect all",
+    "zaktualizuje": "will update",
+    "Skill o tej nazwie już jest; import go zaktualizuje": "A skill with this name exists; importing will update it",
+    "Komenda z": "Command from",
+    ", link do repozytorium albo samo": ", a repository link or just",
+    "wybiera konkretne skille. Hermitty uruchamia": "picks specific skills. Hermitty runs",
+    "(wymaga Node.js) w folderze tymczasowym, więc nic nie trafia do folderów innych agentów.": "(requires Node.js) in a temporary folder, so nothing goes into other agents' folders.",
+    "Komenda dodawania skilli": "Skill add command",
+    "Pobieranie skilli działa w aplikacji.": "Fetching skills works in the app.",
+    "Nie udało się odczytać żadnego skilla z tego źródła.": "Could not read any skill from this source."
   },
   "patterns": [
     [
@@ -1477,6 +1490,26 @@
     [
       "Agent workspace'u „{0}” jest zajęty (np. to on uruchomił ten workflow). Uruchom workflow ponownie, gdy agent skończy.",
       "The agent of workspace “{0}” is busy (e.g. it started this workflow). Run the workflow again when the agent is done."
+    ],
+    [
+      "Skille z {0} ({1} z {2})",
+      "Skills from {0} ({1} of {2})"
+    ],
+    [
+      "Importuj zaznaczone ({0})",
+      "Import selected ({0})"
+    ],
+    [
+      "Pominięte: {0}",
+      "Skipped: {0}"
+    ],
+    [
+      "Skille z {0}: dodano {1}, zaktualizowano {2}.",
+      "Skills from {0}: added {1}, updated {2}."
+    ],
+    [
+      "Skille z {0}: dodano {1}.",
+      "Skills from {0}: added {1}."
     ]
   ]
 }
