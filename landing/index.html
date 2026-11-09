@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hermitty</title>
+<meta name="description" content="Hermitty: wszystkie powłoki Windows w jednym oknie i agent AI, który pyta o zgodę, zanim cokolwiek uruchomi. Wersja alpha.">
+<meta property="og:title" content="Hermitty">
+<meta property="og:description" content="Wszystkie powłoki w jednym oknie i agent, który pyta, zanim coś uruchomi.">
+<meta property="og:image" content="img/main.webp">
+<link rel="icon" href="img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/*
+  Hermitty: krab pustelnik mieszka w muszli (shell), Hermitty mieszka w powłokach (shells).
+  Jedna mocna rzecz: scenka w hero, w której agent prosi o zgodę i dopiero potem uruchamia komendę.
+  Reszta cicha: kreda, atrament, morska zieleń; bursztyn tylko dla stanu „wymaga zgody”.
+*/
+:root {
+  --chalk: #ECEEEA;
+  --paper: #F6F7F4;
+  --ink: #17212B;
+  --slate: #5B6772;
+  --line: #CCD2D0;
+  --sea: #2F6F62;
+  --sea-soft: #D7E6E1;
+  --amber: #E8A317;
+  --amber-ink: #5A3D00;
+  --term: #17212B;
+  --term-ink: #DCE4E2;
+  --term-dim: #8597A0;
+  --term-ok: #8FD3B6;
+  --term-bad: #F2937E;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --gutter: clamp(16px, 5vw, 64px);
+  --max: 1180px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --chalk: #121A21; --paper: #18222B; --ink: #E3E9E7; --slate: #93A1AA; --line: #2A3740;
+    --sea: #7CC4AF; --sea-soft: #1E3A35; --amber: #F0B53A; --amber-ink: #2B1D00;
+    --term: #0C1217; --term-ink: #DCE4E2; --term-dim: #7E8F98;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --chalk: #121A21; --paper: #18222B; --ink: #E3E9E7; --slate: #93A1AA; --line: #2A3740;
+  --sea: #7CC4AF; --sea-soft: #1E3A35; --amber: #F0B53A; --amber-ink: #2B1D00;
+  --term: #0C1217; --term-ink: #DCE4E2; --term-dim: #7E8F98;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--chalk); color: var(--ink);
+  font-family: var(--display); font-size: 17px; line-height: 1.55; font-variation-settings: "opsz" 14;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+a { color: inherit; }
+img { display: block; max-width: 100%; height: auto; }
+:focus-visible { outline: 2px solid var(--sea); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: var(--max); margin: 0 auto; padding-inline: var(--gutter); }
+
+/* ---------- nagłówek ---------- */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 22px; padding-bottom: 22px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 19px; letter-spacing: -0.01em; text-decoration: none; }
+.brand img { width: 28px; height: 28px; }
+.top nav { display: flex; align-items: center; gap: 24px; font-size: 15px; }
+.top nav a { text-decoration: none; color: var(--slate); }
+.top nav a:hover { color: var(--ink); }
+.btn {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 999px;
+  background: var(--ink); color: var(--chalk); text-decoration: none; font-weight: 600; font-size: 15px; border: 0; cursor: pointer;
+  font-family: inherit; transition: background .15s ease;
+}
+.btn:hover { background: var(--sea); }
+.btn.quiet { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.btn.quiet:hover { background: var(--paper); }
+@media (max-width: 640px) { .top nav a.hide-s { display: none; } }
+
+/* ---------- hero ---------- */
+.hero { padding-top: clamp(28px, 7vw, 88px); }
+.hero h1 {
+  margin: 0; max-width: 15ch;
+  font-size: clamp(44px, 8.4vw, 112px); line-height: .94; letter-spacing: -0.035em;
+  font-weight: 750; font-variation-settings: "opsz" 96, "wdth" 80;
+}
+.lede { margin: 28px 0 0; max-width: 46ch; font-size: clamp(18px, 2vw, 21px); color: var(--slate); }
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-top: 32px; }
+.cta small { color: var(--slate); font-size: 14px; }
+/* Szeroki ekran: tekst po lewej, scenka po prawej, obie widoczne od razu. */
+@media (min-width: 1100px) {
+  .hero { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 56px; align-items: center; padding-top: 48px; }
+  .hero h1 { font-size: clamp(52px, 4.7vw, 70px); max-width: none; }
+  .hero .lede { font-size: 18px; }
+  .hero .scene { margin-top: 0; }
+}
+
+/* Scenka: okno z terminalem i panelem agenta. Jedyna animacja bez udziału użytkownika. */
+.scene { margin: clamp(40px, 7vw, 72px) 0 0; }
+.win {
+  display: grid; grid-template-columns: 1.35fr 1fr; border-radius: 14px; overflow: hidden;
+  background: var(--term); color: var(--term-ink); box-shadow: 0 40px 80px -48px rgb(23 33 43 / .55);
+  min-height: 380px;
+}
+.win .bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 10px 14px; border-bottom: 1px solid rgb(255 255 255 / .07); font-size: 13px; color: var(--term-dim); }
+.win .tabs { display: flex; gap: 4px; }
+.win .tab { padding: 4px 10px; border-radius: 6px; }
+.win .tab.on { background: rgb(255 255 255 / .08); color: var(--term-ink); }
+.term { padding: 18px 20px 22px; font: 13.5px/1.7 var(--mono); white-space: pre-wrap; word-break: break-word; border-right: 1px solid rgb(255 255 255 / .07); min-height: 320px; }
+.term .p { color: var(--term-dim); }
+.term .ok { color: var(--term-ok); }
+.term .bad { color: var(--term-bad); }
+.term .caret { display: inline-block; width: .55em; height: 1.1em; vertical-align: -0.2em; background: var(--term-ink); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.agent { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 12px; font-size: 14.5px; line-height: 1.5; min-width: 0; }
+.agent .who { font-size: 12.5px; color: var(--term-dim); margin-bottom: 2px; }
+.msg { max-width: 100%; }
+.msg.me { align-self: flex-end; background: rgb(255 255 255 / .08); padding: 9px 12px; border-radius: 12px 12px 4px 12px; max-width: 88%; }
+.ask { border: 1px solid color-mix(in oklab, var(--amber) 70%, transparent); border-radius: 10px; padding: 10px 12px; }
+.ask .state { font-size: 12.5px; color: var(--amber); }
+.ask code { display: block; margin: 6px 0 10px; font: 13px var(--mono); color: var(--term-ink); }
+.ask .row { display: flex; gap: 8px; }
+.ask button { font: 600 13px var(--display); border: 0; border-radius: 999px; padding: 6px 14px; cursor: default; }
+.ask .run { background: var(--amber); color: var(--amber-ink); }
+.ask .no { background: rgb(255 255 255 / .08); color: var(--term-ink); }
+.ask .run.pressed { transform: scale(.94); }
+.ask.done { border-color: rgb(255 255 255 / .12); }
+.ask.done .state { color: var(--term-ok); }
+.ask.done .row { display: none; }
+.replay { margin-top: 14px; background: none; border: 0; padding: 6px 0; font: 500 14px var(--display); color: var(--slate); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.replay:hover { color: var(--ink); }
+/* Elementy scenki pojawiają się po kolei (klasa .in dodawana przez skrypt). */
+.step { opacity: 0; transform: translateY(6px); transition: opacity .35s ease, transform .35s ease; }
+.step.in { opacity: 1; transform: none; }
+@media (max-width: 820px) {
+  .win { grid-template-columns: 1fr; }
+  .term { border-right: 0; border-bottom: 1px solid rgb(255 255 255 / .07); min-height: 0; }
+}
+
+/* ---------- sekcje ---------- */
+section { padding-top: clamp(80px, 12vw, 150px); }
+h2 { margin: 0; font-size: clamp(30px, 4.4vw, 52px); line-height: 1.02; letter-spacing: -0.025em; font-weight: 700; font-variation-settings: "opsz" 72, "wdth" 85; max-width: 18ch; }
+.intro { margin: 18px 0 0; max-width: 52ch; color: var(--slate); font-size: 18px; }
+
+/* Co jest w środku: lista definicji obok zrzutu. */
+.inside { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(32px, 6vw, 80px); align-items: start; margin-top: 48px; }
+.inside dl { margin: 0; }
+.inside dt { font-weight: 650; font-size: 19px; letter-spacing: -0.01em; }
+.inside dd { margin: 4px 0 26px; color: var(--slate); max-width: 44ch; }
+.shot { border-radius: 12px; overflow: hidden; box-shadow: 0 30px 60px -40px rgb(23 33 43 / .5); background: var(--paper); }
+.shot + .shot { margin-top: 20px; }
+@media (max-width: 820px) { .inside { grid-template-columns: 1fr; } }
+
+/* Tryby zgody: przełącznik zmienia opis (ruch w odpowiedzi na kliknięcie). */
+.modes { margin-top: 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); align-items: start; }
+.seg { display: inline-flex; padding: 4px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); flex-wrap: wrap; }
+.seg button { font: 600 15px var(--display); border: 0; background: none; color: var(--slate); padding: 10px 18px; border-radius: 999px; cursor: pointer; min-height: 44px; }
+.seg button[aria-checked="true"] { background: var(--ink); color: var(--chalk); }
+.mode-text { margin: 22px 0 0; font-size: 20px; line-height: 1.45; max-width: 34ch; min-height: 5.8em; }
+.mode-text.swap { animation: swap .28s ease; }
+@keyframes swap { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.always { background: var(--paper); border-radius: 12px; padding: 22px 24px; box-shadow: inset 0 0 0 1px var(--line); }
+.always p { margin: 0 0 12px; color: var(--slate); font-size: 15.5px; }
+.always ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.always li { font: 13px var(--mono); padding: 4px 10px; border-radius: 6px; background: var(--chalk); box-shadow: inset 0 0 0 1px var(--line); }
+@media (max-width: 820px) { .modes { grid-template-columns: 1fr; } }
+
+/* Telefon */
+.phone { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 4fr); gap: clamp(32px, 6vw, 80px); align-items: center; margin-top: 8px; }
+.phone ul { margin: 28px 0 0; padding: 0; list-style: none; }
+.phone li { padding: 14px 0; border-top: 1px solid var(--line); max-width: 50ch; }
+.phone li:last-child { border-bottom: 1px solid var(--line); }
+.phone li b { font-weight: 650; }
+.phone .device { max-width: 320px; justify-self: center; border-radius: 28px; overflow: hidden; box-shadow: 0 30px 60px -36px rgb(23 33 43 / .55); }
+.fine { margin-top: 18px; font-size: 14.5px; color: var(--slate); max-width: 54ch; }
+@media (max-width: 820px) { .phone { grid-template-columns: 1fr; } .phone .device { max-width: 260px; } }
+
+/* Pobieranie */
+.files { margin-top: 36px; border-top: 1px solid var(--line); }
+.file { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
+.file b { font-weight: 650; font-size: 19px; letter-spacing: -0.01em; }
+.file span { display: block; color: var(--slate); font-size: 15px; }
+.file .size { color: var(--slate); font-variant-numeric: tabular-nums; font-size: 15px; }
+.file:hover b { color: var(--sea); }
+.note { margin-top: 26px; padding: 16px 18px; border-radius: 10px; background: var(--sea-soft); max-width: 70ch; font-size: 15.5px; }
+
+footer { margin-top: clamp(80px, 12vw, 150px); padding: 28px 0 40px; border-top: 1px solid var(--line); color: var(--slate); font-size: 14.5px; }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; justify-content: space-between; }
+footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
+footer a { text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .step { transition: none; }
+  .term .caret { animation: none; }
+  .mode-text.swap { animation: none; }
+  .btn, .ask .run { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <a class="brand" href="#"><img src="img/icon.svg" alt="" width="28" height="28">Hermitty</a>
+  <nav aria-label="Strona">
+    <a class="hide-s" href="#w-srodku">Co potrafi</a>
+    <a class="hide-s" href="#telefon">Telefon</a>
+    <a class="btn quiet" href="#pobierz">Pobierz</a>
+  </nav>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <div>
+    <h1>Wszystkie powłoki w&nbsp;jednym oknie. I&nbsp;agent, który pyta.</h1>
+    <p class="lede">Hermitty to lekki menedżer terminali na Windows. PowerShell, CMD, WSL i SSH w zakładkach, a obok asystent AI, który czyta wyjście i uruchamia komendy dopiero po Twojej zgodzie.</p>
+    <div class="cta">
+      <a class="btn" href="#pobierz">Pobierz dla Windows</a>
+      <small>Windows 10 i 11, instalator 3&nbsp;MB, wersja alpha</small>
+    </div>
+    </div>
+
+    <figure class="scene" aria-label="Przykład: agent prosi o zgodę na uruchomienie testów, potem czyta wynik">
+      <div class="win">
+        <div class="bar" aria-hidden="true">
+          <div class="tabs"><span class="tab on">api</span><span class="tab">WSL ubuntu</span><span class="tab">deploy</span></div>
+        </div>
+        <div class="term" id="term" aria-hidden="true"></div>
+        <div class="agent" id="agent">
+          <div class="step msg me" data-at="300"><div class="who">Ty</div>Sprawdź, czemu testy w zakładce api nie przechodzą.</div>
+          <div class="step msg" data-at="1300"><div class="who">Agent</div>Uruchomię testy i przeczytam wynik.</div>
+          <div class="step ask" id="ask" data-at="2200">
+            <div class="state" id="askState">Wymaga Twojej zgody</div>
+            <code>npm test</code>
+            <div class="row"><button class="run" id="run" tabindex="-1" type="button">Uruchom</button><button class="no" tabindex="-1" type="button">Odrzuć</button></div>
+          </div>
+          <div class="step msg" data-at="7600"><div class="who">Agent</div>Pada jeden test: token w <code>auth.test.ts</code> wygasa przed asercją, bo test czeka 61&nbsp;sekund na 60-sekundowym tokenie. Skrócić czekanie?</div>
+        </div>
+      </div>
+      <button class="replay" id="replay" type="button" hidden>Odtwórz jeszcze raz</button>
+    </figure>
+  </div>
+
+  <section class="wrap" id="w-srodku">
+    <h2>Pracujesz w terminalu. Reszta jest pod ręką.</h2>
+    <div class="inside">
+      <dl>
+        <dt>Workspace'y z zakładkami</dt>
+        <dd>Każdy projekt ma swój workspace z kolorem i zakładkami. Podział paneli, tryb pływających okien, panel plików.</dd>
+        <dt>Zamknięcie, które da się cofnąć</dt>
+        <dd>Zamknięta zakładka działa jeszcze 20 sekund. Przywracasz ją z tym samym procesem i całym wyjściem.</dd>
+        <dt>Agent i podagenci</dt>
+        <dd>Agent widzi wszystkie zakładki workspace'u i zleca zadania podagentom w konkretnych terminalach. Zna kod wyjścia każdej komendy.</dd>
+        <dt>Workflow</dt>
+        <dd>Nody do terminala, AI, plików, sieci, grafiki i wideo. Startują ręcznie, o stałej porze, po pushu do gita albo po zmianie pliku.</dd>
+        <dt>Twoje konta i modele</dt>
+        <dd>Anthropic, OpenAI, Google, OpenRouter, Ollama albo zainstalowane CLI jak Claude Code i Codex. Klucze zostają w Menedżerze poświadczeń Windows.</dd>
+        <dt>SSH i SFTP</dt>
+        <dd>Hosty, klucze, przekierowania portów i dwupanelowy SFTP w tym samym oknie.</dd>
+      </dl>
+      <div>
+        <div class="shot"><img src="img/main.webp" width="2720" height="1720" alt="Okno Hermitty: terminal PowerShell, a po prawej panel agenta z rozmową" loading="lazy"></div>
+        <div class="shot"><img src="img/workflow.webp" width="2720" height="1720" alt="Edytor workflow: nody połączone liniami na kropkowanej kanwie" loading="lazy"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="zgoda">
+    <h2>Ty decydujesz, ile agent może.</h2>
+    <p class="intro">Każdy profil agenta ma jeden z trzech trybów. Podagent zlecony przez agenta nigdy nie dostaje więcej uprawnień niż ten, kto mu zlecił.</p>
+    <div class="modes">
+      <div>
+        <div class="seg" role="radiogroup" aria-label="Tryb uprawnień agenta">
+          <button type="button" role="radio" aria-checked="false" data-mode="read">Tylko odczyt</button>
+          <button type="button" role="radio" aria-checked="true" data-mode="ask">Pytaj</button>
+          <button type="button" role="radio" aria-checked="false" data-mode="auto">Automatycznie</button>
+        </div>
+        <p class="mode-text" id="modeText" aria-live="polite"></p>
+      </div>
+      <div class="always">
+        <p>Te komendy wymagają zgody nawet w trybie automatycznym, także w wariantach typu <code>rm -fr</code> czy <code>del -r</code>. Listę zmieniasz w ustawieniach.</p>
+        <ul>
+          <li>rm -rf</li><li>Remove-Item -Recurse</li><li>format</li><li>dd if=</li><li>shutdown</li><li>git push --force</li><li>DROP TABLE</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap" id="telefon">
+    <div class="phone">
+      <div>
+        <h2>Telefon z Androidem obok klawiatury.</h2>
+        <p class="intro">Mała aplikacja (ok. 90&nbsp;KB) łączy telefon z Hermitty w tej samej sieci Wi-Fi albo przez Tailscale.</p>
+        <ul>
+          <li><b>Powiadomienia</b> z telefonu na komputerze. Odpowiadasz i zamykasz je bez sięgania po telefon.</li>
+          <li><b>SMS-y</b>: rozmowy, czytanie i wysyłanie.</li>
+          <li><b>Zdalny dyktafon</b> włączany skrótem Ctrl+Alt+R, także przy zablokowanym ekranie. Nagranie trafia na komputer, gdzie zamienisz je na tekst.</li>
+          <li><b>Znajdź telefon</b> dzwonkiem na pełnej głośności.</li>
+        </ul>
+        <p class="fine">Połączenie jest szyfrowane kluczem z jednorazowego parowania. Kody logowania i BLIK telefon zamienia na kropki, zanim cokolwiek wyśle.</p>
+      </div>
+      <div class="device"><img src="img/android.webp" width="1080" height="1500" alt="Aplikacja Hermitty na Androidzie: połączony komputer i lista uprawnień" loading="lazy"></div>
+    </div>
+  </section>
+
+  <section class="wrap" id="pobierz">
+    <h2>Pobierz wersję alpha.</h2>
+    <p class="intro">Wszystkie pliki są w wydaniu v0.1.0-alpha na GitHubie. Zainstalowana aplikacja aktualizuje się sama.</p>
+    <div class="files">
+      <a class="file" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-setup.exe">
+        <div><b>Instalator dla Windows</b><span>Windows 10 i 11, instaluje się dla Twojego konta</span></div><div class="size">ok. 3 MB</div>
+      </a>
+      <a class="file" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-0.1.0-alpha-portable.exe">
+        <div><b>Wersja przenośna</b><span>Bez instalacji, dane obok pliku</span></div><div class="size"></div>
+      </a>
+      <a class="file" href="https://github.com/JogiFPV2/terminalx/releases/download/v0.1.0-alpha/Hermitty-Telefon-0.1.0-alpha.apk">
+        <div><b>Aplikacja na Androida</b><span>Android 10 lub nowszy</span></div><div class="size">ok. 90 KB</div>
+      </a>
+    </div>
+    <p class="note">To wczesna wersja i może mieć błędy, więc nie powierzaj jej jeszcze krytycznej pracy. Instalator nie ma certyfikatu: przy pierwszym uruchomieniu wybierz „Więcej informacji”, potem „Uruchom mimo to”.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Hermitty, wersja 0.1.0-alpha</span>
+    <nav aria-label="Linki">
+      <a href="https://github.com/JogiFPV2/terminalx">Kod na GitHubie</a>
+      <a href="https://github.com/JogiFPV2/terminalx/issues">Zgłoś błąd</a>
+      <a href="https://github.com/JogiFPV2/terminalx/blob/main/docs/PLUGINS.md">Pluginy dla twórców</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  /* ---------- scenka w hero ---------- */
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const term = document.getElementById('term');
+  const ask = document.getElementById('ask');
+  const askState = document.getElementById('askState');
+  const run = document.getElementById('run');
+  const replay = document.getElementById('replay');
+  const steps = [...document.querySelectorAll('#agent .step')];
+  const PROMPT = '<span class="p">PS C:\\dev\\api&gt;</span> ';
+  // Wyjście testów: [opóźnienie w ms od startu, html linii]
+  const OUTPUT = [
+    [4500, '\n\n<span class="p">&gt; api@1.4.0 test</span>\n<span class="p">&gt; vitest run</span>\n'],
+    [5200, '\n <span class="ok">✓</span> users.test.ts (18)\n <span class="ok">✓</span> orders.test.ts (23)\n'],
+    [5900, ' <span class="bad">✗</span> auth.test.ts (11) <span class="bad">1 failed</span>\n   token wygasa po 60 s\n   auth.test.ts:58\n'],
+    [6600, '\n Tests  <span class="bad">1 failed</span>, <span class="ok">51 passed</span>\n<span class="p">[kod wyjścia: 1]</span>\n\n' + PROMPT],
+  ];
+  let timers = [];
+  const at = (ms, fn) => timers.push(setTimeout(fn, reduce ? 0 : ms));
+  const caret = '<span class="caret"></span>';
+
+  function reset() {
+    timers.forEach(clearTimeout); timers = [];
+    steps.forEach((s) => s.classList.remove('in'));
+    ask.classList.remove('done'); askState.textContent = 'Wymaga Twojej zgody'; run.classList.remove('pressed');
+    term.innerHTML = PROMPT + caret;
+    replay.hidden = true;
+  }
+
+  function play() {
+    reset();
+    let html = PROMPT;
+    const show = (h) => { term.innerHTML = h + caret; };
+    steps.forEach((s) => at(+s.dataset.at, () => s.classList.add('in')));
+    // Zgoda: „kliknięcie” Uruchom, potem komenda wpisuje się w terminalu znak po znaku.
+    at(3300, () => run.classList.add('pressed'));
+    at(3500, () => { ask.classList.add('done'); askState.textContent = 'Zatwierdzono'; });
+    const cmd = 'npm test';
+    [...cmd].forEach((ch, i) => at(3600 + i * 70, () => { html += ch; show(html); }));
+    OUTPUT.forEach(([ms, line]) => at(ms, () => { html += line; show(html); }));
+    at(8200, () => { replay.hidden = false; });
+  }
+
+  replay.addEventListener('click', play);
+  // Start, gdy scenka jest widoczna (na długich ekranach od razu).
+  const io = new IntersectionObserver((e) => { if (e[0].isIntersecting) { io.disconnect(); play(); } }, { threshold: 0.3 });
+  reset();
+  io.observe(document.querySelector('.scene'));
+
+  /* ---------- tryby uprawnień ---------- */
+  const TEXT = {
+    read: 'Agent czyta wyjście terminali i odpowiada na pytania. Nie uruchamia komend, nie buduje ani nie uruchamia workflow.',
+    ask: 'Każda komenda, uruchomienie workflow i narzędzie, które coś zmienia, czeka na Twoje „Uruchom”. Tryb domyślny.',
+    auto: 'Agent uruchamia komendy sam i podaje Ci wynik. Zatrzymuje się tylko przy komendach z listy obok.',
+  };
+  const modeText = document.getElementById('modeText');
+  const buttons = [...document.querySelectorAll('.seg button')];
+  function setMode(btn, focus) {
+    buttons.forEach((b) => { const on = b === btn; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+    modeText.textContent = TEXT[btn.dataset.mode];
+    modeText.classList.remove('swap'); void modeText.offsetWidth; modeText.classList.add('swap');
+    if (focus) btn.focus();
+  }
+  buttons.forEach((b, i) => {
+    b.addEventListener('click', () => setMode(b));
+    b.addEventListener('keydown', (e) => {
+      const d = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+      if (d) { e.preventDefault(); setMode(buttons[(i + d + buttons.length) % buttons.length], true); }
+    });
+  });
+  setMode(buttons.find((b) => b.dataset.mode === 'ask'));
+})();
+</script>
+</body>
+</html>
