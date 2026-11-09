@@ -1,0 +1,12 @@
+{
+  "id": "test.ipc-probe",
+  "name": "Test IPC",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "Hermitty (test ręczny)",
+  "description": "Sprawdza, czy ramka pluginu ma bezpośredni dostęp do rdzenia (IPC Tauri) z pominięciem uprawnień.",
+  "icon": "shield",
+  "permissions": ["ui:sidebar"],
+  "contributes": { "sidebar": [{ "id": "probe", "title": "Test IPC" }] }
+}
