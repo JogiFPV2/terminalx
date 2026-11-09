@@ -47,6 +47,11 @@ export const BUILTIN: Record<string, ThemeDef | null> = {
   'Monochrom': font(
     '#0a0a0a #ededed #111111 #171717 #8a8a8a #ededed #0a0a0a #1f1f1f #222222 #ef4444 #070707 #86efac #93c5fd #fde68a #d8b4fe #a5f3fc',
     '#ffffff #0a0a0a #ffffff #f5f5f5 #737373 #0a0a0a #ffffff #f0f0f0 #e5e5e5 #dc2626 #fafafa #16a34a #2563eb #ca8a04 #9333ea #0891b2', 'Inter', 'Geist Mono', '0.375rem'),
+  // Motyw „Grafit” z Pinsy (pinsy-web, css/style.css): tło, karty, obramowania i czcionki 1:1;
+  // kolory ANSI z palet dni i folderów Pinsy (limonkowy akcent jako żółty w trybie ciemnym).
+  'Pinsy': font(
+    '#141413 #ECEBE6 #1F1F1D #2A2A27 #9C9B95 #ECEBE6 #141413 #2A2A27 #3A3A36 #E06B5A #141413 #9BC77F #A9C7E3 #E4EE6B #C3B8E6 #A8D5C2',
+    '#DEDDD9 #1D1D1B #F3F2EE #E7E6E1 #5E5D58 #1D1D1B #F3F2EE #E7E6E1 #CFCEC8 #B3402F #DEDDD9 #4E7A3A #5E87A8 #D08A2E #9B6BB5 #2E8B7A', 'Geist', 'JetBrains Mono', '0.875rem'),
   'Zachód': font(
     '#1a1216 #f5e6e0 #21171c #2a1d23 #b2969c #ff8a5b #2a0e03 #33232a #3a2830 #ff5c7a #150e12 #9be38f #7cb7ff #ffc857 #d68cff #5ee0d0',
     '#fff7f3 #3a1f1a #ffffff #fbebe4 #8a6a62 #e8572a #ffffff #f8e4da #f1d8cd #d6304f #fdf0ea #3f8f3a #2f6fd1 #c7861a #9c4fd1 #1d958a', 'Sora', 'Fira Code', '0.6rem'),
