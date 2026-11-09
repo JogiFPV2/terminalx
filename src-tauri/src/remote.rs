@@ -1,6 +1,7 @@
 //! Zdalny dostęp z telefonu: serwer HTTP + WebSocket w sieci lokalnej albo Tailscale.
-//! Każda wiadomość po powitaniu jest szyfrowana kluczem urządzenia (NaCl secretbox, XSalsa20-Poly1305),
-//! więc nawet bez TLS treść jest nieczytelna w sieci. Klucz trafia na telefon wyłącznie przez kod QR
+//! Po powitaniu każda wiadomość jest szyfrowana kluczem sesji wyprowadzonym z klucza urządzenia i wyzwań
+//! obu stron, z licznikiem ramek w nonce (remote_crypto.rs). Bez TLS treść jest więc nieczytelna w sieci,
+//! a nagranych ramek nie da się powtórzyć ani przestawić. Klucz trafia na telefon wyłącznie przez kod QR
 //! (w części `#…` adresu, której przeglądarka nie wysyła do serwera). Nowe urządzenie wymaga zgody na komputerze.
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
@@ -11,8 +12,7 @@ use axum::routing::get;
 use axum::Router;
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
-use crypto_secretbox::aead::{Aead, KeyInit};
-use crypto_secretbox::{Key, Nonce, XSalsa20Poly1305};
+use crate::remote_crypto::{session_key, Dir};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -93,26 +93,6 @@ fn key_ref(id: &str) -> String {
     format!("remote-device:{id}")
 }
 
-/* ---------- crypto ---------- */
-
-fn seal(key: &[u8; 32], plain: &str) -> String {
-    let cipher = XSalsa20Poly1305::new(Key::from_slice(key));
-    let nonce = rand_bytes::<24>();
-    let ct = cipher.encrypt(Nonce::from_slice(&nonce), plain.as_bytes()).unwrap_or_default();
-    let mut out = nonce.to_vec();
-    out.extend_from_slice(&ct);
-    STANDARD.encode(out)
-}
-fn open(key: &[u8; 32], frame: &str) -> Option<String> {
-    let raw = STANDARD.decode(frame.trim()).ok()?;
-    if raw.len() < 24 + 16 {
-        return None;
-    }
-    let cipher = XSalsa20Poly1305::new(Key::from_slice(key));
-    let pt = cipher.decrypt(Nonce::from_slice(&raw[..24]), &raw[24..]).ok()?;
-    String::from_utf8(pt).ok()
-}
-
 /* ---------- addresses ---------- */
 
 fn is_private(ip: &std::net::Ipv4Addr) -> bool {
@@ -177,7 +157,14 @@ async fn recv_text(ws: &mut WebSocket) -> Option<String> {
 async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<(), String> {
     use tauri::Manager;
     let state = app.state::<Arc<RemoteState>>();
+    // 0. Wyzwanie komputera (jawnie). Klucze sesji zależą od niego, więc nagrana sesja nie zadziała ponownie.
+    let cs = rand_bytes::<16>();
+    ws.send(Message::Text(json!({"t":"hi","v":2,"c":STANDARD.encode(cs)}).to_string().into())).await.map_err(|e| e.to_string())?;
     let hello: Value = serde_json::from_str(&recv_text(&mut ws).await.ok_or("brak powitania")?).map_err(|e| e.to_string())?;
+    let Some(cc) = hello["c"].as_str().and_then(|c| STANDARD.decode(c).ok()).filter(|c| c.len() == 16) else {
+        let _ = ws.send(Message::Text(json!({"t":"error","msg":"Stara wersja strony. Odśwież stronę na telefonie."}).to_string().into())).await;
+        return Ok(());
+    };
 
     // 1. Klucz: znane urządzenie albo jednorazowe parowanie z kodu QR.
     let (key, mut device_id, pairing) = match hello["t"].as_str() {
@@ -207,8 +194,11 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         _ => return Err("nieznane powitanie".into()),
     };
 
-    // 2. Dowód posiadania klucza: pierwsza zaszyfrowana wiadomość musi się poprawnie odszyfrować.
-    let proof = recv_text(&mut ws).await.and_then(|f| open(&key, &f)).ok_or("zły klucz")?;
+    let mut rx = Dir::new(&session_key(&key, b"c2s", &cs, &cc));
+    let mut tx = Dir::new(&session_key(&key, b"s2c", &cs, &cc));
+
+    // 2. Dowód posiadania klucza: pierwsza zaszyfrowana wiadomość (ramka nr 0 tej sesji) musi się odszyfrować.
+    let proof = recv_text(&mut ws).await.and_then(|f| rx.open(&f)).ok_or("zły klucz")?;
     if serde_json::from_str::<Value>(&proof).ok().and_then(|v| v["t"].as_str().map(String::from)).as_deref() != Some("auth") {
         return Err("brak uwierzytelnienia".into());
     }
@@ -218,11 +208,11 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         let (tx, rx) = oneshot::channel();
         state.decisions.lock().await.insert(pid.clone(), tx);
         let _ = app.emit("remote:pair-request", json!({ "pairId": pid, "name": name, "addr": addr.ip().to_string() }));
-        let _ = ws.send(Message::Text(seal(&key, &json!({"t":"waiting"}).to_string()).into())).await;
+        let _ = ws.send(Message::Text(tx.seal(&json!({"t":"waiting"}).to_string()).into())).await;
         let decision = tokio::time::timeout(Duration::from_secs(180), rx).await.ok().and_then(|r| r.ok()).flatten();
         state.decisions.lock().await.remove(&pid);
         let Some(perm) = decision else {
-            let _ = ws.send(Message::Text(seal(&key, &json!({"t":"denied"}).to_string()).into())).await;
+            let _ = ws.send(Message::Text(tx.seal(&json!({"t":"denied"}).to_string()).into())).await;
             return Ok(());
         };
         device_id = URL_SAFE_NO_PAD.encode(rand_bytes::<12>());
@@ -231,7 +221,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         list.push(Device { id: device_id.clone(), name, perm, added: now_ms(), last_seen: Some(now_ms()) });
         save_devices(&app, &list);
         let _ = app.emit("remote:devices", ());
-        ws.send(Message::Text(seal(&key, &json!({"t":"paired","device":device_id}).to_string()).into())).await.map_err(|e| e.to_string())?;
+        ws.send(Message::Text(tx.seal(&json!({"t":"paired","device":device_id}).to_string()).into())).await.map_err(|e| e.to_string())?;
     }
 
     // 4. Sesja: żądania telefonu idą do interfejsu aplikacji, odpowiedzi i zdarzenia wracają zaszyfrowane.
@@ -239,7 +229,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
     state.conns.lock().await.insert(conn, Client { device: device_id.clone(), tx });
     let perm_of = |app: &AppHandle, id: &str| load_devices(app).into_iter().find(|d| d.id == id).map(|d| d.perm).unwrap_or_else(|| "view".into());
-    let _ = ws.send(Message::Text(seal(&key, &json!({"t":"ready","perm":perm_of(&app, &device_id),"device":device_id}).to_string()).into())).await;
+    let _ = ws.send(Message::Text(tx.seal(&json!({"t":"ready","perm":perm_of(&app, &device_id),"device":device_id}).to_string()).into())).await;
     let _ = app.emit("remote:clients", ());
 
     let result: Result<(), String> = async {
@@ -251,7 +241,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
                         Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
                         _ => continue,
                     };
-                    let Some(plain) = open(&key, &text) else { break };
+                    let Some(plain) = rx.open(&text) else { break };
                     let req: Value = serde_json::from_str(&plain).map_err(|e| e.to_string())?;
                     if req["t"] != "req" { continue; }
                     let method = req["m"].as_str().unwrap_or("").to_string();
@@ -259,13 +249,13 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
                     if perm == "revoked" { break; }
                     if level(&perm) < needed(&method) {
                         let res = json!({"t":"res","id":req["id"],"ok":false,"error":"To urządzenie nie ma uprawnień do tej operacji."});
-                        ws.send(Message::Text(seal(&key, &res.to_string()).into())).await.map_err(|e| e.to_string())?;
+                        ws.send(Message::Text(tx.seal(&res.to_string()).into())).await.map_err(|e| e.to_string())?;
                         continue;
                     }
                     let _ = app.emit("remote:req", json!({"conn": conn, "device": device_id, "perm": perm, "id": req["id"], "m": method, "p": req["p"]}));
                 }
                 out = rx.recv() => match out {
-                    Some(plain) => ws.send(Message::Text(seal(&key, &plain).into())).await.map_err(|e| e.to_string())?,
+                    Some(plain) => ws.send(Message::Text(tx.seal(&plain).into())).await.map_err(|e| e.to_string())?,
                     None => break,
                 }
             }

@@ -79,13 +79,26 @@ nav.tabs .n{position:absolute;top:6px;margin-left:4px;background:var(--red);colo
   const STORE = 'tx-remote:' + location.host;
 
   let key = null, device = null, ws = null, seq = 0, perm = 'view', ready = false, retry = 0;
+  // Kanał sesji: klucz i licznik ramek dla każdego kierunku (wyprowadzane z wyzwań po powitaniu).
+  let tx = null, rx = null;
   const pending = new Map();
   const st = { state: null, ws: null, tab: null, view: 'term', chat: [], ctrl: false };
   let term = null, fit = null;
 
-  const enc = (s) => { const n = nacl.randomBytes(24); const box = nacl.secretbox(te.encode(s), n, key); const o = new Uint8Array(24 + box.length); o.set(n); o.set(box, 24); return b64(o); };
-  const dec = (f) => { const r = unb64(f); const p = nacl.secretbox.open(r.slice(24), r.slice(0, 24), key); return p ? td.decode(p) : null; };
-  const send = (obj) => ws && ws.readyState === 1 && ws.send(enc(JSON.stringify(obj)));
+  // remote-crypto:start (ten sam algorytm co src-tauri/src/remote_crypto.rs; test: tests/remote-crypto.test.ts)
+  const cat = (a, b) => { const o = new Uint8Array(a.length + b.length); o.set(a); o.set(b, a.length); return o; };
+  const hmac512 = (k, m) => {
+    const kp = new Uint8Array(128); kp.set(k.length > 128 ? nacl.hash(k) : k);
+    return nacl.hash(cat(kp.map((x) => x ^ 0x5c), nacl.hash(cat(kp.map((x) => x ^ 0x36), m))));
+  };
+  const sessionKey = (base, label, cs, cc) => hmac512(base, cat(cat(te.encode(label), cs), cc)).slice(0, 32);
+  const nonceOf = (n) => { const b = new Uint8Array(24); for (let i = 23; i >= 16; i--) { b[i] = n % 256; n = Math.floor(n / 256); } return b; };
+  const sealDir = (d, s) => b64(nacl.secretbox(te.encode(s), nonceOf(d.n++), d.k));
+  const openDir = (d, f) => { let r; try { r = unb64(f); } catch { return null; } const p = nacl.secretbox.open(r, nonceOf(d.n), d.k); if (!p) return null; d.n++; return td.decode(p); };
+  // remote-crypto:end
+  const enc = (s) => sealDir(tx, s);
+  const dec = (f) => (rx ? openDir(rx, f) : null);
+  const send = (obj) => ws && ws.readyState === 1 && tx && ws.send(enc(JSON.stringify(obj)));
   const req = (m, p = {}) => new Promise((res, rej) => { const id = ++seq; pending.set(id, { res, rej }); send({ t: 'req', id, m, p }); setTimeout(() => { if (pending.delete(id)) rej(new Error('Brak odpowiedzi')); }, 30000); });
 
   function screen(html) { $('#main').innerHTML = html; }
@@ -100,14 +113,24 @@ nav.tabs .n{position:absolute;top:6px;margin-left:4px;background:var(--red);colo
 
   function connect(pair) {
     setDot('wait');
-    ws = new WebSocket(`ws://${location.host}/ws`);
-    ws.onopen = () => {
-      ws.send(JSON.stringify(pair ? { t: 'pair', pair: pair.p, name: deviceName() } : { t: 'hello', device }));
-      ws.send(enc(JSON.stringify({ t: 'auth', ts: Date.now() })));
-    };
-    ws.onmessage = (ev) => {
+    tx = rx = null;
+    const sock = (ws = new WebSocket(`ws://${location.host}/ws`));
+    sock.onmessage = (ev) => {
+      if (sock !== ws) return;
+      // Po powitaniu ramki są zaszyfrowane; jawne są tylko powitanie komputera i błędy przed uwierzytelnieniem.
+      const d = dec(ev.data);
       let msg;
-      try { msg = JSON.parse(ev.data); } catch { const d = dec(ev.data); if (!d) return; msg = JSON.parse(d); }
+      try { msg = JSON.parse(d ?? ev.data); } catch { return; }
+      if (d === null && msg.t === 'hi' && !tx) {
+        // Wyzwanie komputera + nasze: klucze tylko na tę sesję, nagranej rozmowy nie da się odtworzyć.
+        const cs = unb64(msg.c), cc = nacl.randomBytes(16);
+        tx = { k: sessionKey(key, 'c2s', cs, cc), n: 0 };
+        rx = { k: sessionKey(key, 's2c', cs, cc), n: 0 };
+        sock.send(JSON.stringify(pair ? { t: 'pair', v: 2, pair: pair.p, name: deviceName(), c: b64(cc) } : { t: 'hello', v: 2, device, c: b64(cc) }));
+        sock.send(enc(JSON.stringify({ t: 'auth', ts: Date.now() })));
+        return;
+      }
+      if (d === null && msg.t !== 'error') return;
       handle(msg);
     };
     ws.onclose = () => {

@@ -9,6 +9,7 @@ mod phone;
 mod aicli;
 mod pty;
 mod remote;
+mod remote_crypto;
 mod skills;
 mod ssh;
 mod store;
