@@ -247,6 +247,13 @@
     </div>
   </div>
 
+  {#if !compact && flow.byAgent}
+    <div class="agentflow" role="status">
+      <Icon name="sparks" size={14} />
+      <span>Ten workflow zbudował agent. Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.</span>
+      <button class="btn pri" onclick={() => delete flow.byAgent}>Zatwierdź</button>
+    </div>
+  {/if}
   {#if !compact}
     <div class="tools">
       {#if batchSt}
@@ -453,6 +460,9 @@
   .port.out { right: -6px; cursor: crosshair; }
   .port.out:hover { background: var(--c); }
   .tools { position: absolute; right: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 6px; }
+  .agentflow { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 10px; max-width: min(640px, calc(100% - 28px)); padding: 8px 8px 8px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 10px 28px -14px rgb(0 0 0 / .45); font-size: 12px; }
+  .agentflow span { flex: 1; min-width: 0; }
+  .agentflow :global(svg) { color: var(--primary-ink); flex: none; }
   .batch { height: 30px; min-width: 30px; border-radius: 15px; background: var(--card); border: 1px solid var(--border); font-size: 11px; font-variant-numeric: tabular-nums; padding: 0 8px; }
   .batch.on { color: var(--primary-ink); border-color: var(--primary-ink); }
   .batchbox { position: absolute; top: 42px; right: 0; width: 320px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 12px 32px -12px rgb(0 0 0 / .4); display: flex; flex-direction: column; gap: 6px; }

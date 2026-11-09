@@ -83,6 +83,22 @@ async function runInTab(ws: Workspace, p: AgentProfile, tab: Tab, command: strin
   return clean.length > 6000 ? '…' + clean.slice(-6000) : clean || '(brak wyjścia)';
 }
 
+/** Workflow uruchamiany przez agenta. Nody wykonawcze (komenda, zapis pliku, wysyłka do zakładki, HTTP…) działają
+ *  bez pytania, więc zgoda dotyczy całego uruchomienia: jak przy run_command (w trybie „auto” tylko komendy z listy „zawsze pytaj”). */
+async function runFlowAsAgent(ws: Workspace, p: AgentProfile, tab: Tab, input: string, signal: { aborted: boolean }) {
+  if (p.perm === 'read') return 'Odmowa: ten profil ma uprawnienia tylko do odczytu.';
+  const { runFlow, effectsOf } = await import('./workflow/engine.svelte');
+  const flow = app.flows[tab.flowId!];
+  if (!flow) return 'Nie ma takiego workflow.';
+  const effects = effectsOf(flow);
+  const command = [...effects.map((e) => `• ${e}`), ...(input ? [`Wejście ({{input}}): ${input.length > 1500 ? input.slice(0, 1500) + '…' : input}`] : [])].join('\n');
+  if (effects.length && needsApproval(p, command) && !(await askUser(ws, p, p.name, `Chcę uruchomić workflow „${tab.title}”. Nody, które wykonają akcje:`, { label: `Workflow · ${tab.title}`, command }))) {
+    return 'Użytkownik nie zgodził się na uruchomienie tego workflow. Nie ponawiaj bez pytania.';
+  }
+  if (signal.aborted) return 'Przerwano.';
+  return runFlow(flow, input);
+}
+
 /** Narzędzie MCP: zgoda jak przy komendach (w trybie „pytaj” poza narzędziami tylko do odczytu). */
 async function runMcp(ws: Workspace, p: AgentProfile, who: string, b: Bound, input: unknown, signal: { aborted: boolean }): Promise<string | Block[]> {
   const args = JSON.stringify(input || {}, null, 1);
@@ -272,7 +288,8 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
   if (p.tools.includes('read_all')) tools.push({ name: 'read_tab', description: 'Ostatnie linie wyjścia terminala w zakładce.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, lines: { type: 'integer' } }, required: ['tab_id'] } });
   if (p.tools.includes('run_command') && p.perm !== 'read') tools.push({ name: 'run_command', description: 'Uruchamia komendę w terminalu zakładki i zwraca wyjście.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, command: { type: 'string' } }, required: ['tab_id', 'command'] } });
   if (p.tools.includes('delegate')) tools.push({ name: 'delegate', description: 'Zleca zadanie podagentowi zakładki terminala. Podagent sam czyta wyjście i uruchamia komendy, potem zwraca raport. Kilka wywołań w jednej odpowiedzi działa równolegle.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, task: { type: 'string' }, attachments: { type: 'boolean', description: 'Przekaż podagentowi załączniki z ostatniej wiadomości użytkownika' } }, required: ['tab_id', 'task'] } });
-  if (p.tools.includes('workflow')) {
+  // Workflow może uruchamiać komendy i zapisywać pliki, więc profil tylko do odczytu go nie dostaje.
+  if (p.tools.includes('workflow') && p.perm !== 'read') {
     tools.push({ name: 'run_workflow', description: 'Uruchamia workflow z zakładki typu workflow i zwraca wyniki.', input_schema: { type: 'object', properties: { tab_id: { type: 'string' }, input: { type: 'string' } }, required: ['tab_id'] } });
     tools.push({ name: 'list_node_types', description: 'Typy nodów workflow (id, nazwa, kategoria, pola cfg). Wywołaj przed build_workflow.', input_schema: { type: 'object', properties: {} } });
     tools.push({
@@ -326,9 +343,8 @@ export async function sendToAgent(ws: Workspace, text: string, att: Att[] = []) 
             post(ws, { role: 'agent', who: `${p.name} → podagent „${t!.title}”`, text: task, att: att.length ? att : undefined });
             out = await runSub(ws, t!, userContent(`Zadanie od agenta: ${task}`, att), signal);
           } else if (c.name === 'run_workflow') {
-            const { runFlow } = await import('./workflow/engine.svelte');
             if (!t!.flowId) out = 'To nie jest zakładka workflow.';
-            else out = await runFlow(app.flows[t!.flowId], String(c.input.input || ''));
+            else out = await runFlowAsAgent(ws, p, t!, String(c.input.input || ''), signal);
           } else out = `Nieznane narzędzie ${c.name}`;
         } catch (e) { out = `Błąd: ${e}`; }
         return { type: 'tool_result', tool_use_id: c.id, content: out || '(pusto)' };

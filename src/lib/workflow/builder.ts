@@ -65,5 +65,7 @@ export function buildFlow(spec: FlowSpec): { tabId: string; summary: string } {
   const flow = app.flows[tab.flowId!];
   flow.nodes = made;
   flow.edges = links.map(([a, b]) => [ids[a], ids[b]] as [string, string]);
-  return { tabId: tab.id, summary: `Utworzono workflow „${tab.title}” (zakładka ${tab.id}): ${made.length} nodów, ${flow.edges.length} połączeń.` };
+  flow.byAgent = true;
+  const trig = made.some((n) => ['cron', 'git_push', 'file_watch'].includes(n.type));
+  return { tabId: tab.id, summary: `Utworzono workflow „${tab.title}” (zakładka ${tab.id}): ${made.length} nodów, ${flow.edges.length} połączeń.${trig ? ' Wyzwalacze zadziałają dopiero, gdy użytkownik zatwierdzi workflow w edytorze.' : ''}` };
 }

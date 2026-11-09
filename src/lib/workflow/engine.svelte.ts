@@ -27,6 +27,18 @@ export const flowRun = $state({
 export const allNodeTypes = (): NodeTypeDef[] => [...BUILTIN_NODES, ...app.nodeTypes];
 export const nodeType = (id: string) => allNodeTypes().find((t) => t.id === id) || BUILTIN_NODES[0];
 
+/** Nody, które coś zmieniają albo wysyłają poza aplikację. Agent uruchamia workflow z takimi nodami dopiero po zgodzie. */
+export const EFFECT_NODES = new Set(['run_cmd', 'send_tab', 'snippet', 'write_file', 'http', 'fetch_page', 'webhook', 'media_save', 'to_note', 'clipboard']);
+
+/** Opis nodów wykonawczych workflow (z ich ustawieniami, np. treścią komendy) do okna zgody. */
+export function effectsOf(flow: Flow): string[] {
+  return flow.nodes.filter((n) => EFFECT_NODES.has(n.type)).map((n) => {
+    const ty = nodeType(n.type);
+    const fields = (ty.fields || []).map(([k, label]) => (n.cfg[k] !== '' && n.cfg[k] != null ? `${label}: ${String(n.cfg[k]).slice(0, 300)}` : '')).filter(Boolean).join(' · ');
+    return `${n.label || ty.name}${fields ? ` (${fields})` : ''}`;
+  });
+}
+
 export function aiDefaults(ty: Partial<NodeTypeDef>): AiCfg {
   return { base: ty.base || '', prompt: '', provider: '', model: '', temperature: 0.3, maxTokens: 2048, topP: 1, results: 1, format: ty.format || 'text', ...(ty.defaults || {}) } as AiCfg;
 }
@@ -377,7 +389,8 @@ const lastSeen: Record<string, string> = {};
 
 async function tick() {
   for (const flow of Object.values(app.flows)) {
-    if (flowRun.running[flow.id]) continue;
+    // Workflow od agenta startuje sam dopiero po zatwierdzeniu przez użytkownika (baner w edytorze).
+    if (flowRun.running[flow.id] || flow.byAgent) continue;
     for (const n of flow.nodes) {
       if (flow.edges.some(([, b]) => b === n.id)) continue; // tylko węzły startowe
       try {

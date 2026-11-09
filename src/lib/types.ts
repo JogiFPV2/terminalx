@@ -215,7 +215,11 @@ export interface FlowNode {
   cfg: Record<string, any>;
 }
 
-export interface Flow { id: string; nodes: FlowNode[]; edges: [string, string][]; sx?: number; sy?: number }
+export interface Flow {
+  id: string; nodes: FlowNode[]; edges: [string, string][]; sx?: number; sy?: number;
+  /** Zbudowany przez agenta i jeszcze niezatwierdzony: wyzwalacze (harmonogram, plik, git) nie uruchamiają go same. */
+  byAgent?: boolean;
+}
 
 export interface PluginRecord { id: string; enabled: boolean; config: Record<string, string | number | boolean>; builtin: boolean }
 

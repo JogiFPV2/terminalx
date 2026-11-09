@@ -940,7 +940,9 @@
     "Klucz API (automatycznie: przełącza przy limicie)": "API key (automatic: switches on limit)",
     "Szukaj klucza…": "Search keys…",
     "np. Prywatny": "e.g. Personal",
-    "Klucze API · przełączanie przy limicie": "API keys · switch on limit"
+    "Klucze API · przełączanie przy limicie": "API keys · switch on limit",
+    "Ten workflow zbudował agent. Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.": "The agent built this workflow. Its triggers (schedule, file change, git push) will not start it until you approve it.",
+    "Zatwierdź": "Approve"
   },
   "patterns": [
     [
@@ -1450,6 +1452,10 @@
     [
       "{0} · domyślne",
       "{0} · default"
+    ],
+    [
+      "Chcę uruchomić workflow „{0}”. Nody, które wykonają akcje:",
+      "I want to run the workflow “{0}”. Nodes that will take actions:"
     ]
   ]
 }
