@@ -89,7 +89,7 @@
   .win::after { content: ""; position: absolute; inset: 0; border-radius: 8px; background: var(--background); opacity: calc(1 - var(--inactive)); pointer-events: none; transition: opacity .14s; z-index: 1; }
   .win.on::after { opacity: 0; }
   .win:hover:not(.on)::after { opacity: calc((1 - var(--inactive)) * .6); }
-  .win.on { border-color: color-mix(in oklab, var(--primary) 55%, var(--border)); box-shadow: 0 18px 44px -16px rgb(0 0 0 / .55); }
+  .win.on { border-color: color-mix(in oklab, var(--primary-ink) 55%, var(--border)); box-shadow: 0 18px 44px -16px rgb(0 0 0 / .55); }
   .wt { display: flex; align-items: center; gap: 7px; padding: 0 4px 0 9px; border-bottom: 1px solid var(--border); background: var(--muted); border-radius: 8px 8px 0 0; cursor: grab; user-select: none; min-width: 0; }
   .wt b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wt .icobtn { width: 22px; height: 20px; }
@@ -103,5 +103,5 @@
   .rh.nw { top: -5px; left: -5px; cursor: nwse-resize; } .rh.se { bottom: -5px; right: -5px; cursor: nwse-resize; }
   .rh.ne { top: -5px; right: -5px; cursor: nesw-resize; } .rh.sw { bottom: -5px; left: -5px; cursor: nesw-resize; }
   .empty { display: grid; place-items: center; height: 100%; color: var(--muted-foreground); }
-  .wt .icobtn.on { color: var(--primary); }
+  .wt .icobtn.on { color: var(--primary-ink); }
 </style>

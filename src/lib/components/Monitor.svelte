@@ -153,6 +153,6 @@
   .cell i { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 2px; border-radius: 2px; background: var(--muted); }
   .cell i::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: var(--primary); border-radius: 2px; }
   .spark { width: 60px; height: 18px; }
-  .spark polyline { fill: none; stroke: var(--primary); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  .spark polyline { fill: none; stroke: var(--primary-ink); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
   .hint { color: var(--muted-foreground); font-size: 12px; margin-top: 10px; }
 </style>

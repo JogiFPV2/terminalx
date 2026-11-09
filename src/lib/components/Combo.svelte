@@ -110,9 +110,9 @@
   .it .star:hover :global(svg) { color: #e0a400; }
   .it.hi { background: var(--muted); }
   .it.cur { font-weight: 600; }
-  .it :global(svg) { color: var(--primary); flex: none; }
+  .it :global(svg) { color: var(--primary-ink); flex: none; }
   .tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tx :global(mark) { background: none; color: var(--primary); font-weight: 600; }
+  .tx :global(mark) { background: none; color: var(--primary-ink); font-weight: 600; }
   .hint { flex: none; font-size: 10.5px; color: var(--muted-foreground); }
   .none { margin: 6px 8px; font-size: 12px; color: var(--muted-foreground); }
   .spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted-foreground); border-top-color: transparent; animation: spin .8s linear infinite; flex: none; }

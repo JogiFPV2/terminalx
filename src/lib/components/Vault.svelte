@@ -197,7 +197,7 @@
   .search input { border: 0; background: none; outline: none; color: var(--foreground); font: inherit; flex: 1; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
   .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--card); cursor: default; }
-  .card:hover { border-color: color-mix(in oklab, var(--primary) 40%, var(--border)); }
+  .card:hover { border-color: color-mix(in oklab, var(--primary-ink) 40%, var(--border)); }
   .card.on { border-color: color-mix(in oklab, var(--chart-1) 55%, var(--border)); }
   .top { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .os { width: 38px; height: 38px; border-radius: 9px; display: grid; place-items: center; font: 600 10px var(--font-mono); color: #fff; background: var(--c); flex: none; letter-spacing: .02em; }

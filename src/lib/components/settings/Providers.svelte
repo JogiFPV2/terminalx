@@ -231,5 +231,5 @@
   .defm { width: auto; max-width: 200px; font-size: 12px; padding: 3px 6px; font-family: var(--font-mono); }
   .kname { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--foreground); background: none; border: 1px solid transparent; border-radius: 5px; padding: 1px 4px; margin-left: -5px; max-width: 260px; }
   .kname:hover { border-color: var(--border); }
-  .kname:focus { border-color: var(--primary); outline: none; background: var(--background); }
+  .kname:focus { border-color: var(--primary-ink); outline: none; background: var(--background); }
 </style>

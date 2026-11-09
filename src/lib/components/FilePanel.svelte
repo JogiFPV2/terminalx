@@ -74,7 +74,7 @@
   .row:hover { background: var(--muted); }
   .row.on { background: color-mix(in oklab, var(--primary) 18%, transparent); }
   .row.dir { font-weight: 700; }
-  .row.dir :global(svg) { opacity: .85; color: var(--primary); }
+  .row.dir :global(svg) { opacity: .85; color: var(--primary-ink); }
   .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sz { flex: none; color: var(--muted-foreground); font-size: 11px; opacity: .7; }
   .hint { margin: 8px 10px; color: var(--muted-foreground); }

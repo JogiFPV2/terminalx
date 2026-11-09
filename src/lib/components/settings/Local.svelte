@@ -207,7 +207,7 @@
   .rrow .inp.mono { flex: 1; min-width: 0; }
   .name { height: 28px; }
   .opsel { width: auto; height: 28px; }
-  .icobtn.on { color: var(--primary); }
-  .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: rot .8s linear infinite; flex: none; }
+  .icobtn.on { color: var(--primary-ink); }
+  .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, var(--primary-ink) 25%, transparent); border-top-color: var(--primary-ink); animation: rot .8s linear infinite; flex: none; }
   @keyframes rot { to { transform: rotate(360deg); } }
 </style>

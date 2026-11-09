@@ -91,7 +91,7 @@
   .mode { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
   .mode b { font-weight: 500; }
   .mode small { color: var(--muted-foreground); font-size: 11.5px; line-height: 1.45; }
-  .mode.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .mode.on { border-color: var(--primary-ink); box-shadow: inset 0 0 0 1px var(--primary-ink); }
   .mode.off { opacity: .6; }
   .pair { display: flex; gap: 18px; align-items: center; border: 1px solid var(--border); border-radius: 10px; padding: 14px; flex-wrap: wrap; }
   .qr { width: 190px; height: 190px; background: #fff; border-radius: 8px; padding: 4px; flex: none; }

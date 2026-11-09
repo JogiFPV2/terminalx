@@ -422,7 +422,7 @@
   .edges { position: absolute; left: 0; top: 0; width: 3000px; height: 2000px; pointer-events: none; }
   .edges path { fill: none; }
   .edges .vis { stroke: var(--muted-foreground); stroke-width: 1.5; opacity: .7; }
-  .edges .vis.live { stroke: var(--primary); stroke-dasharray: 5 4; opacity: 1; animation: flow .6s linear infinite; }
+  .edges .vis.live { stroke: var(--primary-ink); stroke-dasharray: 5 4; opacity: 1; animation: flow .6s linear infinite; }
   @keyframes flow { to { stroke-dashoffset: -9; } }
   .edges .hit { stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: pointer; }
   .edges g:hover .vis { stroke: var(--destructive); }
@@ -440,9 +440,9 @@
   .pv > .live, .pv > .over { grid-area: 1 / 1; }
   .wait.over { align-self: end; flex-direction: row; padding: 5px 8px; background: color-mix(in oklab, var(--card) 80%, transparent); color: var(--foreground); opacity: 1; }
   .wait.err { color: var(--destructive); opacity: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; line-clamp: 5; }
-  .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: rot .8s linear infinite; flex: none; }
+  .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid color-mix(in oklab, var(--primary-ink) 25%, transparent); border-top-color: var(--primary-ink); animation: rot .8s linear infinite; flex: none; }
   @keyframes rot { to { transform: rotate(360deg); } }
-  .node.sel { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+  .node.sel { border-color: var(--primary-ink); box-shadow: 0 0 0 1px var(--primary-ink); }
   .node.ok { border-color: color-mix(in oklab, var(--chart-1) 60%, var(--border)); }
   .node.ok header :global(svg:last-child) { color: var(--chart-1); }
   .node.err { border-color: var(--destructive); }
@@ -454,13 +454,13 @@
   .port.out:hover { background: var(--c); }
   .tools { position: absolute; right: 14px; top: 12px; z-index: 3; display: flex; align-items: center; gap: 6px; }
   .batch { height: 30px; min-width: 30px; border-radius: 15px; background: var(--card); border: 1px solid var(--border); font-size: 11px; font-variant-numeric: tabular-nums; padding: 0 8px; }
-  .batch.on { color: var(--primary); border-color: var(--primary); }
+  .batch.on { color: var(--primary-ink); border-color: var(--primary-ink); }
   .batchbox { position: absolute; top: 42px; right: 0; width: 320px; background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border); border-radius: 8px; padding: 8px; box-shadow: 0 12px 32px -12px rgb(0 0 0 / .4); display: flex; flex-direction: column; gap: 6px; }
   .batchbox textarea { resize: vertical; font-size: 12px; }
   .batchbox .row { display: flex; align-items: center; gap: 4px; }
   .batchbox .sp { flex: 1; }
   .has-insp .tools { right: 302px; }
-  .fab { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); box-shadow: 0 6px 18px -8px var(--primary); }
+  .fab { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-foreground); box-shadow: 0 6px 18px -8px var(--primary-ink); }
   .fab:disabled { background: var(--card); border: 1px solid var(--border); cursor: default; }
   .fab :global(svg) { fill: currentColor; }
   .insp { position: absolute; right: 0; top: 0; bottom: 0; width: 290px; border-left: 1px solid var(--border); background: var(--card); overflow: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 12px; z-index: 4; box-shadow: -12px 0 30px -24px rgb(0 0 0 / .6); }
@@ -480,7 +480,7 @@
   .adv summary { cursor: pointer; font-size: 11.5px; color: var(--muted-foreground); }
   .adv[open] { display: flex; flex-direction: column; gap: 10px; }
   .hint.warn { color: var(--chart-3); }
-  .lnk { color: var(--primary); text-decoration: underline; font-size: inherit; }
+  .lnk { color: var(--primary-ink); text-decoration: underline; font-size: inherit; }
   pre.small { font-size: 10.5px; max-height: 110px; padding: 8px; }
   pre.result { max-height: 220px; }
   pre.bad { color: var(--destructive); }

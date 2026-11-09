@@ -120,7 +120,7 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
   .cell { position: relative; aspect-ratio: 1; border-radius: 6px; overflow: hidden; background: var(--muted); padding: 0; }
   .cell img, .cell video { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .cell:hover { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .cell:hover { outline: 2px solid var(--primary-ink); outline-offset: -2px; }
   .badge { position: absolute; right: 5px; bottom: 5px; background: rgb(0 0 0 / .55); color: #fff; border-radius: 4px; padding: 2px 4px; display: grid; }
   .empty { color: var(--muted-foreground); text-align: center; margin-top: 60px; }
   .lb { position: fixed; inset: 0; z-index: 50; background: rgb(0 0 0 / .82); display: flex; outline: none; }

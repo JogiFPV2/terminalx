@@ -101,12 +101,12 @@
   .x { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; opacity: 0; flex: none; }
   .tab:hover .x, .tab.on .x { opacity: .6; }
   .x:hover { opacity: 1; background: var(--accent); }
-  .rename { font: inherit; width: 110px; background: var(--background); border: 1px solid var(--primary); border-radius: 4px; color: inherit; padding: 1px 5px; outline: none; }
+  .rename { font: inherit; width: 110px; background: var(--background); border: 1px solid var(--primary-ink); border-radius: 4px; color: inherit; padding: 1px 5px; outline: none; }
   .ki { display: grid; flex: none; opacity: .9; }
   .parked { display: flex; align-items: center; gap: 2px; flex: none; max-width: 40%; overflow-x: auto; scrollbar-width: none; user-select: none; }
   .tab.bg { background: color-mix(in oklab, var(--chart-3) 12%, transparent); box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--chart-3) 55%, transparent); padding-right: 8px; }
   .tab.bg:hover { background: color-mix(in oklab, var(--chart-3) 20%, transparent); }
   .tab.bg.on { background: color-mix(in oklab, var(--chart-3) 26%, transparent); color: var(--foreground); }
-  .icobtn.on { color: var(--primary); }
+  .icobtn.on { color: var(--primary-ink); }
   .seg button { padding: 3px 7px; }
 </style>

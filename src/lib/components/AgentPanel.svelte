@@ -370,8 +370,8 @@
   .gutter { position: absolute; top: 0; bottom: 0; left: -4px; width: 7px; z-index: 6; cursor: col-resize; }
   .gutter:hover { background: linear-gradient(90deg, transparent 2px, var(--primary) 2px, var(--primary) 4px, transparent 4px); }
   .head { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 12px; border-bottom: 1px solid var(--border); min-width: 0; }
-  .head .icobtn.on { color: var(--primary); background: var(--muted); }
-  .ico { color: var(--primary); display: grid; }
+  .head .icobtn.on { color: var(--primary-ink); background: var(--muted); }
+  .ico { color: var(--primary-ink); display: grid; }
   .who { min-width: 0; flex: 1; display: flex; flex-direction: column; }
   .who b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .subs { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; max-height: 160px; overflow: auto; }
@@ -426,11 +426,11 @@
   .spk { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; color: var(--muted-foreground); opacity: 0; }
   .msg:hover .spk, .spk.on, .spk:focus-visible { opacity: 1; }
   .spk:hover { background: var(--muted); color: var(--foreground); }
-  .spk.on { color: var(--primary); }
+  .spk.on { color: var(--primary-ink); }
   textarea { flex: 1; min-width: 0; background: none; border: 0; color: inherit; font: inherit; outline: none; resize: none; max-height: 140px; field-sizing: content; padding: 3px 0; }
   .spin { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--muted-foreground); border-top-color: transparent; animation: spin .8s linear infinite; flex: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .drop { position: absolute; inset: 6px; z-index: 20; border: 1.5px dashed var(--primary); border-radius: 10px; background: color-mix(in srgb, var(--background) 88%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--primary); font-size: 12.5px; pointer-events: none; }
+  .drop { position: absolute; inset: 6px; z-index: 20; border: 1.5px dashed var(--primary-ink); border-radius: 10px; background: color-mix(in srgb, var(--background) 88%, transparent); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--primary-ink); font-size: 12.5px; pointer-events: none; }
   .lightbox { position: fixed; inset: 0; z-index: 80; background: rgb(0 0 0 / .75); display: grid; place-items: center; cursor: zoom-out; padding: 24px; }
   .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 20px 60px rgb(0 0 0 / .5); }
   .hsearch { padding: 10px 12px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }

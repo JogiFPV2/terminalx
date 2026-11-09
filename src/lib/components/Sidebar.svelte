@@ -87,7 +87,7 @@
   .item:hover:not(:disabled) { background: var(--accent); color: var(--foreground); }
   .item:disabled { opacity: .55; cursor: default; }
   .item.on { background: var(--accent); color: var(--foreground); }
-  .item.on { color: var(--primary); }
+  .item.on { color: var(--primary-ink); }
   .sect { display: flex; flex-direction: column; gap: 1px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); flex: 0 1 auto; max-height: 30%; overflow: auto; }
   .ki { display: grid; flex: none; }
   .sect button { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 6px; color: var(--muted-foreground); white-space: nowrap; overflow: hidden; width: 100%; flex: none; }
@@ -107,7 +107,7 @@
   .collapsed .pchev :global(svg) { transform: none; }
   .count { font-size: 10.5px; color: var(--muted-foreground); letter-spacing: 0; margin-left: 2px; font-variant-numeric: tabular-nums; }
   .act { width: 22px; height: 22px; }
-  .psect:global(.drop-ok) { outline: 1px dashed var(--primary); outline-offset: 2px; background: color-mix(in oklab, var(--primary) 8%, transparent); }
+  .psect:global(.drop-ok) { outline: 1px dashed var(--primary-ink); outline-offset: 2px; background: color-mix(in oklab, var(--primary) 8%, transparent); }
   .crash { font-size: 11.5px; color: var(--destructive); padding: 2px 8px; }
   .gutter { position: absolute; top: 0; bottom: 0; right: -4px; width: 7px; z-index: 6; cursor: col-resize; touch-action: none; }
   .gutter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px; transition: background .12s; }

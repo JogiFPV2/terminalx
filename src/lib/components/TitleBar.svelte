@@ -78,7 +78,7 @@
 
 <style>
   .titlebar { display: flex; align-items: center; height: 36px; background: var(--sidebar); border-bottom: 1px solid var(--border); min-width: 0; user-select: none; }
-  .logo { width: 44px; display: grid; place-items: center; color: var(--primary); flex: none; height: 100%; }
+  .logo { width: 44px; display: grid; place-items: center; color: var(--primary-ink); flex: none; height: 100%; }
   .wstabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; padding-right: 4px; }
   .wstab { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px 0 10px; border-radius: 6px; color: var(--muted-foreground); white-space: nowrap; font-weight: 500; cursor: default; transition: transform .16s ease; }
   .wstab:hover { background: var(--accent); color: var(--foreground); }
@@ -87,8 +87,8 @@
   .x { opacity: 0; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; }
   .wstab:hover .x, .wstab.on .x { opacity: .6; }
   .x:hover { opacity: 1; background: var(--accent); }
-  .rename { font: inherit; width: 120px; background: var(--background); border: 1px solid var(--primary); border-radius: 4px; color: inherit; padding: 1px 5px; outline: none; }
-  .upd { color: var(--primary); }
+  .rename { font: inherit; width: 120px; background: var(--background); border: 1px solid var(--primary-ink); border-radius: 4px; color: inherit; padding: 1px 5px; outline: none; }
+  .upd { color: var(--primary-ink); }
   .pct { font-size: 10px; font-variant-numeric: tabular-nums; }
   .winctl { display: flex; height: 100%; }
   .winctl button { width: 46px; display: grid; place-items: center; color: var(--muted-foreground); }

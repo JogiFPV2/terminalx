@@ -111,7 +111,7 @@
 <style>
   .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
   .th { position: relative; border-radius: 10px; background: var(--tb); color: var(--tf); border: 1px solid color-mix(in oklab, var(--tf) 14%, transparent); overflow: hidden; }
-  .th.on { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .th.on { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
   .pick { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 12px; text-align: left; color: inherit; }
   .nm { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sw { display: flex; gap: 4px; }
@@ -127,9 +127,9 @@
   .gallery { display: flex; flex-wrap: wrap; gap: 5px; }
   .gallery .chip { cursor: pointer; }
   .gallery .chip:hover:not(:disabled) { color: var(--foreground); border-color: var(--muted-foreground); }
-  .gallery .chip.have { color: var(--primary); border-color: color-mix(in oklab, var(--primary) 40%, var(--border)); }
+  .gallery .chip.have { color: var(--primary-ink); border-color: color-mix(in oklab, var(--primary-ink) 40%, var(--border)); }
   details summary { cursor: pointer; font-size: 12px; color: var(--muted-foreground); margin-bottom: 8px; }
   .err { color: var(--destructive); font-size: 12px; margin: 0; }
-  .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, var(--primary) 25%, transparent); border-top-color: var(--primary); animation: rot .8s linear infinite; display: inline-block; }
+  .spin { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid color-mix(in oklab, var(--primary-ink) 25%, transparent); border-top-color: var(--primary-ink); animation: rot .8s linear infinite; display: inline-block; }
   @keyframes rot { to { transform: rotate(360deg); } }
 </style>

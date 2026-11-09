@@ -82,7 +82,7 @@
   <p class="hint" style="margin-top:8px">Struktura archiwum: <code>plugin.json</code>, <code>main.js</code> (moduł ES z <code>activate(tx)</code>), opcjonalnie inne pliki. Pełna specyfikacja: <code>docs/PLUGINS.md</code>, typy API: <code>plugins/sdk/hermitty-plugin.d.ts</code>.</p></details>
 
 <style>
-  .review { border: 1px solid color-mix(in oklab, var(--primary) 45%, var(--border)); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in oklab, var(--primary) 5%, var(--background)); }
+  .review { border: 1px solid color-mix(in oklab, var(--primary-ink) 45%, var(--border)); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: color-mix(in oklab, var(--primary) 5%, var(--background)); }
   .perms { width: 100%; padding-left: 44px; }
   .cfg { width: 100%; padding: 6px 0 0 44px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; align-items: end; }
   details summary { cursor: pointer; font-size: 12px; font-weight: 500; }

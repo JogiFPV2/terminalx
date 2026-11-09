@@ -47,15 +47,22 @@ export const BUILTIN: Record<string, ThemeDef | null> = {
   'Monochrom': font(
     '#0a0a0a #ededed #111111 #171717 #8a8a8a #ededed #0a0a0a #1f1f1f #222222 #ef4444 #070707 #86efac #93c5fd #fde68a #d8b4fe #a5f3fc',
     '#ffffff #0a0a0a #ffffff #f5f5f5 #737373 #0a0a0a #ffffff #f0f0f0 #e5e5e5 #dc2626 #fafafa #16a34a #2563eb #ca8a04 #9333ea #0891b2', 'Inter', 'Geist Mono', '0.375rem'),
-  // Motyw „Grafit” z Pinsy (pinsy-web, css/style.css): tło, karty, obramowania i czcionki 1:1;
-  // kolory ANSI z palet dni i folderów Pinsy (limonkowy akcent jako żółty w trybie ciemnym).
-  'Pinsy': font(
-    '#141413 #ECEBE6 #1F1F1D #2A2A27 #9C9B95 #ECEBE6 #141413 #2A2A27 #3A3A36 #E06B5A #141413 #9BC77F #A9C7E3 #E4EE6B #C3B8E6 #A8D5C2',
-    '#DEDDD9 #1D1D1B #F3F2EE #E7E6E1 #5E5D58 #1D1D1B #F3F2EE #E7E6E1 #CFCEC8 #B3402F #DEDDD9 #4E7A3A #5E87A8 #D08A2E #9B6BB5 #2E8B7A', 'Geist', 'JetBrains Mono', '0.875rem'),
+  // Motyw „Grafit” z Pinsy (pinsy-web, css/style.css): tło, karty, obramowania i czcionki 1:1, limonkowy akcent
+  // (#E4EE6B) jako wypełnienie aktywnych elementów z ciemnym tekstem, jak przycisk „+ Pins”. Tekst, ikony
+  // i obramowania w kolorze akcentu (--primary-ink) zostają w kolorze tekstu, bo limonka na jasnym tle jest nieczytelna.
+  // Kolory ANSI z palet dni i folderów Pinsy.
+  'Pinsy': ink(font(
+    '#141413 #ECEBE6 #1F1F1D #2A2A27 #9C9B95 #E4EE6B #1D1D1B #2A2A27 #3A3A36 #E06B5A #141413 #9BC77F #A9C7E3 #E4EE6B #C3B8E6 #A8D5C2',
+    '#DEDDD9 #1D1D1B #F3F2EE #E7E6E1 #5E5D58 #E4EE6B #1D1D1B #E7E6E1 #CFCEC8 #B3402F #DEDDD9 #4E7A3A #5E87A8 #D08A2E #9B6BB5 #2E8B7A', 'Geist', 'JetBrains Mono', '0.875rem'), '#E4EE6B', '#1D1D1B'),
   'Zachód': font(
     '#1a1216 #f5e6e0 #21171c #2a1d23 #b2969c #ff8a5b #2a0e03 #33232a #3a2830 #ff5c7a #150e12 #9be38f #7cb7ff #ffc857 #d68cff #5ee0d0',
     '#fff7f3 #3a1f1a #ffffff #fbebe4 #8a6a62 #e8572a #ffffff #f8e4da #f1d8cd #d6304f #fdf0ea #3f8f3a #2f6fd1 #c7861a #9c4fd1 #1d958a', 'Sora', 'Fira Code', '0.6rem'),
 };
+
+/** Kolor tekstu i linii w barwie akcentu (--primary-ink) osobno dla trybu ciemnego i jasnego. */
+function ink(t: ThemeDef, dark: string, light: string): ThemeDef {
+  return { ...t, dark: { ...t.dark, 'primary-ink': dark }, light: { ...t.light, 'primary-ink': light } };
+}
 
 /** Motyw z czcionkami Google Fonts (pobieranymi przy pierwszym użyciu). Palety: kolory w kolejności PAL, oddzielone spacjami. */
 function font(dark: string, light: string, sans: string, mono: string, radius: string): ThemeDef {
@@ -64,9 +71,11 @@ function font(dark: string, light: string, sans: string, mono: string, radius: s
   return { dark: { ...pal(dark), ...f }, light: { ...pal(light), ...f }, fonts: [...new Set([sans, mono])] };
 }
 
-export const VARS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'muted', 'muted-foreground', 'primary', 'primary-foreground', 'secondary', 'secondary-foreground', 'accent', 'accent-foreground', 'border', 'input', 'ring', 'destructive', 'sidebar', 'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'radius', 'font-sans', 'font-mono', 'font-serif', 'tracking-normal'];
+export const VARS = ['background', 'foreground', 'card', 'card-foreground', 'popover', 'popover-foreground', 'muted', 'muted-foreground', 'primary', 'primary-foreground', 'primary-ink', 'secondary', 'secondary-foreground', 'accent', 'accent-foreground', 'border', 'input', 'ring', 'destructive', 'sidebar', 'chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5', 'radius', 'font-sans', 'font-mono', 'font-serif', 'tracking-normal'];
 /** Zmienne wspólne dla trybu jasnego i ciemnego (tweakcn trzyma je zwykle tylko w :root). */
 const SHARED = ['radius', 'font-sans', 'font-mono', 'font-serif', 'tracking-normal'];
+/** Zmienne spoza palety domyślnej: zdejmowane przy zmianie motywu, żeby nie przechodziły na następny. */
+const EXTRA = ['primary-ink'];
 
 export function isDarkMode(mode: ThemeMode) {
   return mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -81,7 +90,7 @@ export function applyTheme(all: Record<string, ThemeDef | null>, name: string, m
   const root = document.documentElement;
   root.classList.toggle('dark', dark);
   for (const [k, v] of Object.entries(base)) root.style.setProperty('--' + k, v);
-  for (const k of SHARED) root.style.removeProperty('--' + k);
+  for (const k of [...SHARED, ...EXTRA]) root.style.removeProperty('--' + k);
   for (const [k, v] of Object.entries(set)) root.style.setProperty('--' + k, v);
   if (set.background) root.style.setProperty('--term-bg', set.background);
   if (t) ensureFonts(themeFonts(t));
@@ -208,7 +217,7 @@ export function terminalTheme() {
     blue = v('chart-2', '#60a5fa'), magenta = v('chart-4', '#c084fc'), cyan = v('chart-5', '#22d3ee'), muted = v('muted-foreground', '#8b8b95');
   const lift = (c: string) => mix(c, dark ? '#ffffff' : '#000000', 0.18);
   return {
-    background: bg, foreground: fg, cursor: v('primary', '#8b8cf8'), cursorAccent: bg,
+    background: bg, foreground: fg, cursor: v('primary-ink', v('primary', '#8b8cf8')), cursorAccent: bg,
     selectionBackground: mix(bg, v('primary', '#8b8cf8'), 0.35),
     black: dark ? mix(bg, fg, 0.15) : '#1f1f23', red, green, yellow, blue, magenta, cyan, white: dark ? mix(fg, bg, 0.12) : muted,
     brightBlack: muted, brightRed: lift(red), brightGreen: lift(green), brightYellow: lift(yellow), brightBlue: lift(blue),
