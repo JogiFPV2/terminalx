@@ -105,7 +105,7 @@ fn load(app: &AppHandle) -> Saved {
 }
 fn save(app: &AppHandle, s: &Saved) {
     if let Some(p) = saved_path(app) {
-        let _ = std::fs::write(p, serde_json::to_string_pretty(s).unwrap_or_default());
+        let _ = crate::store::write_atomic(&p, serde_json::to_string_pretty(s).unwrap_or_default().as_bytes());
     }
 }
 fn key_ref(id: &str) -> String {
@@ -346,17 +346,19 @@ async fn session(app: AppHandle, stream: TcpStream, addr: SocketAddr) -> Result<
     result
 }
 
-/// Plik z telefonu w kawałkach: zapis do `.part`, po ostatnim kawałku zmiana nazwy. Zwraca opis gotowego pliku.
+/// Plik z telefonu w kawałkach: zapis do własnego `.part` (osobny dla każdego przesyłania), po ostatnim kawałku
+/// zmiana nazwy. Nazwa zajęta przez wcześniejszy plik dostaje numer („nagranie (2).m4a”) zamiast go nadpisać.
+/// Zwraca opis gotowego pliku.
 fn receive_chunk(dir: &Path, uploads: &mut HashMap<String, (std::fs::File, PathBuf)>, msg: &Value) -> Option<Value> {
     use std::io::Write;
     let id = msg["id"].as_str()?.to_string();
     let kind = if msg["kind"] == "recording" { "nagrania" } else { "pliki" };
-    let name: String = msg["name"].as_str().unwrap_or("plik").chars().filter(|c| c.is_alphanumeric() || "._- ".contains(*c)).take(80).collect();
-    let name = if name.trim_matches('.').is_empty() { "plik".to_string() } else { name };
-    let target = dir.join(kind).join(&name);
+    let name = safe_name(msg["name"].as_str().unwrap_or("plik"));
+    let folder = dir.join(kind);
     if !uploads.contains_key(&id) {
-        std::fs::create_dir_all(dir.join(kind)).ok()?;
-        let part = target.with_extension("part");
+        std::fs::create_dir_all(&folder).ok()?;
+        let tag: String = id.chars().filter(|c| c.is_ascii_alphanumeric()).take(24).collect();
+        let part = folder.join(format!(".{tag}-{}.part", uploads.len()));
         uploads.insert(id.clone(), (std::fs::File::create(&part).ok()?, part));
     }
     let data = STANDARD.decode(msg["data"].as_str().unwrap_or("")).ok()?;
@@ -367,9 +369,30 @@ fn receive_chunk(dir: &Path, uploads: &mut HashMap<String, (std::fs::File, PathB
     }
     let (file, part) = uploads.remove(&id)?;
     drop(file);
+    let target = free_path(&folder, &name);
     std::fs::rename(&part, &target).ok()?;
+    let name = target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(name);
     let size = std::fs::metadata(&target).map(|m| m.len()).unwrap_or(0);
     Some(json!({"id": id, "kind": msg["kind"], "name": name, "path": target.to_string_lossy(), "size": size, "secs": msg["secs"]}))
+}
+
+/// Nazwa pliku z telefonu: tylko litery, cyfry, `._- `, bez nazw złożonych z samych kropek.
+fn safe_name(raw: &str) -> String {
+    let name: String = raw.chars().filter(|c| c.is_alphanumeric() || "._- ".contains(*c)).take(80).collect();
+    if name.trim_matches('.').trim().is_empty() { "plik".to_string() } else { name }
+}
+
+/// Pierwsza wolna ścieżka: `nazwa.ext`, potem `nazwa (2).ext`, `nazwa (3).ext`…
+fn free_path(folder: &Path, name: &str) -> PathBuf {
+    let first = folder.join(name);
+    if !first.exists() {
+        return first;
+    }
+    let (stem, ext) = match name.rfind('.') {
+        Some(i) if i > 0 => (&name[..i], &name[i..]),
+        _ => (name, ""),
+    };
+    (2..).map(|n| folder.join(format!("{stem} ({n}){ext}"))).find(|p| !p.exists()).unwrap_or(first)
 }
 
 /// Wyszukiwanie w sieci lokalnej: telefon wysyła „HERMITTY?”, komputer odpowiada swoim id, nazwą i portem.
@@ -606,6 +629,26 @@ mod tests {
         // Inny kierunek albo inne wyzwanie: inny klucz.
         let mut d = Dir { key: session_key(&base, b"s2c", &cs, &cc), n: 0 };
         assert!(d.open(Dir { key: session_key(&base, b"c2s", &cs, &cc), n: 0 }.seal(b"x")).is_none());
+    }
+
+    #[test]
+    fn received_files_do_not_overwrite() {
+        let dir = std::env::temp_dir().join(format!("hermitty-phone-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut up = HashMap::new();
+        let chunk = |id: &str, data: &str, last: bool| json!({"id": id, "kind": "recording", "name": "nagranie.m4a", "data": STANDARD.encode(data), "last": last});
+        // Dwa przesyłania o tej samej nazwie naraz: każde ma własny .part, drugie dostaje numer.
+        assert!(receive_chunk(&dir, &mut up, &chunk("a", "AA", false)).is_none());
+        assert!(receive_chunk(&dir, &mut up, &chunk("b", "BB", false)).is_none());
+        let a = receive_chunk(&dir, &mut up, &chunk("a", "a", true)).unwrap();
+        let b = receive_chunk(&dir, &mut up, &chunk("b", "b", true)).unwrap();
+        assert_eq!(a["name"], "nagranie.m4a");
+        assert_eq!(b["name"], "nagranie (2).m4a");
+        assert_eq!(std::fs::read_to_string(a["path"].as_str().unwrap()).unwrap(), "AAa");
+        assert_eq!(std::fs::read_to_string(b["path"].as_str().unwrap()).unwrap(), "BBb");
+        assert_eq!(safe_name("../.."), "plik");
+        assert_eq!(safe_name("a/b\\c.txt"), "abc.txt");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

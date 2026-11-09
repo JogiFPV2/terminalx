@@ -59,7 +59,7 @@ fn load_known(app: &AppHandle) -> HashMap<String, String> {
 }
 fn save_known(app: &AppHandle, map: &HashMap<String, String>) {
     if let Some(p) = known_hosts_path(app) {
-        let _ = std::fs::write(p, serde_json::to_string_pretty(map).unwrap_or_default());
+        let _ = crate::store::write_atomic(&p, serde_json::to_string_pretty(map).unwrap_or_default().as_bytes());
     }
 }
 

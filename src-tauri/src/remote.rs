@@ -86,7 +86,7 @@ fn load_devices(app: &AppHandle) -> Vec<Device> {
 }
 fn save_devices(app: &AppHandle, list: &[Device]) {
     if let Some(p) = devices_path(app) {
-        let _ = std::fs::write(p, serde_json::to_string_pretty(list).unwrap_or_default());
+        let _ = crate::store::write_atomic(&p, serde_json::to_string_pretty(list).unwrap_or_default().as_bytes());
     }
 }
 fn key_ref(id: &str) -> String {
