@@ -194,11 +194,11 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         _ => return Err("nieznane powitanie".into()),
     };
 
-    let mut rx = Dir::new(&session_key(&key, b"c2s", &cs, &cc));
-    let mut tx = Dir::new(&session_key(&key, b"s2c", &cs, &cc));
+    let mut inbound = Dir::new(&session_key(&key, b"c2s", &cs, &cc));
+    let mut outbound = Dir::new(&session_key(&key, b"s2c", &cs, &cc));
 
     // 2. Dowód posiadania klucza: pierwsza zaszyfrowana wiadomość (ramka nr 0 tej sesji) musi się odszyfrować.
-    let proof = recv_text(&mut ws).await.and_then(|f| rx.open(&f)).ok_or("zły klucz")?;
+    let proof = recv_text(&mut ws).await.and_then(|f| inbound.open(&f)).ok_or("zły klucz")?;
     if serde_json::from_str::<Value>(&proof).ok().and_then(|v| v["t"].as_str().map(String::from)).as_deref() != Some("auth") {
         return Err("brak uwierzytelnienia".into());
     }
@@ -208,11 +208,11 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         let (tx, rx) = oneshot::channel();
         state.decisions.lock().await.insert(pid.clone(), tx);
         let _ = app.emit("remote:pair-request", json!({ "pairId": pid, "name": name, "addr": addr.ip().to_string() }));
-        let _ = ws.send(Message::Text(tx.seal(&json!({"t":"waiting"}).to_string()).into())).await;
+        let _ = ws.send(Message::Text(outbound.seal(&json!({"t":"waiting"}).to_string()).into())).await;
         let decision = tokio::time::timeout(Duration::from_secs(180), rx).await.ok().and_then(|r| r.ok()).flatten();
         state.decisions.lock().await.remove(&pid);
         let Some(perm) = decision else {
-            let _ = ws.send(Message::Text(tx.seal(&json!({"t":"denied"}).to_string()).into())).await;
+            let _ = ws.send(Message::Text(outbound.seal(&json!({"t":"denied"}).to_string()).into())).await;
             return Ok(());
         };
         device_id = URL_SAFE_NO_PAD.encode(rand_bytes::<12>());
@@ -221,7 +221,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
         list.push(Device { id: device_id.clone(), name, perm, added: now_ms(), last_seen: Some(now_ms()) });
         save_devices(&app, &list);
         let _ = app.emit("remote:devices", ());
-        ws.send(Message::Text(tx.seal(&json!({"t":"paired","device":device_id}).to_string()).into())).await.map_err(|e| e.to_string())?;
+        ws.send(Message::Text(outbound.seal(&json!({"t":"paired","device":device_id}).to_string()).into())).await.map_err(|e| e.to_string())?;
     }
 
     // 4. Sesja: żądania telefonu idą do interfejsu aplikacji, odpowiedzi i zdarzenia wracają zaszyfrowane.
@@ -229,7 +229,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
     state.conns.lock().await.insert(conn, Client { device: device_id.clone(), tx });
     let perm_of = |app: &AppHandle, id: &str| load_devices(app).into_iter().find(|d| d.id == id).map(|d| d.perm).unwrap_or_else(|| "view".into());
-    let _ = ws.send(Message::Text(tx.seal(&json!({"t":"ready","perm":perm_of(&app, &device_id),"device":device_id}).to_string()).into())).await;
+    let _ = ws.send(Message::Text(outbound.seal(&json!({"t":"ready","perm":perm_of(&app, &device_id),"device":device_id}).to_string()).into())).await;
     let _ = app.emit("remote:clients", ());
 
     let result: Result<(), String> = async {
@@ -241,7 +241,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
                         Some(Ok(Message::Close(_))) | None | Some(Err(_)) => break,
                         _ => continue,
                     };
-                    let Some(plain) = rx.open(&text) else { break };
+                    let Some(plain) = inbound.open(&text) else { break };
                     let req: Value = serde_json::from_str(&plain).map_err(|e| e.to_string())?;
                     if req["t"] != "req" { continue; }
                     let method = req["m"].as_str().unwrap_or("").to_string();
@@ -249,13 +249,13 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
                     if perm == "revoked" { break; }
                     if level(&perm) < needed(&method) {
                         let res = json!({"t":"res","id":req["id"],"ok":false,"error":"To urządzenie nie ma uprawnień do tej operacji."});
-                        ws.send(Message::Text(tx.seal(&res.to_string()).into())).await.map_err(|e| e.to_string())?;
+                        ws.send(Message::Text(outbound.seal(&res.to_string()).into())).await.map_err(|e| e.to_string())?;
                         continue;
                     }
                     let _ = app.emit("remote:req", json!({"conn": conn, "device": device_id, "perm": perm, "id": req["id"], "m": method, "p": req["p"]}));
                 }
                 out = rx.recv() => match out {
-                    Some(plain) => ws.send(Message::Text(tx.seal(&plain).into())).await.map_err(|e| e.to_string())?,
+                    Some(plain) => ws.send(Message::Text(outbound.seal(&plain).into())).await.map_err(|e| e.to_string())?,
                     None => break,
                 }
             }
