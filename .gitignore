@@ -10,3 +10,7 @@ dist/
 src-tauri/remote/node_modules/
 *.part
 .env
+
+# Aplikacja na Androida (mobile/): wyniki budowania; projekt gen/android jest w repozytorium
+mobile/src-tauri/target/
+mobile/src-tauri/gen/schemas/

@@ -3,8 +3,11 @@
 import { call, isTauri } from './ipc';
 import { app, ui, findTab, tabKind, parkTab, unparkTab, newTab, closeTab, notify } from './state.svelte';
 import * as sessions from './terminal/sessions.svelte';
-import { sendToAgent, resolveApproval } from './agent.svelte';
+import { sendToAgent, resolveApproval, stopAgent, agentState } from './agent.svelte';
+import { openSsh } from './hosts.svelte';
+import { BRAND } from './defaults';
 import { toHex } from './theme';
+import { flowRun, runFlow } from './workflow/engine.svelte';
 import type { RemoteDevice } from './types';
 
 export const remote = $state({
@@ -25,16 +28,24 @@ function color(v: string) {
   return toHex(m ? getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim() : v, '#888888');
 }
 
+/** Wersja protokołu aplikacji: 2 = powłoki, workflow, zatrzymanie agenta (aplikacja Hermitty na Androida). */
+const PROTOCOL = 2;
+
 function snapshot() {
   return {
+    v: PROTOCOL,
     activeWs: app.activeWs,
     workspaces: app.workspaces.map((w) => ({
-      id: w.id, name: w.name, color: color(w.color), activeTab: w.activeTab,
+      id: w.id, name: w.name, color: color(w.color), activeTab: w.activeTab, busy: !!agentState.busy[w.id],
       tabs: w.tabs.map((t) => { const k = tabKind(t); return { id: t.id, title: t.title, kind: t.kind, label: k.label, color: color(k.c) }; }),
     })),
     parked: app.parked.map((p) => ({ id: p.tab.id, title: p.tab.title, ws: p.wsName })),
   };
 }
+
+/** Zakładki workflow do uruchomienia z telefonu. */
+const flowsOf = () => app.workspaces.flatMap((w) => w.tabs.filter((t) => t.kind === 'flow' && t.flowId && app.flows[t.flowId])
+  .map((t) => ({ id: t.id, title: t.title, ws: w.id, wsName: w.name, nodes: app.flows[t.flowId!].nodes.length, running: !!flowRun.running[t.flowId!], byAgent: !!app.flows[t.flowId!].byAgent })));
 
 const chatOf = (wsId: string) => (app.workspaces.find((w) => w.id === wsId)?.chat || []).slice(-60).map((m) => ({ id: m.id, role: m.role, who: m.who, text: m.text, approve: m.approve }));
 
@@ -87,7 +98,33 @@ async function handle(r: { conn: number; device: string; perm: string; id: numbe
       }
       case 'park': parkTab(p.tab); return ok();
       case 'unpark': unparkTab(p.tab, false); return ok();
-      case 'newTab': newTab(String(p.shell || app.settings.defaultShell)); return ok();
+      case 'info': return ok({ v: PROTOCOL, app: BRAND.name, version: BRAND.version, defaultShell: app.settings.defaultShell });
+      case 'shells': return ok({
+        shells: ui.shells.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
+        hosts: app.hosts.map((h) => ({ id: h.id, name: h.name, addr: `${h.user}@${h.host}`, group: h.group })),
+      });
+      case 'newTab': {
+        const ws = app.workspaces.find((w) => w.id === p.ws);
+        if (ws) app.activeWs = ws.id;
+        const shell = String(p.shell || app.settings.defaultShell);
+        if (shell.startsWith('ssh:')) { const t = openSsh(shell.slice(4)); if (!t) throw new Error('Nie ma takiego hosta.'); return ok({ tab: t.id }); }
+        if (!ui.shells.some((s) => s.id === shell)) throw new Error(`Nieznana powłoka ${shell}`);
+        return ok({ tab: newTab(shell, ws?.id).id });
+      }
+      case 'stopAgent': stopAgent(String(p.ws)); return ok();
+      case 'flows': return ok(flowsOf());
+      case 'runFlow': {
+        const f = findTab(String(p.tab));
+        const flow = f?.tab.flowId ? app.flows[f.tab.flowId] : null;
+        if (!flow) throw new Error('Nie ma takiego workflow.');
+        if (flowRun.running[flow.id]) throw new Error('Ten workflow już działa.');
+        ok();
+        // Wynik przychodzi jako zdarzenie: workflow może działać dłużej niż limit odpowiedzi.
+        send(r.conn, { t: 'ev', e: 'flow', d: { tab: p.tab, state: 'running' } });
+        try { const result = await runFlow(flow, String(p.input || '')); send(r.conn, { t: 'ev', e: 'flow', d: { tab: p.tab, state: 'done', result: result.slice(0, 4000) } }); }
+        catch (e) { send(r.conn, { t: 'ev', e: 'flow', d: { tab: p.tab, state: 'error', result: String(e).replace(/^Error: /, '') } }); }
+        return;
+      }
       case 'closeTab': closeTab(p.tab); return ok();
       default: throw new Error(`Nieznana operacja ${r.m}`);
     }

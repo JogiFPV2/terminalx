@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "default",
+  "description": "Uprawnienia aplikacji na Androida",
+  "windows": ["main"],
+  "permissions": ["core:default", "barcode-scanner:default"],
+  "platforms": ["android", "iOS"]
+}

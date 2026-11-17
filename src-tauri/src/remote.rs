@@ -93,6 +93,11 @@ fn key_ref(id: &str) -> String {
     format!("remote-device:{id}")
 }
 
+/// Nazwa komputera pokazywana na telefonie (Windows: COMPUTERNAME).
+fn pc_name() -> String {
+    std::env::var("COMPUTERNAME").or_else(|_| std::env::var("HOSTNAME")).unwrap_or_else(|_| "Komputer".into())
+}
+
 /* ---------- addresses ---------- */
 
 fn is_private(ip: &std::net::Ipv4Addr) -> bool {
@@ -123,8 +128,8 @@ fn level(perm: &str) -> u8 {
 }
 fn needed(method: &str) -> u8 {
     match method {
-        "state" | "tail" | "subscribe" | "unsubscribe" | "chat" | "ping" => 1,
-        "write" | "resize" | "approve" | "park" | "unpark" | "focus" => 2,
+        "state" | "tail" | "subscribe" | "unsubscribe" | "chat" | "ping" | "info" | "shells" | "flows" => 1,
+        "write" | "resize" | "approve" | "park" | "unpark" | "focus" | "stopAgent" => 2,
         _ => 3, // agent, newTab, closeTab, runFlow i wszystko nowe
     }
 }
@@ -159,7 +164,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
     let state = app.state::<Arc<RemoteState>>();
     // 0. Wyzwanie komputera (jawnie). Klucze sesji zależą od niego, więc nagrana sesja nie zadziała ponownie.
     let cs = rand_bytes::<16>();
-    ws.send(Message::Text(json!({"t":"hi","v":2,"c":STANDARD.encode(cs)}).to_string().into())).await.map_err(|e| e.to_string())?;
+    ws.send(Message::Text(json!({"t":"hi","v":2,"c":STANDARD.encode(cs),"name":pc_name()}).to_string().into())).await.map_err(|e| e.to_string())?;
     let hello: Value = serde_json::from_str(&recv_text(&mut ws).await.ok_or("brak powitania")?).map_err(|e| e.to_string())?;
     let Some(cc) = hello["c"].as_str().and_then(|c| STANDARD.decode(c).ok()).filter(|c| c.len() == 16) else {
         let _ = ws.send(Message::Text(json!({"t":"error","msg":"Stara wersja strony. Odśwież stronę na telefonie."}).to_string().into())).await;

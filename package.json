@@ -11,10 +11,16 @@
     "app:dev": "tauri dev",
     "app:build": "tauri build",
     "plugins:pack": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/pack-plugins.ps1",
-    "test": "node --test \"tests/*.test.ts\""
+    "test": "node --test \"tests/*.test.ts\"",
+    "mobile:dev": "vite --config mobile/vite.config.ts",
+    "mobile:build": "vite build --config mobile/vite.config.ts",
+    "mobile:fake": "node mobile/dev/fake-pc.mjs",
+    "mobile:check": "svelte-check --tsconfig ./mobile/tsconfig.json",
+    "mobile:android": "tauri android build --config mobile/src-tauri/tauri.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.5.0",
+    "@tauri-apps/plugin-barcode-scanner": "^2.5.3",
     "@tauri-apps/plugin-dialog": "^2.2.2",
     "@tauri-apps/plugin-opener": "^2.2.7",
     "@tauri-apps/plugin-updater": "^2.14.1",
@@ -33,6 +39,7 @@
     "svelte": "^5.28.2",
     "svelte-check": "^4.1.7",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "ws": "^8.23.0"
   }
 }
