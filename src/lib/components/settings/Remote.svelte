@@ -3,6 +3,16 @@
   import qrcode from 'qrcode-generator';
   import { app } from '../../state.svelte';
   import { remote, startRemote, stopRemote, beginPair, setPerm, revoke, refreshStatus } from '../../remote.svelte';
+  import { call } from '../../ipc';
+  import { notify } from '../../state.svelte';
+
+  let fwBusy = $state(false);
+  async function firewall() {
+    fwBusy = true;
+    try { await call('remote_firewall_rule', { port: app.remote.port }); notify('Dodano regułę Zapory Windows dla sieci prywatnych', 'success'); }
+    catch (e) { notify(String((e as Error)?.message || e), 'error'); }
+    finally { fwBusy = false; }
+  }
 
   let now = $state(Date.now());
   let urlIdx = $state(0);
@@ -44,13 +54,22 @@
   <div><h3>Adresy</h3>
     <div class="list">{#each remote.addrs as a}<div class="lrow"><code class="k">{a}</code></div>{:else}<div class="lrow"><span class="hint">Brak adresów dla tego trybu.</span></div>{/each}</div>
     <p class="hint" style="margin-top:6px">Przy pierwszym włączeniu Windows może zapytać o zgodę zapory: zezwól na dostęp w sieciach prywatnych.</p>
+    <details class="trouble"><summary>Telefon nie może się połączyć?</summary>
+      <ol>
+        <li>Telefon i komputer muszą być w tej samej sieci Wi-Fi (nie sieć dla gości, nie dane komórkowe).</li>
+        <li>Otwórz w przeglądarce telefonu pierwszy adres z listy powyżej. Jeśli strona się nie wczytuje, ruch blokuje Zapora Windows albo router.</li>
+        <li>W Windows: Ustawienia → Sieć i Internet → Wi-Fi → właściwości sieci → profil <b>Prywatna</b> (w sieci „Publicznej” zapora blokuje połączenia).</li>
+        <li>Dodaj regułę zapory dla portu {app.remote.port} (Windows zapyta o zgodę administratora):
+          <button class="btn" style="margin-top:6px" disabled={fwBusy} onclick={firewall}><Icon name="shield" />Dodaj regułę zapory</button></li>
+      </ol>
+    </details>
   </div>
   <div><h3>Sparuj telefon</h3>
     {#if remote.pair && left > 0}
       <div class="pair">
         <div class="qr" aria-label="Kod QR do parowania">{@html qrSvg}</div>
         <div class="steps">
-          <ol><li>Zeskanuj kod aparatem telefonu.</li><li>Otwórz link w przeglądarce.</li><li>Potwierdź urządzenie na tym komputerze.</li></ol>
+          <ol><li>W aplikacji Hermitty na telefonie: Dodaj komputer → zeskanuj kod (albo aparatem i otwórz link w przeglądarce).</li><li>Potwierdź urządzenie na tym komputerze.</li></ol>
           <span class="hint">Kod jest jednorazowy i ważny jeszcze {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}.</span>
           {#if remote.pair.urls.length > 1}
             <select class="inp" bind:value={urlIdx} aria-label="Adres w kodzie">{#each remote.pair.urls as u, i}<option value={i}>{u.split('/#')[0]}</option>{/each}</select>
@@ -87,6 +106,9 @@
 </ul>
 
 <style>
+  .trouble { margin-top: 10px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; }
+  .trouble summary { cursor: pointer; font-weight: 500; }
+  .trouble ol { margin: 8px 0 2px; padding-left: 18px; display: grid; gap: 6px; color: var(--muted-foreground); }
   .modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
   .mode { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; text-align: left; display: flex; flex-direction: column; gap: 4px; }
   .mode b { font-weight: 500; }

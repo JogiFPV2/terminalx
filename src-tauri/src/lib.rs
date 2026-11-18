@@ -270,6 +270,7 @@ pub fn run() {
             remote::remote_stop,
             remote::remote_status,
             remote::remote_pair_begin,
+            remote::remote_firewall_rule,
             remote::remote_pair_decision,
             remote::remote_devices,
             remote::remote_set_perm,

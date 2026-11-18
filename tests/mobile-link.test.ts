@@ -85,3 +85,29 @@ test('nieznane urządzenie: komunikat i sygnał do usunięcia z listy', async ()
     assert.ok(forgotten);
   } finally { await pc.close(); }
 });
+
+test('martwy adres główny z kodu QR: parowanie idzie adresem zapasowym, a ten zostaje zapisany', async () => {
+  const pc = await startFakePc({ approve: async () => 'control' });
+  try {
+    const good = new URL(pc.pairLink());
+    const port = good.port;
+    // Adres główny wskazuje na zamknięty port (jak karta WSL/Hyper-V), właściwy jest w `a=`.
+    const link = `http://127.0.0.1:1${good.hash}&a=127.0.0.1:${port}`;
+    let saved: SavedPc | null = null;
+    const l = Link.fromPairLink(link, { paired: (p) => (saved = p) })!;
+    l.connect();
+    await until(() => l.state === 'ready');
+    assert.equal(saved!.url, `http://127.0.0.1:${port}`);
+    assert.deepEqual(saved!.alts, ['http://127.0.0.1:1']);
+    l.close();
+  } finally { await pc.close(); }
+});
+
+test('żaden adres nie odpowiada: czytelny komunikat zamiast czekania', async () => {
+  const l = Link.fromPairLink(`http://127.0.0.1:1/#p=a&k=${Buffer.alloc(32, 1).toString('base64url')}&a=127.0.0.1:2`, {})!;
+  l.connect();
+  await until(() => l.state === 'error');
+  assert.match(l.error, /Nie mogę połączyć się z komputerem \(127\.0\.0\.1:1, 127\.0\.0\.1:2\)/);
+  assert.match(l.error, /Zapora Windows/);
+  l.close();
+});

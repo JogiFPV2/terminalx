@@ -108,17 +108,29 @@ fn is_tailscale(ip: &std::net::Ipv4Addr) -> bool {
     let o = ip.octets();
     o[0] == 100 && (64..=127).contains(&o[1])
 }
+/// Kolejność adresów: najpierw zwykła sieć domowa (192.168, 10.x), na końcu karty wirtualne
+/// (WSL, Hyper-V, Docker, VirtualBox, VMware), których telefon i tak nie widzi.
+fn rank(name: &str, ip: &std::net::Ipv4Addr) -> u8 {
+    let n = name.to_lowercase();
+    let virt = ["vethernet", "wsl", "hyper-v", "docker", "virtualbox", "vmware", "vmnet", "vbox", "veth", "br-", "virbr", "zerotier", "hamachi"].iter().any(|v| n.contains(v));
+    let o = ip.octets();
+    let net = if o[0] == 192 && o[1] == 168 { 0 } else if o[0] == 10 { 1 } else { 2 };
+    if virt { 10 + net } else { net }
+}
+
 fn addresses(mode: &str) -> Vec<IpAddr> {
-    let mut out = Vec::new();
+    let mut out: Vec<(u8, IpAddr)> = Vec::new();
     for iface in if_addrs::get_if_addrs().unwrap_or_default() {
         if let IpAddr::V4(v4) = iface.ip() {
             if iface.is_loopback() { continue; }
             if (mode == "tailscale" && is_tailscale(&v4)) || (mode != "tailscale" && is_private(&v4)) {
-                out.push(IpAddr::V4(v4));
+                out.push((rank(&iface.name, &v4), IpAddr::V4(v4)));
             }
         }
     }
-    out
+    out.sort_by_key(|(r, _)| *r);
+    out.dedup_by_key(|(_, ip)| *ip);
+    out.into_iter().map(|(_, ip)| ip).collect()
 }
 
 /* ---------- permissions ---------- */
@@ -343,7 +355,16 @@ pub async fn remote_pair_begin(state: State<'_, Arc<RemoteState>>) -> Result<Pai
     pairs.retain(|_, p| p.expires > Instant::now());
     pairs.insert(pair_id.clone(), Pending { key, expires: Instant::now() + Duration::from_secs(300) });
     let k = URL_SAFE_NO_PAD.encode(key);
-    let urls = addrs.iter().map(|a| format!("{a}/#p={pair_id}&k={k}")).collect();
+    // W każdym linku także pozostałe adresy: telefon spróbuje wszystkich i zostanie przy tym, który odpowie.
+    let hosts: Vec<String> = addrs.iter().map(|a| a.trim_start_matches("http://").to_string()).collect();
+    let urls = addrs
+        .iter()
+        .map(|a| {
+            let me = a.trim_start_matches("http://");
+            let alt: Vec<&str> = hosts.iter().map(|h| h.as_str()).filter(|h| *h != me).collect();
+            if alt.is_empty() { format!("{a}/#p={pair_id}&k={k}") } else { format!("{a}/#p={pair_id}&k={k}&a={}", alt.join(",")) }
+        })
+        .collect();
     Ok(PairInfo { pair_id, key: k, urls, expires_in: 300 })
 }
 
@@ -386,4 +407,30 @@ pub async fn remote_send(state: State<'_, Arc<RemoteState>>, conn: Option<u64>, 
         None => for cl in conns.values() { let _ = cl.tx.send(msg.clone()); },
     }
     Ok(())
+}
+
+/// Reguła Zapory Windows dla portu zdalnego dostępu (sieci prywatne). Windows pyta o zgodę administratora (UAC).
+#[tauri::command]
+pub async fn remote_firewall_rule(port: u16) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        let args = format!("advfirewall firewall add rule name=Hermitty-zdalny-dostep-{port} dir=in action=allow protocol=TCP localport={port} profile=private");
+        let ps = format!("Start-Process -FilePath netsh -ArgumentList '{args}' -Verb RunAs -Wait -WindowStyle Hidden");
+        let out = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-Command", &ps])
+            .creation_flags(0x0800_0000)
+            .output()
+            .map_err(|e| e.to_string())?;
+        if !out.status.success() {
+            let err = String::from_utf8_lossy(&out.stderr);
+            return Err(if err.contains("canceled") || err.contains("anulowan") { "Anulowano zgodę administratora.".into() } else { format!("Nie udało się dodać reguły: {}", err.trim()) });
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = port;
+        Err("Reguła zapory jest potrzebna tylko na Windows.".into())
+    }
 }

@@ -24,7 +24,7 @@
     try { await req('closeTab', { tab: id }); } catch (e) { toast(msg(e)); }
   }
   const status = $derived(S.state === 'ready' ? 'ok' : S.state === 'connecting' || S.state === 'offline' ? 'wait' : 'bad');
-  const statusText = $derived({ ready: 'połączono', connecting: 'łączę…', offline: 'brak połączenia, ponawiam…', waiting: 'czekam na zgodę', denied: 'odrzucono', error: S.error || 'błąd', idle: 'rozłączono' }[S.state]);
+  const statusText = $derived({ ready: 'połączono', connecting: 'łączę…', offline: 'brak połączenia, ponawiam…', waiting: 'czekam na zgodę', denied: 'odrzucono', error: 'błąd połączenia', idle: 'rozłączono' }[S.state]);
 </script>
 
 <div class="app">
@@ -56,7 +56,8 @@
 
   <section class="content">
     {#if S.state !== 'ready' && !S.workspaces.length}
-      <div class="wait"><span class="dot {status}"></span>{statusText}</div>
+      <div class="wait"><span class="dot {status}"></span>{S.state === 'offline' ? 'brak połączenia, ponawiam…' : statusText}</div>
+      {#if S.error && (S.state === 'offline' || S.state === 'error')}<p class="why muted">{S.error}</p>{/if}
     {:else if S.view === 'term'}<Terminal />
     {:else if S.view === 'agent'}<Agent />
     {:else if S.view === 'flows'}<Flows />
@@ -75,6 +76,7 @@
 {#if S.sheet === 'newTab'}<Sheet title="Nowa zakładka" onclose={() => (S.sheet = null)}><NewTab /></Sheet>{/if}
 
 <style>
+  .why { margin: 12px 24px auto; text-align: center; font-size: 14px; line-height: 1.45; }
   .app { height: 100%; display: flex; flex-direction: column; padding-top: var(--safe-t); }
   .top { display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 4px; flex: none; }
   .top .ib:first-child :global(svg) { transform: rotate(180deg); }
@@ -95,7 +97,7 @@
   .x { display: grid; place-items: center; width: 22px; height: 22px; margin-right: -6px; border-radius: 50%; }
   .plus { padding: 0 10px !important; }
   .content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .wait { margin: auto; display: flex; align-items: center; gap: 10px; color: var(--muted-foreground); }
+  .wait { margin: auto auto 0; display: flex; align-items: center; gap: 10px; color: var(--muted-foreground); }
   .bottom { flex: none; display: grid; grid-template-columns: repeat(4, 1fr); padding: 6px 8px calc(6px + var(--safe-b)); border-top: 1px solid var(--border); background: var(--background); }
   .bottom button { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: none; font-size: 12px; color: var(--muted-foreground); padding: 4px 0; }
   .bottom i { position: relative; display: grid; place-items: center; width: 56px; height: 30px; border-radius: 999px; transition: background .25s ease; }

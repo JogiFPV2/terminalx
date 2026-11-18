@@ -61,7 +61,9 @@ test('moduł TS aplikacji mobilnej = Rust = klient w przeglądarce', () => {
 
 test('link do parowania z kodu QR', () => {
   const k = Buffer.alloc(32, 9).toString('base64url');
-  assert.deepEqual(M.parsePairLink(`http://192.168.1.24:7420/#p=Qm9v&k=${k}`), { url: 'http://192.168.1.24:7420', pair: 'Qm9v', key: k });
+  assert.deepEqual(M.parsePairLink(`http://192.168.1.24:7420/#p=Qm9v&k=${k}`), { url: 'http://192.168.1.24:7420', pair: 'Qm9v', key: k, alts: [] });
+  assert.deepEqual(M.parsePairLink(`http://192.168.1.24:7420/#p=Qm9v&k=${k}&a=172.20.1.1:7420,10.0.0.5:7420,bad host,192.168.1.24:7420`)?.alts,
+    ['http://172.20.1.1:7420', 'http://10.0.0.5:7420'], 'adresy zapasowe bez śmieci i bez głównego');
   assert.equal(M.parsePairLink('http://192.168.1.24:7420/'), null);
   assert.equal(M.parsePairLink(`http://x/#p=a&k=${Buffer.alloc(8).toString('base64url')}`), null, 'zły rozmiar klucza');
   assert.equal(M.parsePairLink('javascript:alert(1)#p=a&k=b'), null);

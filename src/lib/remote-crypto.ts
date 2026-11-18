@@ -46,12 +46,14 @@ export class Dir {
 export const randomBytes = (n: number) => nacl.randomBytes(n);
 
 /** Link z kodu QR na komputerze: http://adres:port/#p=<para>&k=<klucz>. */
-export function parsePairLink(text: string): { url: string; pair: string; key: string } | null {
+/** Link z kodu QR: adres główny, id parowania, klucz i adresy zapasowe komputera (`a=ip:port,…`). */
+export function parsePairLink(text: string): { url: string; pair: string; key: string; alts: string[] } | null {
   const m = text.trim().match(/^(https?):\/\/([^/#\s]+)\/?#(.+)$/);
   if (!m) return null;
   const h = new URLSearchParams(m[3]);
   const pair = h.get('p'), key = h.get('k');
   if (!pair || !key) return null;
   try { if (unb64(key).length !== 32) return null; } catch { return null; }
-  return { url: `${m[1]}://${m[2]}`, pair, key };
+  const alts = (h.get('a') || '').split(',').map((x) => x.trim()).filter((x) => /^[A-Za-z0-9.-]+(:\d{1,5})?$/.test(x) && x !== m[2]).slice(0, 8).map((x) => `${m[1]}://${x}`);
+  return { url: `${m[1]}://${m[2]}`, pair, key, alts };
 }
