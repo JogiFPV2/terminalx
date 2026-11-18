@@ -59,6 +59,10 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    // Lint przy buildzie release pobiera osobny zestaw narzędzi; aplikacja jest prosta (WebView + Rust), więc pomijamy.
+    lint {
+        checkReleaseBuilds = false
+    }
 }
 
 kotlin {

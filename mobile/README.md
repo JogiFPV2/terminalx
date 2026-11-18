@@ -28,7 +28,12 @@ Wymaga JDK 17+, Android SDK i NDK (`ANDROID_HOME`, `NDK_HOME`) oraz celów Rusta
 
 ```bash
 cd mobile
-npx tauri android build --debug --apk --target aarch64   # testowy APK podpisany kluczem debug
+npx tauri android build --apk --target aarch64     # release (ok. 7 MB), niepodpisany
+# podpis do instalacji ręcznej, np. kluczem debug:
+zipalign -f -p 4 src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk aligned.apk
+apksigner sign --ks ~/.android/debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --out Hermitty-Android.apk aligned.apk
 ```
 
-Wersję do wydania podpisuje się własnym kluczem (keystore) według dokumentacji Tauri; klucz debug wystarcza do instalacji ręcznej.
+`--debug` daje APK od razu podpisany kluczem debug, ale ok. 140 MB (biblioteka Rusta z symbolami).
+Wersję do wydania podpisuje się własnym kluczem (keystore) według dokumentacji Tauri. Aplikacja podpisana innym
+kluczem nie zainstaluje się „na” wersję testową: trzeba ją najpierw odinstalować.

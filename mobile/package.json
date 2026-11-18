@@ -1,0 +1,9 @@
+{
+  "name": "hermitty-mobile",
+  "private": true,
+  "type": "module",
+  "description": "Hermitty na Androida. Zależności są w package.json w katalogu głównym; ten plik sprawia, że `npm run tauri` (wołane przez Gradle) działa w mobile/ i trafia do mobile/src-tauri.",
+  "scripts": {
+    "tauri": "tauri"
+  }
+}
