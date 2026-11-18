@@ -8,7 +8,7 @@ const BASE = async (mode) => {
   const { app, ui, newTab, addWorkspace } = S;
   await document.fonts.ready;
   Object.assign(app.settings, { themeName: 'Pinsy', themeMode: mode, fontFamily: '"JetBrains Mono", monospace', fontSize: 13, lang: 'pl' });
-  for (const id of ['tx.phone', 'tx.sysmon']) { const r = app.plugins.find((p) => p.id === id); if (r) r.enabled = true; }
+  for (const id of ['tx.phone', 'tx.sysmon', 'tx.adb']) { const r = app.plugins.find((p) => p.id === id); if (r) r.enabled = true; }
   const q = app.plugins.find((p) => p.id === 'tx.quota'); if (q) q.enabled = false;
   app.hosts.push(
     { id: 'h1', name: 'prod-web-1', host: '10.0.0.21', port: 22, user: 'deploy', auth: 'key', keyPath: '~/.ssh/id_ed25519', secretRef: '', hasSecret: false, group: 'Produkcja', tags: ['prod', 'web'], distro: 'ubuntu', forwards: [], lastUsed: Date.now() - 6e5 },
@@ -74,6 +74,16 @@ const SCENES = {
   'remote-phone': async () => {
     const { app } = await import('/src/lib/state.svelte.ts');
     app.layout.collapsed['tx.notes'] = true; app.layout.collapsed['tx.keys'] = true; app.layout.collapsed['tx.bcgrnd_process'] = true; app.layout.side = 330;
+  },
+  'adb-side': async () => {
+    const { app } = await import('/src/lib/state.svelte.ts');
+    for (const k of ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.phone', 'tx.sysmon']) app.layout.collapsed[k] = true;
+    app.layout.side = 330;
+  },
+  'adb-pair': async () => {
+    const { app } = await import('/src/lib/state.svelte.ts');
+    for (const k of ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.phone', 'tx.sysmon']) app.layout.collapsed[k] = true;
+    app.layout.side = 330;
   },
   'remote-sms': async () => {
     const { app } = await import('/src/lib/state.svelte.ts');
@@ -153,6 +163,10 @@ const ACTIONS = {
   'term-windows': async (p) => { await p.click('button[title="Rozmieść okna kafelkowo"]').catch(() => {}); await p.waitForTimeout(600); },
   'flow-node': async (p) => { await p.locator('.node').nth(1).click(); await p.waitForTimeout(500); },
   'plug-palette': async (p) => { await p.keyboard.type('telefon', { delay: 30 }); await p.waitForTimeout(400); },
+  'adb-pair': async (p) => {
+    for (const f of p.frames()) { const t = f.getByRole('button', { name: 'Sparuj przez Wi-Fi' }); if (await t.count().catch(() => 0)) { await t.first().click(); break; } }
+    await p.waitForTimeout(800);
+  },
   'remote-sms': async (p) => {
     for (const f of p.frames()) { const t = f.getByRole('button', { name: /^SMS/ }); if (await t.count().catch(() => 0)) { await t.first().click(); break; } }
     await p.waitForTimeout(800);

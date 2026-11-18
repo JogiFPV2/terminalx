@@ -51,6 +51,12 @@
       devices: [{ id: 'ph1', name: 'Pixel 9', model: 'Google Pixel 9', added: now - 9e8, lastSeen: now, online: true, addr: '192.168.1.31',
         info: { battery: 82, charging: false, android: 15, perms: { notifications: true, sms: true, mic: true }, mic: true, rec: { recording: false } } }] }),
     phone_start: () => null,
+    adb_status: () => ({ adb: 'C:\\Users\\pawel\\AppData\\Roaming\\Hermitty\\tools\\platform-tools\\adb.exe', version: 'Android Debug Bridge version 1.0.41', scrcpy: null, canDownloadScrcpy: true }),
+    adb_devices: () => [{ serial: '192.168.1.31:41235', state: 'device', model: 'A059', product: 'Asteroids', wifi: true }, { serial: 'R5CT40ABCD', state: 'unauthorized', model: '', product: '', wifi: false }],
+    adb_info: () => ({ maker: 'Nothing', model: 'A059', android: '17', battery: '82', status: '3', screen: '1080x2392' }),
+    adb_qr_begin: () => ({ name: 'hermitty-k3m9xq', password: 'p4ss2word9', qr: 'WIFI:T:ADB;S:hermitty-k3m9xq;P:p4ss2word9;;' }),
+    adb_qr_poll: () => null,
+    adb_ls: () => [{ name: 'DCIM', path: '/sdcard/DCIM', isDir: true }, { name: 'Download', path: '/sdcard/Download', isDir: true }, { name: 'Music', path: '/sdcard/Music', isDir: true }, { name: 'notatki.txt', path: '/sdcard/notatki.txt', isDir: false }],
     phone_request: (a) => {
       if (a.method === 'notif.list') return [
         { key: 'n1', app: 'Slack', time: now - 4 * 60e3, title: 'Ola · #release', text: 'Build 0.2 przeszedł, wrzucam changelog?', clearable: true, actions: [{ i: 0, title: 'Odpowiedz', reply: true }, { i: 1, title: 'Oznacz jako przeczytane' }] },
