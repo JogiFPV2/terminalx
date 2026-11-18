@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, pair, disconnect, toast } from '../lib/store.svelte';
-  import { isTauri } from '../../../src/lib/ipc';
+  import Scanner from './Scanner.svelte';
 
   let text = $state('');
   let started = $state(false);
@@ -12,16 +12,8 @@
     started = true;
   }
 
-  async function scan() {
-    try {
-      const B = await import('@tauri-apps/plugin-barcode-scanner');
-      let p = await B.checkPermissions();
-      if (p !== 'granted') p = await B.requestPermissions();
-      if (p !== 'granted') { toast('Bez dostępu do aparatu wklej link poniżej.'); return; }
-      const r = await B.scan({ windowed: false, formats: [B.Format.QRCode] });
-      if (r?.content) { text = r.content; go(r.content); }
-    } catch (e) { toast(`Skanowanie nie zadziałało: ${String(e)}`); }
-  }
+  let scanning = $state(false);
+  const camera = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 </script>
 
 {#if busy || (started && (S.state === 'denied' || S.state === 'error'))}
@@ -40,11 +32,13 @@
   </div>
 {:else}
   <p class="muted">Na komputerze: Hermitty → Ustawienia → <b>Zdalny dostęp</b> → <b>Sparuj telefon</b>. Pokaże się kod QR ważny 5 minut.</p>
-  {#if isTauri}<button class="btn pri wide" onclick={scan}><Icon name="search" size={18} />Zeskanuj kod QR</button>{/if}
-  <label class="lbl" for="link">{isTauri ? 'albo wklej link spod kodu' : 'Link spod kodu QR'}</label>
+  {#if camera}<button class="btn pri wide" onclick={() => (scanning = true)}><Icon name="search" size={18} />Zeskanuj kod QR</button>{/if}
+  <label class="lbl" for="link">{camera ? 'albo wklej link spod kodu' : 'Link spod kodu QR'}</label>
   <textarea id="link" class="inp mono" rows="3" bind:value={text} placeholder="http://192.168.1.24:7420/#p=…&k=…" spellcheck="false" autocapitalize="off"></textarea>
   <button class="btn wide" disabled={!text.trim()} onclick={() => go()}>Sparuj</button>
 {/if}
+
+{#if scanning}<Scanner onresult={(t) => { scanning = false; text = t; go(t); }} onclose={() => (scanning = false)} />{/if}
 
 <style>
   .wide { width: 100%; margin-top: 12px; }

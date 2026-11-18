@@ -3,6 +3,6 @@
   "identifier": "default",
   "description": "Uprawnienia aplikacji na Androida",
   "windows": ["main"],
-  "permissions": ["core:default", "barcode-scanner:default"],
+  "permissions": ["core:default"],
   "platforms": ["android", "iOS"]
 }
