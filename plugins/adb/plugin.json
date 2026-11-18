@@ -1,0 +1,20 @@
+{
+  "id": "tx.adb",
+  "name": "Android (ADB)",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "author": "Hermitty",
+  "description": "Telefon z Androidem przez debugowanie bezprzewodowe (ADB): parowanie kodem QR, zrzut i podgląd ekranu na żywo (scrcpy), pliki w obie strony, instalacja APK i komendy powłoki. Uzupełnia wtyczkę Telefon. ADB i scrcpy pobierze sama, jeśli ich nie ma.",
+  "icon": "phone",
+  "permissions": ["ui:sidebar", "ui:commands", "notifications", "adb"],
+  "contributes": {
+    "sidebar": [{ "id": "adb", "title": "Android (ADB)", "icon": "phone" }],
+    "commands": [
+      { "id": "adb.pair", "title": "Android: sparuj przez Wi-Fi (ADB)" },
+      { "id": "adb.mirror", "title": "Android: podgląd ekranu na żywo (scrcpy)" },
+      { "id": "adb.install", "title": "Android: zainstaluj APK" }
+    ]
+  },
+  "config": {}
+}

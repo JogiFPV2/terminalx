@@ -1,3 +1,4 @@
+mod adb;
 mod ai;
 mod local;
 mod media;
@@ -271,6 +272,23 @@ pub fn run() {
             remote::remote_status,
             remote::remote_pair_begin,
             remote::remote_firewall_rule,
+            adb::adb_status,
+            adb::adb_get_tools,
+            adb::adb_devices,
+            adb::adb_pair,
+            adb::adb_connect,
+            adb::adb_disconnect,
+            adb::adb_qr_begin,
+            adb::adb_qr_poll,
+            adb::adb_shell,
+            adb::adb_info,
+            adb::adb_screenshot,
+            adb::adb_ls,
+            adb::adb_pull,
+            adb::adb_push,
+            adb::adb_install,
+            adb::adb_mirror,
+            adb::adb_reveal,
             remote::remote_pair_decision,
             remote::remote_devices,
             remote::remote_set_perm,

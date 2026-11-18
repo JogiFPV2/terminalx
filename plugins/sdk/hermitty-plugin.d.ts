@@ -23,7 +23,8 @@ export type Permission =
   | 'tabs:manage'
   | 'ui:tabmenu'
   | 'vault:keys'                // tylko pluginy wbudowane w aplikację; import .zip je odrzuca
-  | 'phone';                    // tylko wbudowane: mostek do aplikacji Hermitty na Androida
+  | 'phone'                     // tylko wbudowane: mostek do aplikacji Hermitty na Androida
+  | 'adb';                      // tylko wbudowane: Android przez ADB (pliki, ekran, instalacja APK)
 
 export interface Disposable { dispose(): void }
 
@@ -213,6 +214,34 @@ export interface TxApi {
   };
   /** Mostek do aplikacji Hermitty na Androida ('phone', tylko wbudowane). Kody jednorazowe z SMS-ów
    *  i powiadomień telefon maskuje przed wysłaniem, chyba że użytkownik zezwoli na nie w aplikacji. */
+  /** Android przez ADB ('adb', tylko wbudowane). `serial` to identyfikator z devices(). */
+  adb: {
+    status(): Promise<{ adb: string | null; version: string; scrcpy: string | null; canDownloadScrcpy: boolean }>;
+    /** Pobiera platform-tools Google albo scrcpy do folderu danych aplikacji. */
+    getTools(which: 'adb' | 'scrcpy'): Promise<string>;
+    devices(): Promise<{ serial: string; state: string; model: string; product: string; wifi: boolean }[]>;
+    pair(addr: string, code: string): Promise<string>;
+    connect(addr: string): Promise<string>;
+    disconnect(serial: string): Promise<void>;
+    /** Kod QR jak w Android Studio (Debugowanie bezprzewodowe → Sparuj za pomocą kodu QR). */
+    qrBegin(): Promise<{ name: string; password: string; qr: string; qrSvg: string }>;
+    /** null, dopóki telefon nie zeskanuje kodu; potem wynik parowania. */
+    qrPoll(name: string, password: string): Promise<string | null>;
+    shell(serial: string, command: string): Promise<{ code: number | null; output: string }>;
+    info(serial: string): Promise<{ maker: string; model: string; android: string; battery: string; status: string; screen: string }>;
+    /** Zrzut ekranu jako data:image/png. */
+    screenshot(serial: string): Promise<string>;
+    ls(serial: string, path: string): Promise<{ name: string; path: string; isDir: boolean }[]>;
+    /** Do Pobrane/Hermitty; zwraca ścieżkę na komputerze. */
+    pull(serial: string, remote: string): Promise<string>;
+    /** Okno wyboru plików, potem wysyłka do folderu na telefonie. */
+    push(serial: string, remoteDir: string): Promise<string[]>;
+    /** Okno wyboru APK, potem instalacja; null, gdy anulowano. */
+    install(serial: string): Promise<string | null>;
+    /** Podgląd i sterowanie ekranem w oknie scrcpy. */
+    mirror(serial: string): Promise<void>;
+    reveal(path: string): Promise<void>;
+  };
   phone: {
     start(port: number): Promise<void>;
     stop(): Promise<void>;

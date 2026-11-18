@@ -33,8 +33,9 @@ export const KNOWN_PERMS: Record<string, { label: string; risk: 0 | 1 | 2 }> = {
   'shell:exec': { label: 'Uruchamianie procesów', risk: 2 },
   'vault:keys': { label: 'Sejf kluczy API (tylko wbudowane)', risk: 2 },
   'phone': { label: 'Telefon: SMS-y, powiadomienia i dyktafon (tylko wbudowane)', risk: 2 },
+  'adb': { label: 'Android przez ADB: pliki, ekran, instalacja aplikacji (tylko wbudowane)', risk: 2 },
 };
-export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:', 'ai:plans', 'phone'];
+export const FORBIDDEN = ['secrets', 'keychain', 'credentials', 'keystrokes', 'clipboard:read', 'providers:keys', 'vault:', 'ai:plans', 'phone', 'adb'];
 
 export interface LoadedPlugin { manifest: PluginManifest; code: string; builtin: boolean }
 export interface SectionReg { pluginId: string; id: string; title: string; icon: string; actions: { id: string; icon: string; title: string }[]; badge: number | null; acceptsTabs: boolean }
@@ -74,12 +75,12 @@ export async function loadPlugins() {
       if (i >= 0) list[i] = entry; else list.push(entry);
     } catch { /* uszkodzony manifest pomijamy */ }
   }
-  // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów, Pomodoro i Telefonu).
+  // Kolejność: jak w zapisanym stanie, nowe na końcu; wbudowane domyślnie włączone (oprócz Portów, Pomodoro, Telefonu i ADB).
   const order = app.plugins.length ? app.plugins.map((r) => r.id) : ['tx.notes', 'tx.keys', 'tx.bcgrnd_process', 'tx.quota', 'tx.sysmon', 'tx.ports', 'tx.pomodoro'];
   list.sort((a, b) => (order.indexOf(a.manifest.id) + 1 || 999) - (order.indexOf(b.manifest.id) + 1 || 999));
   for (const p of list) {
     if (!app.plugins.some((r) => r.id === p.manifest.id)) {
-      app.plugins.push({ id: p.manifest.id, enabled: p.builtin && !['tx.ports', 'tx.pomodoro', 'tx.phone'].includes(p.manifest.id), config: {}, builtin: p.builtin });
+      app.plugins.push({ id: p.manifest.id, enabled: p.builtin && !['tx.ports', 'tx.pomodoro', 'tx.phone', 'tx.adb'].includes(p.manifest.id), config: {}, builtin: p.builtin });
     }
   }
   plug.loaded = list;
@@ -168,7 +169,7 @@ export function broadcastTheme() { const css = themeCss(); for (const id of runt
 function hasPerm(pluginId: string, perm: string) {
   const lp = loaded(pluginId), perms = lp?.manifest.permissions || [];
   // Sejf kluczy: tylko pluginy dostarczone z aplikacją (import .zip i tak odrzuca to uprawnienie).
-  if (perm === 'vault:keys' || perm === 'ai:plans' || perm === 'phone') return !!lp?.builtin && perms.includes(perm);
+  if (perm === 'vault:keys' || perm === 'ai:plans' || perm === 'phone' || perm === 'adb') return !!lp?.builtin && perms.includes(perm);
   if (perm === 'net:localhost') return perms.includes('net:localhost') || perms.includes('net:*');
   return perms.includes(perm);
 }
@@ -214,6 +215,7 @@ const NEEDS: Record<string, string | null> = {
   'ai.complete': 'ai:invoke', 'ai.usage': 'ai:usage', 'ai.balance': 'ai:usage', 'ai.plan': 'ai:plans', 'ai.accounts': 'ai:plans',
   'keys.add': 'vault:keys', 'keys.masked': 'vault:keys', 'keys.copy': 'vault:keys', 'keys.delete': 'vault:keys',
   ...Object.fromEntries(['start', 'stop', 'status', 'pair', 'cancelPair', 'unpair', 'request', 'files', 'audio', 'transcribe', 'deleteFile', 'reveal'].map((m) => [`phone.${m}`, 'phone'])),
+  ...Object.fromEntries(['status', 'getTools', 'devices', 'pair', 'connect', 'disconnect', 'qrBegin', 'qrPoll', 'shell', 'info', 'screenshot', 'ls', 'pull', 'push', 'install', 'mirror', 'reveal'].map((m) => [`adb.${m}`, 'adb'])),
 };
 
 /** Klucz w sejfie: przestrzeń pluginu + jego własny identyfikator. */
@@ -389,6 +391,30 @@ async function handle(pluginId: string, method: string, a: any): Promise<unknown
     case 'phone.transcribe': return transcribeData(await call<string>('phone_file_read', { path: String(a.path) }), 'audio/ogg');
     case 'phone.deleteFile': await call('phone_file_delete', { path: String(a.path) }); return null;
     case 'phone.reveal': await call('phone_file_reveal', { path: String(a.path) }); return null;
+    // Android przez ADB (adb.rs). Urządzenie to `serial` z adb.devices.
+    case 'adb.status': return call('adb_status');
+    case 'adb.getTools': return call('adb_get_tools', { which: a.which === 'scrcpy' ? 'scrcpy' : 'adb' });
+    case 'adb.devices': return call('adb_devices');
+    case 'adb.pair': return call('adb_pair', { addr: String(a.addr), code: String(a.code) });
+    case 'adb.connect': return call('adb_connect', { addr: String(a.addr) });
+    case 'adb.disconnect': await call('adb_disconnect', { serial: String(a.serial) }); return null;
+    case 'adb.qrBegin': {
+      const p = await call<{ name: string; password: string; qr: string }>('adb_qr_begin');
+      const qr = qrcode(0, 'M');
+      qr.addData(p.qr);
+      qr.make();
+      return { ...p, qrSvg: qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }) };
+    }
+    case 'adb.qrPoll': return call('adb_qr_poll', { name: String(a.name), password: String(a.password) });
+    case 'adb.shell': return call('adb_shell', { serial: String(a.serial), command: String(a.command) });
+    case 'adb.info': return call('adb_info', { serial: String(a.serial) });
+    case 'adb.screenshot': return `data:image/png;base64,${await call<string>('adb_screenshot', { serial: String(a.serial) })}`;
+    case 'adb.ls': return call('adb_ls', { serial: String(a.serial), path: String(a.path || '') });
+    case 'adb.pull': return call('adb_pull', { serial: String(a.serial), remote: String(a.remote) });
+    case 'adb.push': return call('adb_push', { serial: String(a.serial), remoteDir: String(a.remoteDir) });
+    case 'adb.install': return call('adb_install', { serial: String(a.serial) });
+    case 'adb.mirror': await call('adb_mirror', { serial: String(a.serial) }); return null;
+    case 'adb.reveal': await call('adb_reveal', { path: String(a.path) }); return null;
     case 'ai.complete': {
       const r = await complete({ providerId: a.provider || null, model: a.model || null, system: a.system, messages: [{ role: 'user', content: String(a.prompt || '') }], maxTokens: a.maxTokens || 4000 });
       return r.text;
