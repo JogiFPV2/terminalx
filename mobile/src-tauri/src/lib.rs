@@ -3,6 +3,7 @@
 //! Sekrety (klucze komputerów, klucz AI, hasła SSH) trzyma `secret` w Android Keystore.
 //! `ssh` łączy telefon z serwerami bezpośrednio, bez komputera.
 
+mod ai;
 mod secret;
 mod ssh;
 #[cfg(all(debug_assertions, desktop))]
@@ -25,6 +26,8 @@ pub fn run() {
             ssh::ssh_pubkey,
             ssh::ssh_import_key,
             ssh::ssh_forget_hostkey,
+            ssh::ssh_exec,
+            ai::ai_request,
         ])
         .setup(|_app| {
             #[cfg(all(debug_assertions, desktop))]

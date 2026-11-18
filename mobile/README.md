@@ -12,8 +12,11 @@ SSH z telefonu (sekcja „Ten telefon”): serwery z hasłem albo kluczem (gener
 potwierdzanie klucza serwera przy pierwszym połączeniu, terminal dopasowany do ekranu. Rdzeń: `src-tauri/src/ssh.rs`.
 Test bez telefonu (wersja debug na komputerze, potrzebny serwer SSH):
 
+Agent AI na telefonie: Anthropic, OpenAI, OpenRouter, Google, Ollama albo serwer zgodny z OpenAI; klucz w sejfie,
+zapytania z Rusta (`src-tauri/src/ai.rs`). Narzędzia: `list_servers` i `run_command` (każda komenda za zgodą).
+
 ```sh
-HERMITTY_SSH_SELFTEST='127.0.0.1:2222:uzytkownik:haslo' xvfb-run -a mobile/src-tauri/target/debug/hermitty-mobile
+HERMITTY_AI_SELFTEST=http://127.0.0.1:7799 HERMITTY_SSH_SELFTEST='127.0.0.1:2222:uzytkownik:haslo' xvfb-run -a mobile/src-tauri/target/debug/hermitty-mobile
 ```
 
 ## Jak połączyć

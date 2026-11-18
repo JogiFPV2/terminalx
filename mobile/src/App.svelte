@@ -10,6 +10,9 @@
   import SshHost from './components/SshHost.svelte';
   import HostKey from './components/HostKey.svelte';
   import { SSH, hostById } from './lib/ssh.svelte';
+  import LocalAgent from './components/LocalAgent.svelte';
+  import AgentSettings from './components/AgentSettings.svelte';
+  import { AG } from './lib/agent.svelte';
 
   onMount(() => {
     theme();
@@ -20,11 +23,12 @@
   });
 </script>
 
-{#if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
+{#if AG.open}<LocalAgent />{:else if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
 
 {#if S.sheet === 'pair'}<Sheet title="Dodaj komputer" onclose={() => (S.sheet = null)}><Pair /></Sheet>{/if}
 {#if S.sheet === 'settings'}<Sheet title="Ustawienia" onclose={() => (S.sheet = null)}><Settings /></Sheet>{/if}
 {#if SSH.edit}<Sheet title={SSH.edit === 'new' ? 'Nowy serwer SSH' : 'Serwer SSH'} onclose={() => (SSH.edit = null)}><SshHost /></Sheet>{/if}
+{#if AG.settings}<Sheet title="Agent AI" onclose={() => (AG.settings = false)}><AgentSettings /></Sheet>{/if}
 <HostKey />
 {#if S.toast}<div class="toast" role="status">{S.toast}</div>{/if}
 

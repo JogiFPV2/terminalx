@@ -2,6 +2,7 @@
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, open, forget } from '../lib/store.svelte';
   import { SSH } from '../lib/ssh.svelte';
+  import { AG } from '../lib/agent.svelte';
 
   const ago = (t?: number) => {
     if (!t) return 'jeszcze nie';
@@ -66,6 +67,11 @@
     </ul>
   {/if}
   <button class="btn add2" onclick={() => (SSH.edit = 'new')}><Icon name="plus" size={18} />Dodaj serwer SSH</button>
+  <button class="agent" onclick={() => (AG.open = true)}>
+    <i><Icon name="bot" size={22} /></i>
+    <span><b>Agent AI</b><small>Rozmowa z AI, która wykonuje komendy na tych serwerach za Twoją zgodą</small></span>
+    <Icon name="chev" size={18} />
+  </button>
 </main>
 
 <style>
@@ -88,4 +94,9 @@
   .add { width: 100%; min-height: 52px; font-size: 16px; margin-top: 16px; }
   h2 { font: 500 24px/1.1 var(--font-mono); letter-spacing: -0.03em; margin: 36px 0 6px; }
   .add2 { width: 100%; min-height: 48px; margin-top: 10px; }
+  .agent { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 14px; border: 0; border-radius: 20px; background: var(--card); text-align: left; width: 100%; }
+  .agent i { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; flex: none; }
+  .agent span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .agent b { font-weight: 600; font-size: 16px; }
+  .agent small { color: var(--muted-foreground); font-size: 12.5px; }
 </style>

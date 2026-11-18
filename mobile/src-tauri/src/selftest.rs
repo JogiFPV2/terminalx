@@ -56,8 +56,25 @@ pub fn run(app: AppHandle, spec: String) {
             ], "HERMITTY_42").await?;
             println!("SELFTEST password OK");
             let key = HostCfg { id: "t2".into(), host, port, user, auth: "key".into() };
-            session(&app, key, vec!["echo KEY_$((6*7))".into()], "KEY_42").await?;
+            session(&app, key.clone(), vec!["echo KEY_$((6*7))".into()], "KEY_42").await?;
             println!("SELFTEST key OK");
+            let r = ssh::ssh_exec(app.clone(), key, "echo EXEC_$((1+1)); echo err >&2; exit 3".into(), Some(10)).await?;
+            if r.code != Some(3) || !r.output.contains("EXEC_2") || !r.output.contains("err") { return Err(format!("exec: {:?} {}", r.code, r.output)); }
+            println!("SELFTEST exec OK");
+            if let Ok(url) = std::env::var("HERMITTY_AI_SELFTEST") {
+                crate::secret::write(&app, crate::ai::key_name("main"), "sk-selftest".into()).await?;
+                let p = |kind: &str| crate::ai::ProviderRef { id: "main".into(), kind: kind.into(), url: url.clone() };
+                let a = crate::ai::ai_request(app.clone(), p("anthropic"), "POST".into(), "/v1/messages".into(), Some(serde_json::json!({"x": 1}))).await?;
+                let o = crate::ai::ai_request(app.clone(), p("openai"), "POST".into(), "/chat/completions".into(), None).await?;
+                if a["x-api-key"] != "sk-selftest" || a["anthropic-version"] != "2023-06-01" || a["body"]["x"] != 1 || o["authorization"] != "Bearer sk-selftest" {
+                    return Err(format!("ai: {a} {o}"));
+                }
+                match crate::ai::ai_request(app.clone(), p("openai"), "GET".into(), "/err".into(), None).await {
+                    Err(e) if e.contains("zły klucz") => println!("SELFTEST ai-error OK: {e}"),
+                    other => return Err(format!("ai-error: {other:?}")),
+                }
+                println!("SELFTEST ai OK");
+            }
             let bad = HostCfg { id: "nope".into(), host: "127.0.0.1".into(), port, user: "x".into(), auth: "password".into() };
             match session(&app, bad, vec![], "").await {
                 Err(e) => println!("SELFTEST missing-secret OK: {e}"),

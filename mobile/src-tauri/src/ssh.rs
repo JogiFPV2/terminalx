@@ -164,6 +164,7 @@ pub async fn answer(st: &SshState, req_id: u32, ok: bool) {
     }
 }
 
+#[allow(dead_code)]
 pub async fn send(st: &SshState, id: u32, data: &str) {
     if let Some(tx) = st.shells.lock().await.get(&id) {
         let _ = tx.send(ShellCmd::Data(data.as_bytes().to_vec()));
@@ -300,4 +301,43 @@ pub async fn ssh_forget_hostkey(app: AppHandle, host: String, port: u16) -> Resu
     known.remove(&format!("[{host}]:{port}"));
     save_known(&app, &known);
     Ok(())
+}
+
+#[derive(Serialize)]
+pub struct ExecOut {
+    pub code: Option<u32>,
+    pub output: String,
+    pub truncated: bool,
+}
+
+/// Jedna komenda bez interaktywnej powłoki (dla agenta AI). Wyjście łączone (stdout + stderr), ucięte do 60 kB.
+#[tauri::command]
+pub async fn ssh_exec(app: AppHandle, host: HostCfg, command: String, timeout_secs: Option<u64>) -> Result<ExecOut, String> {
+    const MAX: usize = 60 * 1024;
+    let handle = connect(&app, &host).await?;
+    let mut ch = handle.channel_open_session().await.map_err(|e| e.to_string())?;
+    ch.exec(true, command.as_bytes()).await.map_err(|e| e.to_string())?;
+    let mut out: Vec<u8> = Vec::new();
+    let mut code = None;
+    let mut truncated = false;
+    let limit = Duration::from_secs(timeout_secs.unwrap_or(120).clamp(5, 900));
+    let res = tokio::time::timeout(limit, async {
+        while let Some(msg) = ch.wait().await {
+            match msg {
+                ChannelMsg::Data { data } | ChannelMsg::ExtendedData { data, .. } => {
+                    if out.len() < MAX { out.extend_from_slice(&data[..data.len().min(MAX - out.len())]); }
+                    if out.len() >= MAX { truncated = true; }
+                }
+                ChannelMsg::ExitStatus { exit_status } => code = Some(exit_status),
+                _ => {}
+            }
+        }
+    })
+    .await;
+    let _ = handle.disconnect(Disconnect::ByApplication, "", "pl").await;
+    let mut output = String::from_utf8_lossy(&out).into_owned();
+    if res.is_err() {
+        output.push_str(&format!("\n[przerwano po {} s]", limit.as_secs()));
+    }
+    Ok(ExecOut { code, output, truncated })
 }
