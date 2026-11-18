@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, open, forget } from '../lib/store.svelte';
+  import { SSH } from '../lib/ssh.svelte';
 
   const ago = (t?: number) => {
     if (!t) return 'jeszcze nie';
@@ -47,6 +48,24 @@
   {/if}
 
   <button class="btn pri add" onclick={() => (S.sheet = 'pair')}><Icon name="plus" size={18} />Dodaj komputer</button>
+
+  <h2>Ten telefon</h2>
+  <p class="muted lede">Serwery SSH, z którymi telefon łączy się sam, bez komputera.</p>
+  {#if SSH.hosts.length}
+    <ul class="pcs">
+      {#each SSH.hosts as h (h.id)}
+        <li>
+          <button class="pc" onclick={() => (SSH.open = h.id)}>
+            <i><Icon name="ssh" size={22} /></i>
+            <span><b>{h.name}</b><small class="mono">{h.user}@{h.host}{h.port !== 22 ? `:${h.port}` : ''}</small><small>{h.auth === 'key' ? 'klucz' : 'hasło'} · ostatnio: {ago(h.lastUsed)}</small></span>
+            <Icon name="chev" size={18} />
+          </button>
+          <button class="ib more" aria-label="Edytuj: {h.name}" onclick={() => (SSH.edit = h.id)}><Icon name="edit" size={18} /></button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+  <button class="btn add2" onclick={() => (SSH.edit = 'new')}><Icon name="plus" size={18} />Dodaj serwer SSH</button>
 </main>
 
 <style>
@@ -66,5 +85,7 @@
   .opts { grid-column: 1 / -1; padding: 0 14px 14px; }
   .empty { background: var(--card); border-radius: 20px; padding: 18px 20px; }
   .empty ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
-  .add { margin-top: auto; width: 100%; min-height: 52px; font-size: 16px; }
+  .add { width: 100%; min-height: 52px; font-size: 16px; margin-top: 16px; }
+  h2 { font: 500 24px/1.1 var(--font-mono); letter-spacing: -0.03em; margin: 36px 0 6px; }
+  .add2 { width: 100%; min-height: 48px; margin-top: 10px; }
 </style>

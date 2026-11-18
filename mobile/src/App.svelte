@@ -6,6 +6,10 @@
   import Sheet from './components/Sheet.svelte';
   import Pair from './components/Pair.svelte';
   import Settings from './components/Settings.svelte';
+  import LocalTerm from './components/LocalTerm.svelte';
+  import SshHost from './components/SshHost.svelte';
+  import HostKey from './components/HostKey.svelte';
+  import { SSH, hostById } from './lib/ssh.svelte';
 
   onMount(() => {
     theme();
@@ -16,10 +20,12 @@
   });
 </script>
 
-{#if S.cur}<Session />{:else}<Pcs />{/if}
+{#if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
 
 {#if S.sheet === 'pair'}<Sheet title="Dodaj komputer" onclose={() => (S.sheet = null)}><Pair /></Sheet>{/if}
 {#if S.sheet === 'settings'}<Sheet title="Ustawienia" onclose={() => (S.sheet = null)}><Settings /></Sheet>{/if}
+{#if SSH.edit}<Sheet title={SSH.edit === 'new' ? 'Nowy serwer SSH' : 'Serwer SSH'} onclose={() => (SSH.edit = null)}><SshHost /></Sheet>{/if}
+<HostKey />
 {#if S.toast}<div class="toast" role="status">{S.toast}</div>{/if}
 
 <style>

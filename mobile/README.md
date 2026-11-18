@@ -8,6 +8,14 @@ Etap 2 (w toku): sekrety w Android Keystore. Klucze sparowanych komputerów (a p
 szyfruje klucz AES-GCM, którego nie da się wyjąć z telefonu (`gen/android/.../KeystorePlugin.kt`, `src-tauri/src/secret.rs`,
 `src/lib/secrets.ts`). Starsze wpisy z kluczem w localStorage przenoszą się same przy pierwszym uruchomieniu.
 
+SSH z telefonu (sekcja „Ten telefon”): serwery z hasłem albo kluczem (generowany ed25519 lub wklejony OpenSSH/PuTTY),
+potwierdzanie klucza serwera przy pierwszym połączeniu, terminal dopasowany do ekranu. Rdzeń: `src-tauri/src/ssh.rs`.
+Test bez telefonu (wersja debug na komputerze, potrzebny serwer SSH):
+
+```sh
+HERMITTY_SSH_SELFTEST='127.0.0.1:2222:uzytkownik:haslo' xvfb-run -a mobile/src-tauri/target/debug/hermitty-mobile
+```
+
 ## Jak połączyć
 
 1. Na komputerze: Hermitty → Ustawienia → **Zdalny dostęp** → włącz → **Sparuj telefon**.

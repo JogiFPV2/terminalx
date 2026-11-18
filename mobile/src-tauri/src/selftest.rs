@@ -1,0 +1,74 @@
+//! Test SSH bez telefonu (tylko wersja debug na komputerze): HERMITTY_SSH_SELFTEST=host:port:user:hasło.
+//! Loguje się hasłem, potem generuje klucz ed25519, dopisuje go przez tę samą sesję do authorized_keys
+//! i loguje się kluczem. Klucz serwera akceptuje automatycznie. Wynik: linie SELFTEST na stdout i kod wyjścia.
+
+use crate::ssh::{self, HostCfg, ShellEvent, SshState};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tauri::{AppHandle, Listener, Manager};
+
+async fn session(app: &AppHandle, cfg: HostCfg, script: Vec<String>, expect: &str) -> Result<String, String> {
+    let st = app.state::<Arc<SshState>>().inner().clone();
+    let out = Arc::new(Mutex::new(String::new()));
+    let (done_tx, mut done_rx) = tokio::sync::mpsc::unbounded_channel::<Option<String>>();
+    let o = out.clone();
+    let id = ssh::start_shell(app.clone(), st.clone(), cfg, 100, 30, move |e| {
+        match e {
+            ShellEvent::Data { data } => o.lock().unwrap().push_str(&data),
+            ShellEvent::Exit { error, .. } => { let _ = done_tx.send(error); }
+        }
+        true
+    })
+    .await?;
+    tokio::time::sleep(Duration::from_secs(3)).await;
+    for line in script {
+        ssh::send(&st, id, &format!("{line}\n")).await;
+        tokio::time::sleep(Duration::from_millis(700)).await;
+    }
+    ssh::send(&st, id, "exit\n").await;
+    let err = tokio::time::timeout(Duration::from_secs(20), done_rx.recv()).await.map_err(|_| "brak końca sesji".to_string())?.flatten();
+    let text = out.lock().unwrap().clone();
+    if let Some(e) = err { return Err(e); }
+    if !text.contains(expect) { return Err(format!("brak „{expect}” w wyjściu:\n{text}")); }
+    Ok(text)
+}
+
+pub fn run(app: AppHandle, spec: String) {
+    let st = app.state::<Arc<SshState>>().inner().clone();
+    app.listen("ssh:hostkey", move |ev| {
+        let v: serde_json::Value = serde_json::from_str(ev.payload()).unwrap_or_default();
+        println!("SELFTEST hostkey {} {}", v["algorithm"], v["fingerprint"]);
+        let id = v["reqId"].as_u64().unwrap_or(0) as u32;
+        let st = st.clone();
+        tauri::async_runtime::spawn(async move { ssh::answer(&st, id, true).await });
+    });
+    tauri::async_runtime::spawn(async move {
+        let p: Vec<&str> = spec.splitn(4, ':').collect();
+        let (host, port, user, pass) = (p[0].to_string(), p[1].parse::<u16>().unwrap_or(22), p[2].to_string(), p[3].to_string());
+        let res = async {
+            crate::secret::write(&app, ssh::secret_name("t1", "pass"), pass).await?;
+            let pw = HostCfg { id: "t1".into(), host: host.clone(), port, user: user.clone(), auth: "password".into() };
+            let public = ssh::ssh_keygen(app.clone(), "t2".into(), "selftest".into()).await?;
+            println!("SELFTEST pubkey {public}");
+            session(&app, pw, vec![
+                "echo HERMITTY_$((40+2))".into(),
+                format!("mkdir -p ~/.ssh && echo '{public}' > ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"),
+            ], "HERMITTY_42").await?;
+            println!("SELFTEST password OK");
+            let key = HostCfg { id: "t2".into(), host, port, user, auth: "key".into() };
+            session(&app, key, vec!["echo KEY_$((6*7))".into()], "KEY_42").await?;
+            println!("SELFTEST key OK");
+            let bad = HostCfg { id: "nope".into(), host: "127.0.0.1".into(), port, user: "x".into(), auth: "password".into() };
+            match session(&app, bad, vec![], "").await {
+                Err(e) => println!("SELFTEST missing-secret OK: {e}"),
+                Ok(_) => return Err("sesja bez hasła nie powinna ruszyć".to_string()),
+            }
+            Ok::<_, String>(())
+        }
+        .await;
+        match res {
+            Ok(()) => { println!("SELFTEST PASS"); std::process::exit(0) }
+            Err(e) => { println!("SELFTEST FAIL {e}"); std::process::exit(1) }
+        }
+    });
+}

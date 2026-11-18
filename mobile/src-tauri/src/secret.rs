@@ -40,10 +40,10 @@ pub struct Vault(tauri::plugin::PluginHandle<Wry>);
 
 #[cfg(target_os = "android")]
 impl Vault {
-    fn get(&self, name: &str) -> Result<Option<String>, String> {
+    pub(crate) fn get(&self, name: &str) -> Result<Option<String>, String> {
         self.0.run_mobile_plugin::<GetRes>("get", KeyArgs { name }).map(|r| r.value).map_err(|e| e.to_string())
     }
-    fn set(&self, name: &str, value: &str) -> Result<(), String> {
+    pub(crate) fn set(&self, name: &str, value: &str) -> Result<(), String> {
         self.0.run_mobile_plugin::<()>("set", SetArgs { name, value }).map_err(|e| e.to_string())
     }
     fn delete(&self, name: &str) -> Result<(), String> {
@@ -65,11 +65,11 @@ impl Vault {
         }
         std::fs::write(&self.0, serde_json::to_vec(m).unwrap()).map_err(|e| e.to_string())
     }
-    fn get(&self, name: &str) -> Result<Option<String>, String> {
+    pub(crate) fn get(&self, name: &str) -> Result<Option<String>, String> {
         let _g = self.1.lock().unwrap();
         Ok(self.all().remove(name))
     }
-    fn set(&self, name: &str, value: &str) -> Result<(), String> {
+    pub(crate) fn set(&self, name: &str, value: &str) -> Result<(), String> {
         let _g = self.1.lock().unwrap();
         let mut m = self.all();
         m.insert(name.into(), value.into());
@@ -127,4 +127,17 @@ pub fn init() -> TauriPlugin<Wry> {
             Ok(())
         })
         .build()
+}
+
+/// Odczyt sekretu z Rusta (np. hasło SSH), bez przechodzenia przez interfejs.
+pub(crate) async fn read(app: &tauri::AppHandle, name: String) -> Result<Option<String>, String> {
+    valid(&name)?;
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || usable(&app.state::<Option<Vault>>())?.get(&name)).await.map_err(|e| e.to_string())?
+}
+
+pub(crate) async fn write(app: &tauri::AppHandle, name: String, value: String) -> Result<(), String> {
+    valid(&name)?;
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || usable(&app.state::<Option<Vault>>())?.set(&name, &value)).await.map_err(|e| e.to_string())?
 }
