@@ -13,17 +13,23 @@
   import LocalAgent from './components/LocalAgent.svelte';
   import AgentSettings from './components/AgentSettings.svelte';
   import { AG } from './lib/agent.svelte';
+  import Bridge from './components/Bridge.svelte';
+  import { BR, pendingLink } from './lib/bridge.svelte';
+  import { invoke } from '@tauri-apps/api/core';
+  import { inTauri } from './lib/ssh.svelte';
 
   onMount(() => {
     theme();
     const mq = matchMedia('(prefers-color-scheme: dark)');
     const on = () => S.settings.mode === 'system' && theme();
     mq.addEventListener('change', on);
+    // Aplikację otworzył link hermitty://pair z kodu wtyczki Telefon: od razu ekran mostka.
+    if (inTauri()) invoke<{ v: { link: unknown } }>('plugin:bridge|status').then((r) => { if (r?.v?.link) BR.open = true; }).catch(() => {});
     return () => mq.removeEventListener('change', on);
   });
 </script>
 
-{#if AG.open}<LocalAgent />{:else if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
+{#if BR.open}<Bridge />{:else if AG.open}<LocalAgent />{:else if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
 
 {#if S.sheet === 'pair'}<Sheet title="Dodaj komputer" onclose={() => (S.sheet = null)}><Pair /></Sheet>{/if}
 {#if S.sheet === 'settings'}<Sheet title="Ustawienia" onclose={() => (S.sheet = null)}><Settings /></Sheet>{/if}

@@ -2,12 +2,16 @@
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, pair, disconnect, toast } from '../lib/store.svelte';
   import Scanner from './Scanner.svelte';
+  import { BR, parseBridgeLink, pendingLink } from '../lib/bridge.svelte';
 
   let text = $state('');
   let started = $state(false);
   const busy = $derived(started && !S.cur && (S.state === 'connecting' || S.state === 'waiting'));
 
   function go(t = text) {
+    // Kod wtyczki Telefon (hermitty://pair…) to mostek, nie zdalny dostęp: przejście do ekranu mostka.
+    const b = parseBridgeLink(t);
+    if (b) { pendingLink.v = b; S.sheet = null; BR.open = true; return; }
     if (!pair(t)) { toast('To nie jest link z kodu Hermitty. Zeskanuj kod z Ustawienia → Zdalny dostęp.'); return; }
     started = true;
   }

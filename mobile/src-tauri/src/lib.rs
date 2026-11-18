@@ -4,6 +4,7 @@
 //! `ssh` łączy telefon z serwerami bezpośrednio, bez komputera.
 
 mod ai;
+mod bridge;
 mod secret;
 mod ssh;
 #[cfg(all(debug_assertions, desktop))]
@@ -15,6 +16,7 @@ use std::sync::Arc;
 pub fn run() {
     tauri::Builder::default()
         .plugin(secret::init())
+        .plugin(bridge::init())
         .manage(Arc::new(ssh::SshState::default()))
         .invoke_handler(tauri::generate_handler![
             ssh::ssh_shell,

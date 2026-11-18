@@ -3,6 +3,7 @@
   import { S, open, forget } from '../lib/store.svelte';
   import { SSH } from '../lib/ssh.svelte';
   import { AG } from '../lib/agent.svelte';
+  import { BR } from '../lib/bridge.svelte';
 
   const ago = (t?: number) => {
     if (!t) return 'jeszcze nie';
@@ -72,6 +73,11 @@
     <span><b>Agent AI</b><small>Rozmowa z AI, która wykonuje komendy na tych serwerach za Twoją zgodą</small></span>
     <Icon name="chev" size={18} />
   </button>
+  <button class="agent" onclick={() => (BR.open = true)}>
+    <i class="br"><Icon name="phone" size={22} /></i>
+    <span><b>Mostek z komputerem</b><small>Powiadomienia, SMS-y i dyktafon tego telefonu w Hermitty na komputerze (wtyczka Telefon)</small></span>
+    <Icon name="chev" size={18} />
+  </button>
 </main>
 
 <style>
@@ -97,6 +103,7 @@
   .agent { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 14px; border: 0; border-radius: 20px; background: var(--card); text-align: left; width: 100%; }
   .agent i { width: 48px; height: 48px; border-radius: 50%; background: var(--primary); color: var(--primary-foreground); display: grid; place-items: center; flex: none; }
   .agent span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .agent i.br { background: var(--muted); color: var(--foreground); }
   .agent b { font-weight: 600; font-size: 16px; }
   .agent small { color: var(--muted-foreground); font-size: 12.5px; }
 </style>

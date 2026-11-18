@@ -19,6 +19,12 @@ zapytania z Rusta (`src-tauri/src/ai.rs`). Narzędzia: `list_servers` i `run_com
 HERMITTY_AI_SELFTEST=http://127.0.0.1:7799 HERMITTY_SSH_SELFTEST='127.0.0.1:2222:uzytkownik:haslo' xvfb-run -a mobile/src-tauri/target/debug/hermitty-mobile
 ```
 
+Etap 3: mostek z komputerem wbudowany (dawna aplikacja „Hermitty Telefon”, `app.hermitty.phone`): powiadomienia,
+SMS-y, zdalny dyktafon i dzwonek w Hermitty na komputerze przez wtyczkę Telefon. Kod Kotlina z `android/` jest
+w `gen/android/.../bridge`, a ekran w `src/components/Bridge.svelte` (wtyczka `BridgePlugin.kt`).
+Skaner rozpoznaje kod wtyczki Telefon (`hermitty://pair…`), a link otwiera aplikację od razu na ekranie mostka.
+Jeśli na telefonie jest też stara aplikacja „Hermitty Telefon”, odinstaluj ją, żeby komputer nie widział dwóch telefonów.
+
 ## Jak połączyć
 
 1. Na komputerze: Hermitty → Ustawienia → **Zdalny dostęp** → włącz → **Sparuj telefon**.
