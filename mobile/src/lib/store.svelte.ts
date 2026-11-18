@@ -58,21 +58,30 @@ export function theme() {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--background').trim());
 }
 export function saveSettings() { save('settings', S.settings); theme(); }
-// Klucze nie trafiają do localStorage: tylko do sejfu.
-const savePcs = () => save('pcs', S.pcs.map(({ key: _k, ...rest }) => rest));
+// Klucze trafiają tylko do sejfu. Gdy sejf zawiódł, klucz zostaje w localStorage jak w etapie 1, żeby nie przepadł.
+const unsealed = new Set<string>();
+const savePcs = () => save('pcs', S.pcs.map(({ key, ...rest }) => (unsealed.has(rest.device) ? { ...rest, key } : rest)));
+async function seal(pc: SavedPc) {
+  try { await setSecret(pcKeyName(pc.device), pc.key); unsealed.delete(pc.device); }
+  catch (e) { console.error('sejf', e); unsealed.add(pc.device); }
+}
 
 /** Wczytuje klucze komputerów z sejfu; starsze wpisy z kluczem w localStorage przenosi do sejfu. */
 async function loadKeys() {
   const out: SavedPc[] = [];
-  let lost = 0;
+  let lost = 0, broken = false;
   for (const pc of S.pcs) {
     try {
-      if (pc.key) { await setSecret(pcKeyName(pc.device), pc.key); out.push(pc); continue; }
+      if (pc.key) { await seal(pc); out.push(pc); continue; }
       const key = await getSecret(pcKeyName(pc.device));
       if (key) out.push({ ...pc, key }); else lost++;
-    } catch (e) { console.error('sejf', e); if (pc.key) out.push(pc); else lost++; }
+    } catch (e) {
+      // Sejf chwilowo nie działa: komputer zostaje na liście (bez klucza), żeby nie zniknął na stałe.
+      console.error('sejf', e); broken = true; out.push({ ...pc, key: '' });
+    }
   }
   S.pcs = out; savePcs();
+  if (broken) toast('Sejf telefonu nie odpowiada. Uruchom aplikację ponownie.');
   if (lost) toast(lost === 1 ? 'Klucz jednego komputera przepadł. Sparuj go ponownie.' : `Klucze ${lost} komputerów przepadły. Sparuj je ponownie.`);
 }
 export const keysReady = loadKeys();
@@ -97,8 +106,9 @@ const handlers = {
     else if (e === 'flow') { S.flowRes[d.tab] = { state: d.state, result: d.result }; if (d.state !== 'running') refreshFlows(); }
   },
   paired: (pc: SavedPc) => {
-    setSecret(pcKeyName(pc.device), pc.key).catch((e) => toast(`Nie zapisano klucza w sejfie: ${msg(e)}`));
-    S.pcs = [...S.pcs.filter((p) => p.device !== pc.device), pc]; savePcs();
+    S.pcs = [...S.pcs.filter((p) => p.device !== pc.device), pc];
+    unsealed.add(pc.device); savePcs();
+    seal(pc).then(savePcs);
     S.cur = pc.device; S.sheet = null;
     toast('Sparowano z komputerem');
   },
@@ -127,6 +137,7 @@ export async function open(device: string) {
   await keysReady;
   const pc = S.pcs.find((p) => p.device === device);
   if (!pc) return;
+  if (!pc.key) { toast('Brak klucza tego komputera w sejfie. Uruchom aplikację ponownie albo sparuj go jeszcze raz.'); return; }
   link?.close();
   Object.assign(S, { cur: device, workspaces: [], parked: [], chat: {}, flows: [], flowRes: {}, ws: '', tab: '', view: 'term', perm: 'view' });
   link = new Link(pc, handlers, S.settings.name);

@@ -83,25 +83,29 @@ impl Vault {
     }
 }
 
-#[tauri::command]
-fn get(vault: tauri::State<'_, Vault>, name: String) -> Result<Option<String>, String> {
-    valid(&name)?;
-    vault.get(&name)
+fn usable<'a>(v: &'a Option<Vault>) -> Result<&'a Vault, String> {
+    v.as_ref().ok_or_else(|| "Sejf telefonu (Android Keystore) jest niedostępny".to_string())
 }
 
 #[tauri::command]
-fn set(vault: tauri::State<'_, Vault>, name: String, value: String) -> Result<(), String> {
+fn get(vault: tauri::State<'_, Option<Vault>>, name: String) -> Result<Option<String>, String> {
+    valid(&name)?;
+    usable(&vault)?.get(&name)
+}
+
+#[tauri::command]
+fn set(vault: tauri::State<'_, Option<Vault>>, name: String, value: String) -> Result<(), String> {
     valid(&name)?;
     if value.len() > 64 * 1024 {
         return Err("Sekret jest za duży".into());
     }
-    vault.set(&name, &value)
+    usable(&vault)?.set(&name, &value)
 }
 
 #[tauri::command]
-fn delete(vault: tauri::State<'_, Vault>, name: String) -> Result<(), String> {
+fn delete(vault: tauri::State<'_, Option<Vault>>, name: String) -> Result<(), String> {
     valid(&name)?;
-    vault.delete(&name)
+    usable(&vault)?.delete(&name)
 }
 
 pub fn init() -> TauriPlugin<Wry> {
@@ -109,9 +113,16 @@ pub fn init() -> TauriPlugin<Wry> {
         .invoke_handler(tauri::generate_handler![get, set, delete])
         .setup(|app, _api| {
             #[cfg(target_os = "android")]
-            let vault = Vault(_api.register_android_plugin("app.hermitty.mobile", "KeystorePlugin")?);
+            // Błąd wtyczki nie może zatrzymać startu aplikacji: wtedy tylko sejf zgłasza błędy.
+            let vault = match _api.register_android_plugin("app.hermitty.mobile", "KeystorePlugin") {
+                Ok(h) => Some(Vault(h)),
+                Err(e) => {
+                    eprintln!("Hermitty: sejf niedostępny: {e}");
+                    None
+                }
+            };
             #[cfg(not(target_os = "android"))]
-            let vault = Vault(app.path().app_data_dir()?.join("secrets-dev.json"), Default::default());
+            let vault = Some(Vault(app.path().app_data_dir()?.join("secrets-dev.json"), Default::default()));
             app.manage(vault);
             Ok(())
         })
