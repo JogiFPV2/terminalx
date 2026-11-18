@@ -3,6 +3,6 @@
   "identifier": "default",
   "description": "Uprawnienia aplikacji na Androida",
   "windows": ["main"],
-  "permissions": ["core:default"],
+  "permissions": ["core:default", "secret:default"],
   "platforms": ["android", "iOS"]
 }

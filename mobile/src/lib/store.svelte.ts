@@ -1,6 +1,7 @@
 // Stan aplikacji na Androida: sparowane komputery, bieżące połączenie i dane z komputera (zakładki, czat, workflow).
-// Sparowane komputery i ustawienia w localStorage WebView (etap 1); klucze trafią do Android Keystore w etapie 2.
+// Lista komputerów i ustawienia w localStorage WebView; klucze urządzeń w sejfie (Android Keystore, lib/secrets.ts).
 import { Link, type LinkState, type SavedPc } from './link.ts';
+import { getSecret, setSecret, deleteSecret, pcKeyName } from './secrets.ts';
 import { applyTheme, BUILTIN } from '../../../src/lib/theme';
 import type { ThemeMode } from '../../../src/lib/types';
 
@@ -57,7 +58,24 @@ export function theme() {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--background').trim());
 }
 export function saveSettings() { save('settings', S.settings); theme(); }
-const savePcs = () => save('pcs', S.pcs);
+// Klucze nie trafiają do localStorage: tylko do sejfu.
+const savePcs = () => save('pcs', S.pcs.map(({ key: _k, ...rest }) => rest));
+
+/** Wczytuje klucze komputerów z sejfu; starsze wpisy z kluczem w localStorage przenosi do sejfu. */
+async function loadKeys() {
+  const out: SavedPc[] = [];
+  let lost = 0;
+  for (const pc of S.pcs) {
+    try {
+      if (pc.key) { await setSecret(pcKeyName(pc.device), pc.key); out.push(pc); continue; }
+      const key = await getSecret(pcKeyName(pc.device));
+      if (key) out.push({ ...pc, key }); else lost++;
+    } catch (e) { console.error('sejf', e); if (pc.key) out.push(pc); else lost++; }
+  }
+  S.pcs = out; savePcs();
+  if (lost) toast(lost === 1 ? 'Klucz jednego komputera przepadł. Sparuj go ponownie.' : `Klucze ${lost} komputerów przepadły. Sparuj je ponownie.`);
+}
+export const keysReady = loadKeys();
 
 function applyState(st: { workspaces: RWs[]; parked: any[]; activeWs: string }) {
   S.workspaces = st.workspaces;
@@ -79,6 +97,7 @@ const handlers = {
     else if (e === 'flow') { S.flowRes[d.tab] = { state: d.state, result: d.result }; if (d.state !== 'running') refreshFlows(); }
   },
   paired: (pc: SavedPc) => {
+    setSecret(pcKeyName(pc.device), pc.key).catch((e) => toast(`Nie zapisano klucza w sejfie: ${msg(e)}`));
     S.pcs = [...S.pcs.filter((p) => p.device !== pc.device), pc]; savePcs();
     S.cur = pc.device; S.sheet = null;
     toast('Sparowano z komputerem');
@@ -104,7 +123,8 @@ export function req<T = any>(m: string, p: Record<string, unknown> = {}, timeout
 }
 
 /** Połączenie z zapisanym komputerem. */
-export function open(device: string) {
+export async function open(device: string) {
+  await keysReady;
   const pc = S.pcs.find((p) => p.device === device);
   if (!pc) return;
   link?.close();
@@ -129,6 +149,7 @@ export function disconnect() { link?.close(); link = null; S.cur = null; S.state
 export function forget(device: string, remote = false) {
   if (S.cur === device) disconnect();
   S.pcs = S.pcs.filter((p) => p.device !== device); savePcs();
+  deleteSecret(pcKeyName(device)).catch(() => {});
   if (remote) toast('Komputer nie zna już tego telefonu. Sparuj go ponownie.');
 }
 

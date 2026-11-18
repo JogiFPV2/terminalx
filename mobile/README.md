@@ -4,6 +4,10 @@ Etap 1: pilot do Hermitty na komputerze. Terminale (PowerShell, CMD, WSL, SSH), 
 na komendy, workflow i procesy w tle działają na komputerze, a telefon je pokazuje i nimi steruje.
 Osobna aplikacja (`app.hermitty.mobile`), obok aplikacji-mostka „Hermitty Telefon”.
 
+Etap 2 (w toku): sekrety w Android Keystore. Klucze sparowanych komputerów (a potem klucz API AI i hasła SSH)
+szyfruje klucz AES-GCM, którego nie da się wyjąć z telefonu (`gen/android/.../KeystorePlugin.kt`, `src-tauri/src/secret.rs`,
+`src/lib/secrets.ts`). Starsze wpisy z kluczem w localStorage przenoszą się same przy pierwszym uruchomieniu.
+
 ## Jak połączyć
 
 1. Na komputerze: Hermitty → Ustawienia → **Zdalny dostęp** → włącz → **Sparuj telefon**.
