@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, open, forget } from '../lib/store.svelte';
-  import { SSH } from '../lib/ssh.svelte';
+  import { SSH, userHosts } from '../lib/ssh.svelte';
   import { AG } from '../lib/agent.svelte';
   import { BR } from '../lib/bridge.svelte';
 
@@ -53,9 +53,9 @@
 
   <h2>Ten telefon</h2>
   <p class="muted lede">Serwery SSH, z którymi telefon łączy się sam, bez komputera.</p>
-  {#if SSH.hosts.length}
+  {#if userHosts().length}
     <ul class="pcs">
-      {#each SSH.hosts as h (h.id)}
+      {#each userHosts() as h (h.id)}
         <li>
           <button class="pc" onclick={() => (SSH.open = h.id)}>
             <i><Icon name="ssh" size={22} /></i>
