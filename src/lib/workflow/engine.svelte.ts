@@ -9,6 +9,7 @@ import { fill, nid, sleep, slug } from '../util';
 import { MEDIA_DEFAULTS, generateOnce, kindOf, mediaFile, ffmpeg } from './media';
 import { localKey } from '../gpu';
 import type { Flow, FlowNode, NodeTypeDef, AiCfg, Media, MediaCfg } from '../types';
+import { evalCond, jsonPath } from './logic';
 
 export const flowRun = $state({
   status: {} as Record<string, 'run' | 'ok' | 'err' | 'skip'>,
@@ -113,24 +114,6 @@ async function runAi(cfg: AiCfg, input: string, vars: Record<string, string>, me
   else outs.push(...(await Promise.all(Array.from({ length: n }, one))));
   const text = n === 1 ? outs[0] : outs.map((o, i) => `--- wariant ${i + 1} ---\n${o}`).join('\n\n');
   return { text, items: cfg.format === 'list' ? outs.join('\n').split('\n').map((s) => s.trim()).filter(Boolean) : n > 1 ? outs : undefined };
-}
-
-function evalCond(expr: string, input: string, exit: number | undefined) {
-  const e = expr.trim();
-  let m: RegExpMatchArray | null;
-  if ((m = e.match(/^exit\s*(==|!=)\s*(-?\d+)$/))) return m[1] === '==' ? exit === +m[2] : exit !== +m[2];
-  if ((m = e.match(/^contains:\s*(.+)$/i))) return input.includes(m[1].trim());
-  if ((m = e.match(/^!contains:\s*(.+)$/i))) return !input.includes(m[1].trim());
-  if ((m = e.match(/^matches:\s*(.+)$/i))) { try { return new RegExp(m[1].trim()).test(input); } catch { return false; } }
-  if (e === 'empty') return !input.trim();
-  if (e === '!empty' || e === 'not empty') return !!input.trim();
-  return !!input.trim();
-}
-
-function jsonPath(input: string, path: string) {
-  let v: any = JSON.parse(input);
-  for (const part of path.replace(/^\$\.?/, '').split(/\.|\[|\]/).filter(Boolean)) v = v?.[part];
-  return typeof v === 'string' ? v : JSON.stringify(v, null, 2);
 }
 
 async function runMedia(node: FlowNode, input: string, vars: Record<string, string>, media: Media[], flowId: string): Promise<Result> {
