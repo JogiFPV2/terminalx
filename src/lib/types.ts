@@ -222,6 +222,8 @@ export interface Flow {
   id: string; nodes: FlowNode[]; edges: [string, string][]; sx?: number; sy?: number;
   /** Zbudowany przez agenta i jeszcze niezatwierdzony: wyzwalacze (harmonogram, plik, git) nie uruchamiają go same. */
   byAgent?: boolean;
+  /** Zaimportowany z JSON-a (np. z telefonu): tak jak od agenta, wyzwalacze czekają na zatwierdzenie. */
+  imported?: boolean;
 }
 
 export interface PluginRecord { id: string; enabled: boolean; config: Record<string, string | number | boolean>; builtin: boolean }

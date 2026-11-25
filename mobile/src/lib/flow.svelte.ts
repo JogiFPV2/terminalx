@@ -4,7 +4,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { BUILTIN_NODES, DEFAULT_PROMPTS } from '../../../src/lib/defaults';
 import { fill, nid, sleep } from '../../../src/lib/util';
-import { evalCond, jsonPath, topoOrder, htmlText } from '../../../src/lib/workflow/logic';
+import { evalCond, jsonPath, topoOrder, htmlText, importFlowJson, exportFlowJson } from '../../../src/lib/workflow/logic';
 import type { Flow, FlowNode, NodeTypeDef } from '../../../src/lib/types';
 import { ask, chat, send as agentSend } from './agent.svelte';
 import { hostById, hostCfg, SSH } from './ssh.svelte';
@@ -224,14 +224,6 @@ export function startScheduler() {
   }, 30_000);
 }
 
-/** Workflow z JSON-a (eksport z komputera albo z telefonu): nowe id, żeby kopia nie kolidowała z oryginałem. */
-export function importFlow(text: string): Flow {
-  const raw = JSON.parse(text);
-  const src = raw.flow || raw;
-  if (!Array.isArray(src.nodes) || !Array.isArray(src.edges)) throw new Error('To nie jest workflow Hermitty (brak nodes/edges).');
-  const map = new Map<string, string>();
-  const nodes: FlowNode[] = src.nodes.map((n: FlowNode) => { const id = nid('n'); map.set(n.id, id); return { id, type: String(n.type), x: +n.x || 0, y: +n.y || 0, label: String(n.label || ''), cfg: { ...(n.cfg || {}) } }; });
-  const edges: [string, string][] = src.edges.filter((e: [string, string]) => map.has(e[0]) && map.has(e[1])).map((e: [string, string]) => [map.get(e[0])!, map.get(e[1])!]);
-  return { id: nid('f'), nodes, edges };
-}
-export const exportFlow = (flow: Flow) => JSON.stringify({ hermittyFlow: 1, flow: { nodes: flow.nodes, edges: flow.edges } }, null, 2);
+/** Workflow z JSON-a (eksport z komputera albo z telefonu) jako nowy workflow. */
+export const importFlow = (text: string): Flow => ({ id: nid('f'), ...importFlowJson(text) });
+export const exportFlow = (flow: Flow) => exportFlowJson(flow);

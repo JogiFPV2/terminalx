@@ -99,7 +99,7 @@
   }
   async function doExport() {
     ioText = exportFlow(flow); io = 'export';
-    try { await navigator.clipboard.writeText(ioText); toast('Skopiowano JSON. Wklej go w Hermitty na komputerze (Workflow → Import).'); } catch { /* pokażemy do skopiowania */ }
+    try { await navigator.clipboard.writeText(ioText); toast('Skopiowano JSON. Na komputerze: zakładka workflow → przycisk { } → wklej → Importuj.'); } catch { /* pokażemy do skopiowania */ }
   }
 
   const types = $derived(NODE_TYPES.filter((t) => !q || `${t.name} ${t.cat} ${t.desc || ''}`.toLowerCase().includes(q.toLowerCase())));
@@ -204,7 +204,7 @@
 
 {#if io}
   <Sheet title={io === 'export' ? 'Eksport workflow' : 'Import workflow'} onclose={() => (io = '')}>
-    {#if io === 'export'}<p class="muted small">JSON jest w schowku. Ten sam format przyjmuje Hermitty na komputerze.</p>
+    {#if io === 'export'}<p class="muted small">JSON jest w schowku. Na komputerze: zakładka workflow → przycisk { } → wklej → Importuj.</p>
     {:else}<p class="muted small">Wklej JSON workflow z Hermitty na komputerze albo z innego telefonu.</p>{/if}
     <textarea class="inp mono io" bind:value={ioText} readonly={io === 'export'} spellcheck="false"></textarea>
     {#if io === 'import'}<button class="btn pri wide" disabled={!ioText.trim()} onclick={doImport}>Importuj</button>{/if}

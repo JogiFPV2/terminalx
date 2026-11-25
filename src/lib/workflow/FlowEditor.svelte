@@ -8,6 +8,7 @@
   if (app.providers.some((p) => p.type === 'comfy')) refreshLocal();
   import { call, isTauri } from '../ipc';
   import { track, nid } from '../util';
+  import { exportFlowJson, importFlowJson } from './logic';
   import type { Flow, Tab, FlowNode, Media } from '../types';
 
   let { flow, tab, compact = false }: { flow: Flow; tab: Tab; compact?: boolean } = $props();
@@ -110,6 +111,24 @@
 
   // Tryb partii: lista promptów (linia = jedno uruchomienie) albo folder obrazów i wideo.
   let batch = $state<{ text: string; dir: string; files: string[] } | null>(null);
+  // Przenoszenie workflow jako JSON (np. z aplikacji Hermitty na Androida i z powrotem).
+  let json = $state<string | null>(null);
+  async function exportJson() {
+    json = exportFlowJson(flow);
+    try { await navigator.clipboard.writeText(json); notify('Skopiowano JSON workflow', 'success', 2500); } catch { /* do skopiowania z pola */ }
+  }
+  function importJson() {
+    if (!json?.trim()) return;
+    try {
+      const f = importFlowJson(json);
+      if (flow.nodes.length > 1 && !confirm('Zastąpić ten workflow importowanym?')) return;
+      flow.nodes = f.nodes; flow.edges = f.edges;
+      // Jak workflow od agenta: wyzwalacze nie ruszą, dopóki użytkownik go nie zatwierdzi.
+      flow.byAgent = true; flow.imported = true;
+      json = null; sel = null;
+      notify('Zaimportowano workflow. Sprawdź nody i zatwierdź go, by wyzwalacze mogły go uruchamiać.', 'success', 6000);
+    } catch (e) { notify(String((e as Error)?.message || e), 'error'); }
+  }
   const batchSt = $derived(batchRun[flow.id]);
   async function pickBatchDir() {
     if (!batch || !isTauri) return;
@@ -250,8 +269,8 @@
   {#if !compact && flow.byAgent}
     <div class="agentflow" role="status">
       <Icon name="sparks" size={14} />
-      <span>Ten workflow zbudował agent. Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.</span>
-      <button class="btn pri" onclick={() => delete flow.byAgent}>Zatwierdź</button>
+      <span>{flow.imported ? 'Ten workflow został zaimportowany.' : 'Ten workflow zbudował agent.'} Wyzwalacze (harmonogram, zmiana pliku, push do git) nie uruchomią go same, dopóki go nie zatwierdzisz.</span>
+      <button class="btn pri" onclick={() => { delete flow.byAgent; delete flow.imported; }}>Zatwierdź</button>
     </div>
   {/if}
   {#if !compact}
@@ -261,7 +280,18 @@
       {:else}
         <button class="icobtn batch" disabled={running} title="Partia: uruchom dla listy promptów albo folderu obrazów" onclick={() => (batch = batch ? null : { text: '', dir: '', files: [] })}><Icon name="layers" size={14} /></button>
       {/if}
+      <button class="icobtn batch" title="Eksport/import JSON (np. z aplikacji na Androida)" onclick={() => (json === null ? exportJson() : (json = null))}><Icon name="braces" size={14} /></button>
       <button class="fab" disabled={running} title={running ? 'Działa…' : 'Uruchom workflow (z Shift: wszystko od nowa)'} onclick={(e) => run(undefined, e.shiftKey)}>{#if running}<span class="spin"></span>{:else}<Icon name="play" size={14} />{/if}</button>
+      {#if json !== null}
+        <div class="batchbox">
+          <textarea class="inp mono" rows="10" bind:value={json} spellcheck="false" aria-label="JSON workflow"></textarea>
+          <div class="row">
+            <span class="hint">Skopiowano. Aby zaimportować, wklej tu JSON z telefonu.</span>
+            <span class="sp"></span>
+            <button class="btn primary" onclick={importJson}>Importuj</button>
+          </div>
+        </div>
+      {/if}
       {#if batch}
         <div class="batchbox">
           <textarea class="inp" rows="6" placeholder="Jeden prompt w linii – każda linia to osobne uruchomienie ({'{{input}}'} w nodach startowych)" bind:value={batch.text} disabled={!!batch.files.length}></textarea>

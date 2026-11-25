@@ -28,3 +28,14 @@ test('kolejność topologiczna i cykle', () => {
 test('tekst ze strony', () => {
   assert.equal(htmlText('<html><style>p{}</style><p>Ala&nbsp;ma <b>kota</b></p><script>x()</script></html>'), 'Ala ma kota');
 });
+
+test('eksport i import JSON workflow (nowe id, krawędzie przemapowane, śmieci odrzucone)', async () => {
+  const { exportFlowJson, importFlowJson } = await import('../src/lib/workflow/logic.ts');
+  const flow = { nodes: [{ id: 'a', type: 'manual', x: 1, y: 2, label: '', cfg: {} }, { id: 'b', type: 'template', x: 3, y: 4, label: 'T', cfg: { tpl: 'x {{input}}' } }], edges: [['a', 'b'], ['a', 'zz']] as [string, string][] };
+  const back = importFlowJson(exportFlowJson(flow));
+  assert.equal(back.nodes.length, 2);
+  assert.notEqual(back.nodes[0].id, 'a');
+  assert.deepEqual(back.edges, [[back.nodes[0].id, back.nodes[1].id]]);
+  assert.equal(back.nodes[1].cfg.tpl, 'x {{input}}');
+  assert.throws(() => importFlowJson('{"a":1}'), /nie jest workflow/);
+});
