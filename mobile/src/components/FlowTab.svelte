@@ -204,7 +204,7 @@
 
 {#if io}
   <Sheet title={io === 'export' ? 'Eksport workflow' : 'Import workflow'} onclose={() => (io = '')}>
-    {#if io === 'export'}<p class="muted small">JSON jest w schowku. Na komputerze: zakładka workflow → przycisk { } → wklej → Importuj.</p>
+    {#if io === 'export'}<p class="muted small">JSON jest w schowku. Na komputerze: zakładka workflow → przycisk {'{ }'} → wklej → Importuj.</p>
     {:else}<p class="muted small">Wklej JSON workflow z Hermitty na komputerze albo z innego telefonu.</p>{/if}
     <textarea class="inp mono io" bind:value={ioText} readonly={io === 'export'} spellcheck="false"></textarea>
     {#if io === 'import'}<button class="btn pri wide" disabled={!ioText.trim()} onclick={doImport}>Importuj</button>{/if}
