@@ -40,6 +40,8 @@ export const S = $state({
   /** Arkusz na dole ekranu: parowanie, nowa zakładka, ustawienia. */
   sheet: null as null | 'pair' | 'newTab' | 'settings',
   toast: '' as string,
+  /** Połączenie otwarte dla ekranu workspace'ów (bez przechodzenia do ekranu pilota). */
+  quiet: false,
 });
 
 let link: Link | null = null;
@@ -133,8 +135,9 @@ export function req<T = any>(m: string, p: Record<string, unknown> = {}, timeout
 }
 
 /** Połączenie z zapisanym komputerem. */
-export async function open(device: string) {
+export async function open(device: string, quiet = false) {
   await keysReady;
+  S.quiet = quiet;
   const pc = S.pcs.find((p) => p.device === device);
   if (!pc) return;
   if (!pc.key) { toast('Brak klucza tego komputera w sejfie. Uruchom aplikację ponownie albo sparuj go jeszcze raz.'); return; }
@@ -154,7 +157,10 @@ export function pair(text: string): boolean {
   return true;
 }
 
-export function disconnect() { link?.close(); link = null; S.cur = null; S.state = 'idle'; }
+export function disconnect() { link?.close(); link = null; S.cur = null; S.state = 'idle'; S.quiet = false; }
+
+/** Ostatnio używany sparowany komputer (do automatycznego połączenia na ekranie workspace'ów). */
+export const lastPc = () => [...S.pcs].sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))[0] || null;
 
 /** Usuwa komputer z listy (`remote`: komputer sam go już nie zna). */
 export function forget(device: string, remote = false) {

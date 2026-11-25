@@ -4,6 +4,7 @@
   import { SSH, userHosts } from '../lib/ssh.svelte';
   import { AG } from '../lib/agent.svelte';
   import { BR } from '../lib/bridge.svelte';
+  import { WS } from '../lib/ws.svelte';
 
   const ago = (t?: number) => {
     if (!t) return 'jeszcze nie';
@@ -52,6 +53,11 @@
   <button class="btn pri add" onclick={() => (S.sheet = 'pair')}><Icon name="plus" size={18} />Dodaj komputer</button>
 
   <h2>Ten telefon</h2>
+  <button class="agent ws" onclick={() => (WS.open = true)}>
+    <i><Icon name="tabs" size={22} /></i>
+    <span><b>Workspace'y</b><small>Zakładki Termux, SSH, notatki, agent, pliki i workflow{S.pcs.length ? ', a obok workspace\'y komputera' : ''}</small></span>
+    <Icon name="chev" size={18} />
+  </button>
   <p class="muted lede">Serwery SSH, z którymi telefon łączy się sam, bez komputera.</p>
   {#if userHosts().length}
     <ul class="pcs">

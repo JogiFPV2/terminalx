@@ -14,6 +14,8 @@
   import AgentSettings from './components/AgentSettings.svelte';
   import { AG } from './lib/agent.svelte';
   import Bridge from './components/Bridge.svelte';
+  import Workspace from './components/Workspace.svelte';
+  import { WS } from './lib/ws.svelte';
   import { BR, pendingLink } from './lib/bridge.svelte';
   import { invoke } from '@tauri-apps/api/core';
   import { inTauri } from './lib/ssh.svelte';
@@ -29,7 +31,7 @@
   });
 </script>
 
-{#if BR.open}<Bridge />{:else if AG.open}<LocalAgent />{:else if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur}<Session />{:else}<Pcs />{/if}
+{#if WS.open}<Workspace />{:else if BR.open}<Bridge />{:else if AG.open}<LocalAgent />{:else if SSH.open && hostById(SSH.open)}{#key SSH.open}<LocalTerm />{/key}{:else if S.cur && !S.quiet}<Session />{:else}<Pcs />{/if}
 
 {#if S.sheet === 'pair'}<Sheet title="Dodaj komputer" onclose={() => (S.sheet = null)}><Pair /></Sheet>{/if}
 {#if S.sheet === 'settings'}<Sheet title="Ustawienia" onclose={() => (S.sheet = null)}><Settings /></Sheet>{/if}

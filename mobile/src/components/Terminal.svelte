@@ -6,6 +6,9 @@
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, req, onOut, can, msg, toast } from '../lib/store.svelte';
 
+  /** Zakładka na komputerze; domyślnie wybrana w pilocie (S.tab). */
+  let { tab = undefined }: { tab?: string } = $props();
+  const tabId = $derived(tab ?? S.tab);
   let host: HTMLDivElement;
   let wrap: HTMLDivElement;
   let term: Terminal | null = null;
@@ -44,7 +47,7 @@
   function send(data: string) {
     if (!writable) { toast('To urządzenie ma tylko podgląd. Zmień uprawnienie na komputerze.'); return; }
     if (ctrl && data.length === 1) { const c = data.toUpperCase().charCodeAt(0); if (c >= 64 && c <= 95) data = String.fromCharCode(c - 64); ctrl = false; }
-    req('write', { tab: S.tab, data }).catch((e) => toast(msg(e)));
+    req('write', { tab: tabId, data }).catch((e) => toast(msg(e)));
   }
 
   onMount(() => {
@@ -60,7 +63,7 @@
     return () => { off(); ro.disconnect(); mo.disconnect(); if (current) req('unsubscribe', { tab: current }).catch(() => {}); term?.dispose(); term = null; };
   });
 
-  $effect(() => { const t = S.tab; if (term && S.state === 'ready') attach(t); });
+  $effect(() => { const t = tabId; if (term && S.state === 'ready') attach(t); });
   $effect(() => { void zoom; void fitWidth; fit(); });
 
   const KEYS: [string, string][] = [['Esc', '\x1b'], ['Tab', '\t'], ['↑', '\x1b[A'], ['↓', '\x1b[B'], ['←', '\x1b[D'], ['→', '\x1b[C'], ['^C', '\x03'], ['|', '|'], ['~', '~'], ['/', '/'], ['-', '-']];
@@ -68,7 +71,7 @@
 
 <div class="area">
   <div class="wrap" bind:this={wrap} style:background="var(--term-bg)">
-    {#if !S.tab}<p class="empty muted">W tym workspace nie ma terminala.</p>{/if}
+    {#if !tabId}<p class="empty muted">W tym workspace nie ma terminala.</p>{/if}
     <div class="host" bind:this={host}></div>
   </div>
   <div class="zoom"><button class="ib" class:on={fitWidth} aria-pressed={fitWidth} aria-label="Dopasuj do szerokości ekranu" onclick={() => { fitWidth = !fitWidth; zoom = 1; }}><Icon name="maximize" size={16} /></button><button class="ib" aria-label="Pomniejsz" onclick={() => (zoom = Math.max(0.6, zoom - 0.15))}><Icon name="minus" size={16} /></button><button class="ib" aria-label="Powiększ" onclick={() => (zoom = Math.min(2.4, zoom + 0.15))}><Icon name="plus" size={16} /></button></div>
