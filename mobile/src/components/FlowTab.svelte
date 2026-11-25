@@ -67,9 +67,11 @@
   function addNode(typeId: string) {
     // Nowy node w widocznym miejscu; za zaznaczonym, jeśli jest (i od razu połączony).
     const prev = selNode;
-    const x = prev ? prev.x + NW + 50 : (scroller.scrollLeft + 40) / zoom;
-    const y = prev ? prev.y : (scroller.scrollTop + 60) / zoom;
-    const n = makeNode(typeId, Math.min(W - NW, x), Math.min(H - 60, y));
+    let x = Math.min(W - NW, prev ? prev.x + NW + 50 : (scroller.scrollLeft + 40) / zoom);
+    let y = Math.min(H - 60, prev ? prev.y : (scroller.scrollTop + 60) / zoom);
+    // Nie na innym nodzie: zsuwamy w dół, aż miejsce będzie wolne.
+    while (y < H - 100 && flow.nodes.some((o) => Math.abs(o.x - x) < NW && Math.abs(o.y - y) < 80)) y += 90;
+    const n = makeNode(typeId, x, y);
     flow.nodes.push(n);
     if (prev) flow.edges.push([prev.id, n.id]);
     palette = false; q = ''; sel = n.id; saveWs();
@@ -226,7 +228,7 @@
   .node.sel { box-shadow: 0 0 0 2px var(--primary-ink); }
   .node.target { box-shadow: 0 0 0 2px var(--primary); animation: pulse 1.2s infinite; }
   .node.off { opacity: .55; }
-  .head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border); touch-action: none; user-select: none; color: var(--c); }
+  .head { display: flex; align-items: center; gap: 6px; padding: 8px 18px 8px 10px; border-bottom: 1px solid var(--border); touch-action: none; user-select: none; color: var(--c); }
   .head b { flex: 1; min-width: 0; font: 600 12.5px var(--font-sans); color: var(--foreground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .in { position: absolute; left: -7px; top: 11px; width: 12px; height: 12px; border-radius: 50%; background: var(--background); box-shadow: 0 0 0 2px var(--c); }
   .st { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-foreground); }

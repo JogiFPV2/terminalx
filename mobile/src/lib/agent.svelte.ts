@@ -48,18 +48,24 @@ export const AG = $state({
   hasKey: false,
   open: false,
   settings: false,
-  chats: {} as Record<string, Chat>,
 });
+
+/** Rozmowy (zwykła mapa: tworzenie rozmowy nie zmienia stanu, więc można ją pobrać w wyrażeniu pochodnym). */
+const chats = new Map<string, Chat>();
 
 const histories = new Map<string, AMsg[]>();
 const hist = (scope: string) => { let h = histories.get(scope); if (!h) histories.set(scope, (h = load<AMsg[]>(`hist:${scope}`, []))); return h; };
 /** Rozmowa (tworzona przy pierwszym użyciu, z zapisanej historii). */
 export function chat(scope: string): Chat {
-  if (!AG.chats[scope]) AG.chats[scope] = { items: load<ChatItem[]>(`chat:${scope}`, []), busy: false };
-  return AG.chats[scope];
+  let c = chats.get(scope);
+  if (!c) {
+    const fresh: Chat = $state({ items: load<ChatItem[]>(`chat:${scope}`, []), busy: false });
+    chats.set(scope, (c = fresh));
+  }
+  return c;
 }
 const persist = (scope: string) => { save(`chat:${scope}`, chat(scope).items.slice(-120)); save(`hist:${scope}`, hist(scope).slice(-60)); };
-export function dropChat(scope: string) { delete AG.chats[scope]; histories.delete(scope); try { localStorage.removeItem(`${LS}:chat:${scope}`); localStorage.removeItem(`${LS}:hist:${scope}`); } catch { /* nic */ } }
+export function dropChat(scope: string) { chats.delete(scope); histories.delete(scope); try { localStorage.removeItem(`${LS}:chat:${scope}`); localStorage.removeItem(`${LS}:hist:${scope}`); } catch { /* nic */ } }
 
 getSecret(keyName).then((k) => (AG.hasKey = !!k)).catch(() => {});
 

@@ -25,6 +25,18 @@ w `gen/android/.../bridge`, a ekran w `src/components/Bridge.svelte` (wtyczka `B
 Skaner rozpoznaje kod wtyczki Telefon (`hermitty://pair…`), a link otwiera aplikację od razu na ekranie mostka.
 Jeśli na telefonie jest też stara aplikacja „Hermitty Telefon”, odinstaluj ją, żeby komputer nie widział dwóch telefonów.
 
+Workspace'y (ekran startowy → Ten telefon → Workspace'y): workspace'y telefonu z zakładkami Termux, SSH, notatki,
+agent AI (z narzędziami na zakładkach workspace'u), pliki (SFTP), workflow i terminale z komputera. Gdy telefon jest
+sparowany z komputerem, obok pojawiają się workspace'y komputera z zakładkami (obramowanie w ich kolorze i ikona monitora).
+
+Termux: Hermitty używa API Termuxa dla innych aplikacji (RUN_COMMAND, `TermuxPlugin.kt`), żeby raz zainstalować
+openssh, dodać swój klucz i uruchomić sshd; zakładka Termuxa to potem sesja SSH na 127.0.0.1:8022 (pełny terminal).
+Wymaga w Termuxie `allow-external-apps=true` (aplikacja pokazuje komendę do wklejenia) i zgody Androida na RUN_COMMAND.
+
+Workflow: ten sam format i te same nody co na komputerze (`src/lib/defaults.ts`, wspólna logika `src/lib/workflow/logic.ts`);
+„Uruchom komendę” idzie do Termuxa albo serwera SSH, nody AI używają modelu agenta. Grafika, wideo i pliki komputera
+są oznaczone jako „tylko na komputerze”. Eksport/import JSON między telefonem a komputerem.
+
 ## Jak połączyć
 
 1. Na komputerze: Hermitty → Ustawienia → **Zdalny dostęp** → włącz → **Sparuj telefon**.
