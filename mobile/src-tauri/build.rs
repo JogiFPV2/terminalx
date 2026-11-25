@@ -10,6 +10,12 @@ fn main() {
                     .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
             )
             .plugin(
+                "termux",
+                tauri_build::InlinedPlugin::new()
+                    .commands(&["status", "permission", "open", "run", "save_download"])
+                    .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+            )
+            .plugin(
                 "bridge",
                 tauri_build::InlinedPlugin::new()
                     .commands(&["status", "discover", "pair", "unpair", "kick", "dismiss", "settings", "perm", "rec"])

@@ -47,7 +47,7 @@ pub fn run(app: AppHandle, spec: String) {
         let (host, port, user, pass) = (p[0].to_string(), p[1].parse::<u16>().unwrap_or(22), p[2].to_string(), p[3].to_string());
         let res = async {
             crate::secret::write(&app, ssh::secret_name("t1", "pass"), pass).await?;
-            let pw = HostCfg { id: "t1".into(), host: host.clone(), port, user: user.clone(), auth: "password".into() };
+            let pw = HostCfg { id: "t1".into(), host: host.clone(), port, user: user.clone(), auth: "password".into(), trust_local: false };
             let public = ssh::ssh_keygen(app.clone(), "t2".into(), "selftest".into()).await?;
             println!("SELFTEST pubkey {public}");
             session(&app, pw, vec![
@@ -55,12 +55,16 @@ pub fn run(app: AppHandle, spec: String) {
                 format!("mkdir -p ~/.ssh && echo '{public}' > ~/.ssh/authorized_keys && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"),
             ], "HERMITTY_42").await?;
             println!("SELFTEST password OK");
-            let key = HostCfg { id: "t2".into(), host, port, user, auth: "key".into() };
+            let key = HostCfg { id: "t2".into(), host, port, user, auth: "key".into(), trust_local: false };
             session(&app, key.clone(), vec!["echo KEY_$((6*7))".into()], "KEY_42").await?;
             println!("SELFTEST key OK");
-            let r = ssh::ssh_exec(app.clone(), key, "echo EXEC_$((1+1)); echo err >&2; exit 3".into(), Some(10)).await?;
+            let r = ssh::ssh_exec(app.clone(), key.clone(), "echo EXEC_$((1+1)); echo err >&2; exit 3".into(), Some(10)).await?;
             if r.code != Some(3) || !r.output.contains("EXEC_2") || !r.output.contains("err") { return Err(format!("exec: {:?} {}", r.code, r.output)); }
             println!("SELFTEST exec OK");
+            ssh::selftest_sftp(&app, &key).await?;
+            println!("SELFTEST sftp OK");
+            if !ssh::port_open(port).await || ssh::port_open(1).await { return Err("port_open".into()); }
+            println!("SELFTEST port OK");
             if let Ok(url) = std::env::var("HERMITTY_AI_SELFTEST") {
                 crate::secret::write(&app, crate::ai::key_name("main"), "sk-selftest".into()).await?;
                 let p = |kind: &str| crate::ai::ProviderRef { id: "main".into(), kind: kind.into(), url: url.clone() };
@@ -75,7 +79,7 @@ pub fn run(app: AppHandle, spec: String) {
                 }
                 println!("SELFTEST ai OK");
             }
-            let bad = HostCfg { id: "nope".into(), host: "127.0.0.1".into(), port, user: "x".into(), auth: "password".into() };
+            let bad = HostCfg { id: "nope".into(), host: "127.0.0.1".into(), port, user: "x".into(), auth: "password".into(), trust_local: false };
             match session(&app, bad, vec![], "").await {
                 Err(e) => println!("SELFTEST missing-secret OK: {e}"),
                 Ok(_) => return Err("sesja bez hasła nie powinna ruszyć".to_string()),

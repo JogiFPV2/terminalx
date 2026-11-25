@@ -54,3 +54,35 @@ pub async fn ai_request(app: AppHandle, provider: ProviderRef, method: String, p
     }
     Ok(json)
 }
+
+#[derive(serde::Serialize)]
+pub struct HttpOut {
+    status: u16,
+    text: String,
+}
+
+/// Żądanie HTTP dla nodów workflow (Żądanie HTTP, Pobierz stronę). Odpowiedź do 2 MB tekstu.
+#[tauri::command]
+pub async fn http_fetch(method: String, url: String, body: Option<String>, headers: Option<std::collections::HashMap<String, String>>) -> Result<HttpOut, String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        return Err("Adres musi zaczynać się od https:// albo http://".into());
+    }
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(60)).user_agent("Hermitty").build().map_err(|e| e.to_string())?;
+    let m = reqwest::Method::from_bytes(method.to_uppercase().as_bytes()).map_err(|e| e.to_string())?;
+    let mut req = client.request(m, &url);
+    for (k, v) in headers.unwrap_or_default() {
+        req = req.header(k, v);
+    }
+    if let Some(b) = body.filter(|b| !b.is_empty()) {
+        req = req.body(b);
+    }
+    let res = req.send().await.map_err(|e| format!("Błąd połączenia z {url}: {e}"))?;
+    let status = res.status().as_u16();
+    let mut text = res.text().await.map_err(|e| e.to_string())?;
+    if text.len() > 2 * 1024 * 1024 {
+        let mut cut = 2 * 1024 * 1024;
+        while !text.is_char_boundary(cut) { cut -= 1; }
+        text.truncate(cut);
+    }
+    Ok(HttpOut { status, text })
+}

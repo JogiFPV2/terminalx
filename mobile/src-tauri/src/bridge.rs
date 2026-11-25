@@ -5,6 +5,19 @@
 use tauri::plugin::{Builder, TauriPlugin};
 use tauri::Wry;
 
+/// Termux (TermuxPlugin.kt): komendy przez RUN_COMMAND, konfiguracja sshd, zapis do Pobranych.
+pub fn init_termux() -> TauriPlugin<Wry> {
+    Builder::new("termux")
+        .setup(|_app, _api| {
+            #[cfg(target_os = "android")]
+            if let Err(e) = _api.register_android_plugin("app.hermitty.mobile", "TermuxPlugin") {
+                eprintln!("Hermitty: Termux niedostępny: {e}");
+            }
+            Ok(())
+        })
+        .build()
+}
+
 pub fn init() -> TauriPlugin<Wry> {
     Builder::new("bridge")
         .setup(|_app, _api| {

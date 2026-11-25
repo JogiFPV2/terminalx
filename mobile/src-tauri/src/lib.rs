@@ -17,6 +17,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(secret::init())
         .plugin(bridge::init())
+        .plugin(bridge::init_termux())
         .manage(Arc::new(ssh::SshState::default()))
         .invoke_handler(tauri::generate_handler![
             ssh::ssh_shell,
@@ -29,6 +30,12 @@ pub fn run() {
             ssh::ssh_import_key,
             ssh::ssh_forget_hostkey,
             ssh::ssh_exec,
+            ssh::sftp_list,
+            ssh::sftp_op,
+            ssh::sftp_read,
+            ssh::sftp_write,
+            ssh::port_open,
+            ai::http_fetch,
             ai::ai_request,
         ])
         .setup(|_app| {

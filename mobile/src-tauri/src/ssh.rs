@@ -5,6 +5,8 @@
 use russh::client::{self, Handle};
 use russh::keys::{HashAlg, PrivateKey, PublicKeyOrCertificate};
 use russh::{ChannelMsg, Disconnect};
+use russh_sftp::client::SftpSession;
+use base64::Engine;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -24,6 +26,10 @@ pub struct HostCfg {
     pub user: String,
     /// "password" | "key"
     pub auth: String,
+    /// Termux na tym telefonie (127.0.0.1): klucz serwera przy pierwszym połączeniu przyjmujemy bez pytania.
+    /// Zmieniony klucz i tak wymaga zgody użytkownika.
+    #[serde(default)]
+    pub trust_local: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -55,6 +61,8 @@ pub struct SshState {
     next: AtomicU32,
     shells: Mutex<HashMap<u32, mpsc::UnboundedSender<ShellCmd>>>,
     prompts: Mutex<HashMap<u32, oneshot::Sender<bool>>>,
+    /// Sesje SFTP (zakładki plików), po jednej na serwer; połączenie trzymane razem z sesją.
+    sftp: Mutex<HashMap<String, (Arc<Handle<Client>>, Arc<SftpSession>)>>,
 }
 
 /// Nazwy sekretów hosta w sejfie.
@@ -81,10 +89,11 @@ fn save_known(app: &AppHandle, map: &HashMap<String, String>) {
     }
 }
 
-struct Client {
+pub struct Client {
     app: AppHandle,
     host: String,
     port: u16,
+    trust_local: bool,
 }
 
 impl client::Handler for Client {
@@ -99,6 +108,13 @@ impl client::Handler for Client {
         let id = format!("[{}]:{}", self.host, self.port);
         let known = load_known(&self.app);
         if known.get(&id) == Some(&fp) {
+            return Ok(true);
+        }
+        let local = self.host == "127.0.0.1" || self.host == "localhost";
+        if self.trust_local && local && !known.contains_key(&id) {
+            let mut known = known;
+            known.insert(id, fp);
+            save_known(&self.app, &known);
             return Ok(true);
         }
         let state = self.app.state::<Arc<SshState>>();
@@ -127,7 +143,7 @@ async fn connect(app: &AppHandle, cfg: &HostCfg) -> Result<Handle<Client>, Strin
         keepalive_max: 4,
         ..Default::default()
     });
-    let handler = Client { app: app.clone(), host: cfg.host.clone(), port: cfg.port };
+    let handler = Client { app: app.clone(), host: cfg.host.clone(), port: cfg.port, trust_local: cfg.trust_local };
     let mut handle = tokio::time::timeout(Duration::from_secs(20), client::connect(config, (cfg.host.as_str(), cfg.port), handler))
         .await
         .map_err(|_| format!("Przekroczono czas łączenia z {}:{}", cfg.host, cfg.port))?
@@ -340,4 +356,114 @@ pub async fn ssh_exec(app: AppHandle, host: HostCfg, command: String, timeout_se
         output.push_str(&format!("\n[przerwano po {} s]", limit.as_secs()));
     }
     Ok(ExecOut { code, output, truncated })
+}
+
+/* ---------- SFTP (zakładka plików) ---------- */
+
+async fn sftp(app: &AppHandle, st: &SshState, host: &HostCfg) -> Result<Arc<SftpSession>, String> {
+    if let Some((h, s)) = st.sftp.lock().await.get(&host.id) {
+        if !h.is_closed() {
+            return Ok(s.clone());
+        }
+    }
+    let handle = connect(app, host).await?;
+    let ch = handle.channel_open_session().await.map_err(|e| e.to_string())?;
+    ch.request_subsystem(true, "sftp").await.map_err(|e| e.to_string())?;
+    let s = Arc::new(SftpSession::new(ch.into_stream()).await.map_err(|e| format!("SFTP: {e}"))?);
+    st.sftp.lock().await.insert(host.id.clone(), (Arc::new(handle), s.clone()));
+    Ok(s)
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Entry {
+    name: String,
+    path: String,
+    is_dir: bool,
+    size: u64,
+    modified: u64,
+}
+
+fn join(dir: &str, name: &str) -> String {
+    if dir.ends_with('/') { format!("{dir}{name}") } else { format!("{dir}/{name}") }
+}
+
+#[tauri::command]
+pub async fn sftp_list(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, path: String) -> Result<(String, Vec<Entry>), String> {
+    let s = sftp(&app, &state, &host).await?;
+    let dir = s.canonicalize(if path.is_empty() { ".".to_string() } else { path }).await.map_err(|e| e.to_string())?;
+    let mut out: Vec<Entry> = s
+        .read_dir(dir.clone())
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|e| {
+            let m = e.metadata();
+            Entry { name: e.file_name(), path: join(&dir, &e.file_name()), is_dir: m.is_dir(), size: m.size.unwrap_or(0), modified: m.mtime.unwrap_or(0) as u64 * 1000 }
+        })
+        .filter(|e| e.name != "." && e.name != "..")
+        .collect();
+    out.sort_by(|a, b| b.is_dir.cmp(&a.is_dir).then(a.name.to_lowercase().cmp(&b.name.to_lowercase())));
+    Ok((dir, out))
+}
+
+#[tauri::command]
+pub async fn sftp_op(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, op: String, path: String, to: Option<String>) -> Result<(), String> {
+    let s = sftp(&app, &state, &host).await?;
+    let r = match op.as_str() {
+        "mkdir" => s.create_dir(path).await,
+        "rmdir" => s.remove_dir(path).await,
+        "rm" => s.remove_file(path).await,
+        "rename" => s.rename(path, to.ok_or("Brak nowej nazwy")?).await,
+        other => return Err(format!("Nieznana operacja {other}")),
+    };
+    r.map_err(|e| e.to_string())
+}
+
+/// Cały plik jako base64 (do 50 MB): podgląd tekstu albo zapis w Pobranych.
+#[tauri::command]
+pub async fn sftp_read(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, path: String) -> Result<String, String> {
+    let s = sftp(&app, &state, &host).await?;
+    let meta = s.metadata(path.clone()).await.map_err(|e| e.to_string())?;
+    if meta.size.unwrap_or(0) > 50 * 1024 * 1024 {
+        return Err("Plik jest większy niż 50 MB.".into());
+    }
+    let bytes = s.read(path).await.map_err(|e| e.to_string())?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+}
+
+/// Zapis pliku (base64), np. wysłanego z telefonu albo zmienionego w podglądzie tekstu.
+#[tauri::command]
+pub async fn sftp_write(app: AppHandle, state: State<'_, Arc<SshState>>, host: HostCfg, path: String, data: String) -> Result<(), String> {
+    use tokio::io::AsyncWriteExt;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data).map_err(|_| "Uszkodzone dane".to_string())?;
+    let s = sftp(&app, &state, &host).await?;
+    let mut f = s.create(path).await.map_err(|e| e.to_string())?;
+    f.write_all(&bytes).await.map_err(|e| e.to_string())?;
+    f.shutdown().await.map_err(|e| e.to_string())
+}
+
+/// Czy na tym telefonie ktoś słucha na porcie (np. sshd Termuxa na 8022).
+#[tauri::command]
+pub async fn port_open(port: u16) -> bool {
+    matches!(tokio::time::timeout(Duration::from_millis(700), tokio::net::TcpStream::connect(("127.0.0.1", port))).await, Ok(Ok(_)))
+}
+
+#[cfg(all(debug_assertions, desktop))]
+pub async fn selftest_sftp(app: &AppHandle, host: &HostCfg) -> Result<(), String> {
+    use tokio::io::AsyncWriteExt;
+    let st = app.state::<Arc<SshState>>().inner().clone();
+    let s = sftp(app, &st, host).await?;
+    let home = s.canonicalize(".".to_string()).await.map_err(|e| e.to_string())?;
+    let p = join(&home, "hermitty-test.txt");
+    let mut f = s.create(p.clone()).await.map_err(|e| e.to_string())?;
+    f.write_all("zażółć gęślą jaźń".as_bytes()).await.map_err(|e| e.to_string())?;
+    f.shutdown().await.map_err(|e| e.to_string())?;
+    let back = String::from_utf8(s.read(p.clone()).await.map_err(|e| e.to_string())?).map_err(|e| e.to_string())?;
+    if back != "zażółć gęślą jaźń" { return Err(format!("sftp read: {back}")); }
+    let q = join(&home, "hermitty-test2.txt");
+    s.rename(p, q.clone()).await.map_err(|e| e.to_string())?;
+    let names: Vec<String> = s.read_dir(home.clone()).await.map_err(|e| e.to_string())?.map(|e| e.file_name()).collect();
+    if !names.iter().any(|n| n == "hermitty-test2.txt") { return Err(format!("sftp list: {names:?}")); }
+    s.remove_file(q).await.map_err(|e| e.to_string())?;
+    Ok(())
 }

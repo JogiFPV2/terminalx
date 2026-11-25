@@ -16,7 +16,9 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
-tokio = { version = "1", features = ["sync", "macros", "time"] }
+tokio = { version = "1", features = ["sync", "macros", "time", "net", "io-util"] }
+russh-sftp = "3"
+base64 = "0.22"
 ring = "0.17"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
