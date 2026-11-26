@@ -96,7 +96,7 @@ export class Link {
       this.retry = Math.min(this.retry + 1, 6);
       this.retryTimer = setTimeout(() => this.connect(), 500 * 2 ** this.retry);
     };
-    const unreachable = () => `Nie mogę połączyć się z komputerem (${urls.map((u) => u.replace(/^https?:\/\//, '')).join(', ')}). Sprawdź, czy telefon jest w tej samej sieci Wi-Fi, czy w Hermitty jest włączony Zdalny dostęp i czy Zapora Windows go nie blokuje (Ustawienia → Zdalny dostęp → „Telefon nie może się połączyć?”).`;
+    const unreachable = () => `Nie mogę połączyć się z komputerem (${urls.map((u) => u.replace(/^https?:\/\//, '')).join(', ')}). Sprawdź, czy telefon jest w tej samej sieci Wi-Fi, czy aplikacja ma zgodę na sieć lokalną (Android 17: Ustawienia → Aplikacje → Hermitty → Uprawnienia → Urządzenia w pobliżu), czy w Hermitty jest włączony Zdalny dostęp i czy Zapora Windows go nie blokuje (Ustawienia → Zdalny dostęp → „Telefon nie może się połączyć?”).`;
     this.hiTimer = setTimeout(() => { if (!this.ws) giveUp(unreachable()); }, 9000);
 
     for (const url of urls) {

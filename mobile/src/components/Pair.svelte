@@ -2,13 +2,18 @@
   import Icon from '../../../src/lib/Icon.svelte';
   import { S, pair, disconnect, toast } from '../lib/store.svelte';
   import Scanner from './Scanner.svelte';
-  import { BR, parseBridgeLink, pendingLink } from '../lib/bridge.svelte';
+  import { BR, parseBridgeLink, pendingLink, lanGranted, askLan } from '../lib/bridge.svelte';
+  import LanHint from './LanHint.svelte';
 
   let text = $state('');
   let started = $state(false);
   const busy = $derived(started && !S.cur && (S.state === 'connecting' || S.state === 'waiting'));
 
-  function go(t = text) {
+  let lanOk = $state(true);
+  async function go(t = text) {
+    // Android 17: bez zgody na sieć lokalną połączenie z komputerem kończy się przekroczeniem czasu.
+    lanOk = await lanGranted();
+    if (!lanOk) { askLan().catch(() => {}); return; }
     // Kod wtyczki Telefon (hermitty://pair…) to mostek, nie zdalny dostęp: przejście do ekranu mostka.
     const b = parseBridgeLink(t);
     if (b) { pendingLink.v = b; S.sheet = null; BR.open = true; return; }
@@ -20,6 +25,7 @@
   const camera = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
 </script>
 
+{#if !lanOk}<LanHint onok={() => { lanOk = true; go(); }} />{/if}
 {#if busy || (started && (S.state === 'denied' || S.state === 'error'))}
   <div class="status">
     {#if S.state === 'waiting'}
@@ -31,6 +37,7 @@
     {:else}
       <i class="bad"><Icon name="x" size={28} /></i><h3>{S.state === 'denied' ? 'Odrzucono' : 'Nie udało się sparować'}</h3>
       <p class="muted">{S.error}</p>
+      <LanHint quiet />
       <button class="btn ghost" onclick={() => { started = false; disconnect(); }}>Spróbuj ponownie</button>
     {/if}
   </div>

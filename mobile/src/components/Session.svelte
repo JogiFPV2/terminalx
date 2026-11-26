@@ -7,6 +7,7 @@
   import Parked from './Parked.svelte';
   import Sheet from './Sheet.svelte';
   import NewTab from './NewTab.svelte';
+  import LanHint from './LanHint.svelte';
 
   const pc = $derived(curPc());
   const ws = $derived(curWs());
@@ -58,6 +59,7 @@
     {#if S.state !== 'ready' && !S.workspaces.length}
       <div class="wait"><span class="dot {status}"></span>{S.state === 'offline' ? 'brak połączenia, ponawiam…' : statusText}</div>
       {#if S.error && (S.state === 'offline' || S.state === 'error')}<p class="why muted">{S.error}</p>{/if}
+      {#if S.state === 'offline' || S.state === 'error'}<div class="lanbox"><LanHint quiet onok={() => pc && open(pc.device)} /></div>{/if}
     {:else if S.view === 'term'}<Terminal />
     {:else if S.view === 'agent'}<Agent />
     {:else if S.view === 'flows'}<Flows />
@@ -76,6 +78,7 @@
 {#if S.sheet === 'newTab'}<Sheet title="Nowa zakładka" onclose={() => (S.sheet = null)}><NewTab /></Sheet>{/if}
 
 <style>
+  .lanbox { margin: 0 16px auto; }
   .why { margin: 12px 24px auto; text-align: center; font-size: 14px; line-height: 1.45; }
   .app { height: 100%; display: flex; flex-direction: column; padding-top: var(--safe-t); }
   .top { display: flex; align-items: center; gap: 4px; height: 56px; padding: 0 4px; flex: none; }

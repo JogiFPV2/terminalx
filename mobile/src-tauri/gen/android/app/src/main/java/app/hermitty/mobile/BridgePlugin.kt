@@ -96,7 +96,8 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
         .put("notifications", Info.notifAccess(activity))
         .put("sms", granted(Manifest.permission.READ_SMS) && granted(Manifest.permission.SEND_SMS))
         .put("mic", granted(Manifest.permission.RECORD_AUDIO))
-        .put("battery", Info.batteryFree(activity)))
+        .put("battery", Info.batteryFree(activity))
+        .put("lan", !MainActivity.needsLocalNetwork() || granted(MainActivity.LOCAL_NETWORK)))
       .put("showCodes", Store.showCodes)
       .put("autoSend", Store.autoSend)
       .put("recording", Recorder.recording)
@@ -161,6 +162,11 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun perm(invoke: Invoke) {
     when (invoke.getArgs().optString("kind")) {
+      "lan" -> if (MainActivity.needsLocalNetwork()) {
+        // Po odmowie z „Nie pytaj ponownie” system nie pokaże okna: wtedy ekran uprawnień aplikacji.
+        if (!granted(MainActivity.LOCAL_NETWORK) && !activity.shouldShowRequestPermissionRationale(MainActivity.LOCAL_NETWORK) && Store.lanAsked) openSettings(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${activity.packageName}"))
+        else { Store.lanAsked = true; activity.requestPermissions(arrayOf(MainActivity.LOCAL_NETWORK), 62) }
+      }
       "post" -> if (Build.VERSION.SDK_INT >= 33) activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 41)
       "sms" -> activity.requestPermissions(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_CONTACTS), 42)
       "mic" -> activity.requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 43)

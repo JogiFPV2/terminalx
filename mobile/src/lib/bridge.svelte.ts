@@ -7,7 +7,7 @@ export interface BridgeLink { code: string; hosts: string[]; port: number }
 export interface BridgeStatus {
   paired: boolean; pcName: string; hosts: string[];
   state: 'unpaired' | 'connecting' | 'online' | 'offline'; error: string | null; micReady: boolean;
-  perms: { post: boolean; notifications: boolean; sms: boolean; mic: boolean; battery: boolean };
+  perms: { post: boolean; notifications: boolean; sms: boolean; mic: boolean; battery: boolean; lan: boolean };
   showCodes: boolean; autoSend: boolean; recording: boolean; secs: number;
   recordings: { name: string; size: number; date: number; sent: boolean }[];
   link: BridgeLink | null; device: string;
@@ -46,3 +46,10 @@ export function parseBridgeLink(text: string): BridgeLink | null {
 
 /** Link z kodu, który aplikacja ma sparować po otwarciu ekranu mostka (skaner albo hermitty:// z systemu). */
 export const pendingLink = $state({ v: null as BridgeLink | null });
+
+/** Android 17: zgoda na połączenia w sieci lokalnej. Bez niej telefon nie połączy się z komputerem (przekroczenie czasu). */
+export async function lanGranted(): Promise<boolean> {
+  if (!inTauri()) return true;
+  try { return (await call<BridgeStatus>('status')).perms.lan !== false; } catch { return true; }
+}
+export const askLan = () => call('perm', { kind: 'lan' });

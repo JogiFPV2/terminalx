@@ -33,6 +33,11 @@ object Store {
         get() = prefs.getBoolean("autoSend", true)
         set(v) = prefs.edit().putBoolean("autoSend", v).apply()
 
+    /** Czy aplikacja już raz prosiła o zgodę na sieć lokalną (Android 17). */
+    var lanAsked: Boolean
+        get() = prefs.getBoolean("lanAsked", false)
+        set(v) = prefs.edit().putBoolean("lanAsked", v).apply()
+
     var sent: Set<String>
         get() = prefs.getStringSet("sent", emptySet()) ?: emptySet()
         set(v) = prefs.edit().putStringSet("sent", v).apply()
