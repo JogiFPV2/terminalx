@@ -42,6 +42,8 @@ pub struct Device {
 
 struct Running {
     shutdown: oneshot::Sender<()>,
+    /// Odpowiadanie na wyszukiwanie komputera w sieci (UDP na tym samym porcie).
+    discovery: tauri::async_runtime::JoinHandle<()>,
     port: u16,
     addrs: Vec<String>,
     mode: String,
@@ -64,6 +66,8 @@ pub struct RemoteState {
     decisions: Mutex<HashMap<String, oneshot::Sender<Option<String>>>>,
     conns: Mutex<HashMap<u64, Client>>,
     next: AtomicU64,
+    /// Do kiedy komputer przyjmuje parowanie kodem bez QR (otwiera je „Sparuj telefon”).
+    near_until: Mutex<Option<Instant>>,
 }
 
 fn now_ms() -> u64 {
@@ -91,6 +95,20 @@ fn save_devices(app: &AppHandle, list: &[Device]) {
 }
 fn key_ref(id: &str) -> String {
     format!("remote-device:{id}")
+}
+
+/// Stały identyfikator tego komputera: telefon szuka go w sieci, gdy komputer zmieni adres IP.
+fn pc_id(app: &AppHandle) -> String {
+    let Some(path) = crate::store::data_dir(app).ok().map(|d| d.join("remote-pc-id")) else { return "hermitty".into() };
+    if let Ok(id) = std::fs::read_to_string(&path) {
+        let id = id.trim().to_string();
+        if id.len() >= 8 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+            return id;
+        }
+    }
+    let id = URL_SAFE_NO_PAD.encode(rand_bytes::<12>());
+    let _ = crate::store::write_atomic(&path, id.as_bytes());
+    id
 }
 
 /// Nazwa komputera pokazywana na telefonie (Windows: COMPUTERNAME).
@@ -141,7 +159,7 @@ fn level(perm: &str) -> u8 {
 fn needed(method: &str) -> u8 {
     match method {
         "state" | "tail" | "subscribe" | "unsubscribe" | "chat" | "ping" | "info" | "shells" | "flows" => 1,
-        "write" | "resize" | "approve" | "park" | "unpark" | "focus" | "stopAgent" => 2,
+        "write" | "resize" | "approve" | "park" | "unpark" | "focus" | "stopAgent" | "bridgePair" => 2,
         _ => 3, // agent, newTab, closeTab, runFlow i wszystko nowe
     }
 }
@@ -176,14 +194,15 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
     let state = app.state::<Arc<RemoteState>>();
     // 0. Wyzwanie komputera (jawnie). Klucze sesji zależą od niego, więc nagrana sesja nie zadziała ponownie.
     let cs = rand_bytes::<16>();
-    ws.send(Message::Text(json!({"t":"hi","v":2,"c":STANDARD.encode(cs),"name":pc_name()}).to_string().into())).await.map_err(|e| e.to_string())?;
+    ws.send(Message::Text(json!({"t":"hi","v":2,"c":STANDARD.encode(cs),"name":pc_name(),"pc":pc_id(&app)}).to_string().into())).await.map_err(|e| e.to_string())?;
     let hello: Value = serde_json::from_str(&recv_text(&mut ws).await.ok_or("brak powitania")?).map_err(|e| e.to_string())?;
     let Some(cc) = hello["c"].as_str().and_then(|c| STANDARD.decode(c).ok()).filter(|c| c.len() == 16) else {
         let _ = ws.send(Message::Text(json!({"t":"error","msg":"Stara wersja strony. Odśwież stronę na telefonie."}).to_string().into())).await;
         return Ok(());
     };
 
-    // 1. Klucz: znane urządzenie albo jednorazowe parowanie z kodu QR.
+    // 1. Klucz: znane urządzenie, jednorazowe parowanie z kodu QR albo parowanie kodem (X25519).
+    let mut near_sas: Option<String> = None;
     let (key, mut device_id, pairing) = match hello["t"].as_str() {
         Some("hello") => {
             let id = hello["device"].as_str().unwrap_or("").to_string();
@@ -208,6 +227,22 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
                 }
             }
         }
+        Some("near") => {
+            // Parowanie kodem bez QR: tylko gdy użytkownik kliknął na komputerze „Sparuj telefon” (inaczej każdy
+            // w sieci mógłby wywoływać okna zgody). Klucz urządzenia powstaje z wymiany X25519; ten sam 6-cyfrowy
+            // kod pokazują telefon i okno zgody, więc podmiana kluczy po drodze byłaby widoczna.
+            let open = state.near_until.lock().await.is_some_and(|t| t > Instant::now());
+            if !open {
+                let _ = ws.send(Message::Text(json!({"t":"error","msg":"Na komputerze otwórz Ustawienia → Zdalny dostęp i kliknij „Pokaż kod QR” (Sparuj telefon), żeby przyjąć nowe urządzenie."}).to_string().into())).await;
+                return Ok(());
+            }
+            let pk_phone = hello["pk"].as_str().and_then(|p| STANDARD.decode(p).ok()).unwrap_or_default();
+            let (pk_pc, key, sas) = crate::remote_crypto::near_pc(&pk_phone, &cs, &cc)?;
+            ws.send(Message::Text(json!({"t":"near","pk":STANDARD.encode(pk_pc)}).to_string().into())).await.map_err(|e| e.to_string())?;
+            let pid = format!("near-{}", URL_SAFE_NO_PAD.encode(rand_bytes::<9>()));
+            near_sas = Some(sas);
+            (key, String::new(), Some((pid, hello["name"].as_str().unwrap_or("Telefon").chars().take(40).collect::<String>())))
+        }
         _ => return Err("nieznane powitanie".into()),
     };
 
@@ -224,7 +259,7 @@ async fn session(app: AppHandle, mut ws: WebSocket, addr: SocketAddr) -> Result<
     if let Some((pid, name)) = pairing {
         let (tx, rx) = oneshot::channel();
         state.decisions.lock().await.insert(pid.clone(), tx);
-        let _ = app.emit("remote:pair-request", json!({ "pairId": pid, "name": name, "addr": addr.ip().to_string() }));
+        let _ = app.emit("remote:pair-request", json!({ "pairId": pid, "name": name, "addr": addr.ip().to_string(), "sas": near_sas }));
         let _ = ws.send(Message::Text(outbound.seal(&json!({"t":"waiting"}).to_string()).into())).await;
         let decision = tokio::time::timeout(Duration::from_secs(180), rx).await.ok().and_then(|r| r.ok()).flatten();
         state.decisions.lock().await.remove(&pid);
@@ -298,7 +333,7 @@ pub struct Status { running: bool, port: u16, mode: String, addrs: Vec<String>, 
 #[tauri::command]
 pub async fn remote_start(app: AppHandle, state: State<'_, Arc<RemoteState>>, port: u16, mode: String) -> Result<Vec<String>, String> {
     let mut running = state.running.lock().await;
-    if let Some(r) = running.take() { let _ = r.shutdown.send(()); }
+    if let Some(r) = running.take() { let _ = r.shutdown.send(()); r.discovery.abort(); }
     let ips = addresses(&mode);
     let bind: IpAddr = if mode == "tailscale" {
         *ips.first().ok_or("Nie znaleziono adresu Tailscale (100.x.x.x). Uruchom Tailscale na tym komputerze.")?
@@ -321,14 +356,33 @@ pub async fn remote_start(app: AppHandle, state: State<'_, Arc<RemoteState>>, po
             .await;
     });
     let addrs: Vec<String> = ips.iter().map(|ip| format!("http://{ip}:{port}")).collect();
-    *running = Some(Running { shutdown: tx, port, addrs: addrs.clone(), mode });
+    // Wyszukiwanie w sieci: telefon wysyła „HERMITTY-REMOTE?” (UDP, ten sam port), komputer odpowiada nazwą i id.
+    let discovery = match tokio::net::UdpSocket::bind((bind, port)).await {
+        Ok(sock) => {
+            let (name, id) = (pc_name(), pc_id(&app));
+            tauri::async_runtime::spawn(async move {
+                let reply = json!({"t":"hermitty-remote","v":2,"name":name,"id":id,"port":port}).to_string();
+                let mut buf = [0u8; 64];
+                loop {
+                    let Ok((n, from)) = sock.recv_from(&mut buf).await else { continue };
+                    if &buf[..n] == b"HERMITTY-REMOTE?" {
+                        let _ = sock.send_to(reply.as_bytes(), from).await;
+                    }
+                }
+            })
+        }
+        // Bez wyszukiwania nadal działa kod QR; nie blokujemy startu zdalnego dostępu.
+        Err(_) => tauri::async_runtime::spawn(async {}),
+    };
+    *running = Some(Running { shutdown: tx, discovery, port, addrs: addrs.clone(), mode });
     Ok(addrs)
 }
 
 #[tauri::command]
 pub async fn remote_stop(state: State<'_, Arc<RemoteState>>) -> Result<(), String> {
-    if let Some(r) = state.running.lock().await.take() { let _ = r.shutdown.send(()); }
+    if let Some(r) = state.running.lock().await.take() { let _ = r.shutdown.send(()); r.discovery.abort(); }
     state.conns.lock().await.clear();
+    *state.near_until.lock().await = None;
     Ok(())
 }
 
@@ -354,6 +408,8 @@ pub async fn remote_pair_begin(state: State<'_, Arc<RemoteState>>) -> Result<Pai
     let mut pairs = state.pairs.lock().await;
     pairs.retain(|_, p| p.expires > Instant::now());
     pairs.insert(pair_id.clone(), Pending { key, expires: Instant::now() + Duration::from_secs(300) });
+    // Przez te same 5 minut komputer przyjmuje też parowanie kodem z telefonu, który znalazł go w sieci.
+    *state.near_until.lock().await = Some(Instant::now() + Duration::from_secs(300));
     let k = URL_SAFE_NO_PAD.encode(key);
     // W każdym linku także pozostałe adresy: telefon spróbuje wszystkich i zostanie przy tym, który odpowie.
     let hosts: Vec<String> = addrs.iter().map(|a| a.trim_start_matches("http://").to_string()).collect();
@@ -409,14 +465,16 @@ pub async fn remote_send(state: State<'_, Arc<RemoteState>>, conn: Option<u64>, 
     Ok(())
 }
 
-/// Reguła Zapory Windows dla portu zdalnego dostępu (sieci prywatne). Windows pyta o zgodę administratora (UAC).
+/// Reguły Zapory Windows (sieci prywatne): zdalny dostęp (TCP) i wyszukiwanie komputera (UDP) na `port`,
+/// mostek Telefon na 47390 (TCP i UDP). Windows pyta raz o zgodę administratora (UAC).
 #[tauri::command]
 pub async fn remote_firewall_rule(port: u16) -> Result<(), String> {
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        let args = format!("advfirewall firewall add rule name=Hermitty-zdalny-dostep-{port} dir=in action=allow protocol=TCP localport={port} profile=private");
-        let ps = format!("Start-Process -FilePath netsh -ArgumentList '{args}' -Verb RunAs -Wait -WindowStyle Hidden");
+        let rule = |proto: &str| format!("netsh advfirewall firewall add rule name=Hermitty-{proto}-{port} dir=in action=allow protocol={proto} localport={port},47390 profile=private");
+        let args = format!("/c {} & {}", rule("TCP"), rule("UDP"));
+        let ps = format!("Start-Process -FilePath cmd -ArgumentList '{args}' -Verb RunAs -Wait -WindowStyle Hidden");
         let out = std::process::Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", &ps])
             .creation_flags(0x0800_0000)

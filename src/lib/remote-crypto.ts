@@ -45,6 +45,19 @@ export class Dir {
 
 export const randomBytes = (n: number) => nacl.randomBytes(n);
 
+/** Parowanie kodem (bez QR): klucz urządzenia i 6-cyfrowy kod z sekretu X25519. To samo co near_derive w remote_crypto.rs. */
+export function nearDerive(shared: Uint8Array, cs: Uint8Array, cc: Uint8Array, pkPhone: Uint8Array, pkPc: Uint8Array) {
+  const msg = (label: string) => [cs, cc, pkPhone, pkPc].reduce((a, b) => cat(a, b), te.encode(label));
+  const key = hmac512(shared, msg('hermitty-near-key')).slice(0, 32);
+  const t = hmac512(shared, msg('hermitty-near-sas'));
+  const n = ((t[0] << 24) >>> 0) + (t[1] << 16) + (t[2] << 8) + t[3];
+  return { key, sas: String(n % 1_000_000).padStart(6, '0') };
+}
+
+/** Strona telefonu: para kluczy X25519 i sekret z kluczem komputera. */
+export const nearKeyPair = () => nacl.box.keyPair();
+export const x25519 = (sk: Uint8Array, pk: Uint8Array) => nacl.scalarMult(sk, pk);
+
 /** Link z kodu QR na komputerze: http://adres:port/#p=<para>&k=<klucz>. */
 /** Link z kodu QR: adres główny, id parowania, klucz i adresy zapasowe komputera (`a=ip:port,…`). */
 export function parsePairLink(text: string): { url: string; pair: string; key: string; alts: string[] } | null {

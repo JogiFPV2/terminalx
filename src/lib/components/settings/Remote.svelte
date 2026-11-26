@@ -69,8 +69,8 @@
       <div class="pair">
         <div class="qr" aria-label="Kod QR do parowania">{@html qrSvg}</div>
         <div class="steps">
-          <ol><li>W aplikacji Hermitty na telefonie: Dodaj komputer → zeskanuj kod (albo aparatem i otwórz link w przeglądarce).</li><li>Potwierdź urządzenie na tym komputerze.</li></ol>
-          <span class="hint">Kod jest jednorazowy i ważny jeszcze {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}.</span>
+          <ol><li>W aplikacji Hermitty na telefonie: Dodaj komputer → wybierz ten komputer z listy „W tej sieci” (bez skanowania) albo zeskanuj kod.</li><li>Potwierdź urządzenie na tym komputerze (przy parowaniu bez kodu QR sprawdź, czy kod na telefonie jest taki sam).</li></ol>
+          <span class="hint">Kod QR i parowanie z listy są aktywne jeszcze {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}.</span>
           {#if remote.pair.urls.length > 1}
             <select class="inp" bind:value={urlIdx} aria-label="Adres w kodzie">{#each remote.pair.urls as u, i}<option value={i}>{u.split('/#')[0]}</option>{/each}</select>
           {/if}

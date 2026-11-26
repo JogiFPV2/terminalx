@@ -2,10 +2,10 @@
 // src-tauri/src/remote.rs (powitanie z wyzwaniami, szyfrowane ramki z licznikiem, parowanie, poziomy uprawnień)
 // i przykładowymi danymi. Do testów (tests/mobile-link.test.ts) i rozwijania interfejsu: npm run mobile:fake
 import { WebSocketServer } from 'ws';
-import { Dir, b64, unb64, sessionKey, randomBytes } from '../../src/lib/remote-crypto.ts';
+import { Dir, b64, unb64, sessionKey, randomBytes, nearKeyPair, x25519, nearDerive } from '../../src/lib/remote-crypto.ts';
 
 const LEVEL = { view: 1, control: 2, full: 3 };
-const NEED = (m) => (['state', 'tail', 'subscribe', 'unsubscribe', 'chat', 'ping', 'info', 'shells', 'flows'].includes(m) ? 1
+const NEED = (m) => (m === 'bridgePair' ? 2 : ['state', 'tail', 'subscribe', 'unsubscribe', 'chat', 'ping', 'info', 'shells', 'flows'].includes(m) ? 1
   : ['write', 'resize', 'approve', 'park', 'unpark', 'focus', 'stopAgent'].includes(m) ? 2 : 3);
 
 const E = '\x1b[', g = (s) => E + '32m' + s + E + '0m', r = (s) => E + '31m' + s + E + '0m', d = (s) => E + '2m' + s + E + '0m', y = (s) => E + '33m' + s + E + '0m', B = (s) => E + '1m' + s + E + '0m';
@@ -43,9 +43,10 @@ export function demoData() {
 
 /**
  * devices: Map id → { key (base64), perm }; pairs: Map pairId → key (base64).
- * approve(name) decyduje o parowaniu (domyślnie zgoda z uprawnieniem 'full').
+ * approve(name, sas) decyduje o parowaniu (domyślnie zgoda z uprawnieniem 'full'); sas: kod przy parowaniu bez QR.
+ * nearOpen: czy komputer przyjmuje parowanie kodem (jak po kliknięciu „Sparuj telefon”).
  */
-export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), approve = async () => 'full', data = demoData() } = {}) {
+export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), approve = async () => 'full', data = demoData(), nearOpen = true, pcId = 'pc-PRACOWNIA-1' } = {}) {
   const wss = new WebSocketServer({ port, path: '/ws' });
   const conns = new Set();
   wss.on('connection', (ws) => {
@@ -56,7 +57,8 @@ export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), 
     const ev = (e, d) => sendEnc({ t: 'ev', e, d });
     const conn = { ev, subs }; conns.add(conn);
     ws.on('close', () => conns.delete(conn));
-    ws.send(JSON.stringify({ t: 'hi', v: 2, c: b64(cs), name: 'PRACOWNIA' }));
+    ws.send(JSON.stringify({ t: 'hi', v: 2, c: b64(cs), name: 'PRACOWNIA', pc: pcId }));
+    let sas = '';
     let pairing = null, dead = false;
     // Jak w remote.rs: po odrzuceniu powitania sesja się kończy, kolejne ramki są ignorowane.
     const reject = (msg) => { dead = true; ws.send(JSON.stringify({ t: 'error', msg })); ws.close(); };
@@ -75,6 +77,14 @@ export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), 
           const k = pairs.get(h.pair);
           if (!k) return reject('Kod parowania wygasł albo został już użyty. Wygeneruj nowy na komputerze.');
           pairs.delete(h.pair); key = unb64(k); pairing = h.name || 'Telefon';
+        } else if (h.t === 'near') {
+          if (!nearOpen) return reject('Na komputerze kliknij „Sparuj telefon”, żeby przyjąć nowe urządzenie.');
+          const pkPhone = unb64(h.pk);
+          if (pkPhone.length !== 32) return ws.close();
+          const kp = nearKeyPair();
+          const d = nearDerive(x25519(kp.secretKey, pkPhone), cs, cc, pkPhone, kp.publicKey);
+          key = d.key; sas = d.sas; pairing = h.name || 'Telefon';
+          ws.send(JSON.stringify({ t: 'near', pk: b64(kp.publicKey) }));
         } else return ws.close();
         rx = new Dir(sessionKey(key, 'c2s', cs, cc)); tx = new Dir(sessionKey(key, 's2c', cs, cc));
         return;
@@ -87,7 +97,7 @@ export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), 
         authed = true;
         if (pairing !== null) {
           sendEnc({ t: 'waiting' });
-          const perm = await approve(pairing);
+          const perm = await approve(pairing, sas);
           if (!perm) { sendEnc({ t: 'denied' }); return ws.close(); }
           device = 'dev' + Math.random().toString(36).slice(2, 10);
           devices.set(device, { key: b64(key), perm, name: pairing });
@@ -103,6 +113,7 @@ export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), 
       const allTabs = () => data.workspaces.flatMap((w) => w.tabs);
       switch (msg.m) {
         case 'ping': return res(true, 'pong');
+        case 'bridgePair': return res(true, { code: 'ABCD-EFGH-JKMN', hosts: ['127.0.0.1'], port: 47390 });
         case 'info': return res(true, { v: 2, app: 'Hermitty', version: '0.1.0', defaultShell: 'pwsh' });
         case 'state': return res(true, { v: 2, activeWs: data.workspaces[0].id, workspaces: data.workspaces, parked: data.parked });
         case 'shells': return res(true, data.shells);
@@ -159,7 +170,8 @@ export function startFakePc({ port = 0, devices = new Map(), pairs = new Map(), 
     });
   });
   return new Promise((resolve) => wss.on('listening', () => resolve({
-    port: wss.address().port, devices, pairs, data,
+    port: wss.address().port, devices, pairs, data, pcId,
+    setNearOpen: (v) => { nearOpen = v; },
     /** Zdarzenie do wszystkich połączonych telefonów (np. wyjście terminala). */
     broadcast: (e, d) => { for (const c of conns) c.ev(e, d); },
     pairLink: (host = '127.0.0.1') => {

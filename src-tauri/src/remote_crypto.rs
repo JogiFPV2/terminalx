@@ -22,6 +22,35 @@ pub fn session_key(base: &[u8; 32], label: &[u8], cs: &[u8], cc: &[u8]) -> [u8; 
     out
 }
 
+/// Parowanie kodem (bez QR): X25519 między telefonem a komputerem. Z sekretu wyliczamy klucz urządzenia i 6-cyfrowy
+/// kod pokazywany na obu ekranach; użytkownik porównuje kody, więc nikt pośrodku nie podmieni kluczy niezauważony.
+/// Ten sam algorytm jest w src/lib/remote-crypto.ts (nearDerive). Wektor wspólny: tests/remote-near.hex.
+pub fn near_derive(shared: &[u8], cs: &[u8], cc: &[u8], pk_phone: &[u8], pk_pc: &[u8]) -> ([u8; 32], String) {
+    let k = hmac::Key::new(hmac::HMAC_SHA512, shared);
+    let msg = |label: &[u8]| { let mut m = label.to_vec(); for p in [cs, cc, pk_phone, pk_pc] { m.extend_from_slice(p); } m };
+    let key_tag = hmac::sign(&k, &msg(b"hermitty-near-key"));
+    let sas_tag = hmac::sign(&k, &msg(b"hermitty-near-sas"));
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_tag.as_ref()[..32]);
+    let n = u32::from_be_bytes(sas_tag.as_ref()[..4].try_into().unwrap()) % 1_000_000;
+    (key, format!("{n:06}"))
+}
+
+/// Strona komputera: klucz efemeryczny, wspólny sekret z kluczem telefonu, klucz urządzenia i kod.
+/// Zwraca (klucz publiczny komputera, klucz urządzenia, kod).
+pub fn near_pc(pk_phone: &[u8], cs: &[u8], cc: &[u8]) -> Result<(Vec<u8>, [u8; 32], String), String> {
+    use ring::agreement::{agree_ephemeral, EphemeralPrivateKey, UnparsedPublicKey, X25519};
+    if pk_phone.len() != 32 {
+        return Err("zły klucz telefonu".into());
+    }
+    let rng = ring::rand::SystemRandom::new();
+    let sk = EphemeralPrivateKey::generate(&X25519, &rng).map_err(|_| "brak losowości".to_string())?;
+    let pk = sk.compute_public_key().map_err(|_| "klucz".to_string())?.as_ref().to_vec();
+    let (key, sas) = agree_ephemeral(sk, &UnparsedPublicKey::new(&X25519, pk_phone), |shared| near_derive(shared, cs, cc, pk_phone, &pk))
+        .map_err(|_| "nieudana wymiana kluczy".to_string())?;
+    Ok((pk, key, sas))
+}
+
 /// Nonce z licznikiem ramek (big-endian w ostatnich 8 bajtach).
 fn nonce(n: u64) -> [u8; 24] {
     let mut b = [0u8; 24];
@@ -69,6 +98,27 @@ mod tests {
         let base = [7u8; 32];
         let (cs, cc) = ([1u8; 16], [2u8; 16]);
         assert_eq!(hex(&session_key(&base, b"c2s", &cs, &cc)), include_str!("../../tests/remote-crypto.c2s.hex").trim());
+    }
+
+    /// Wektor wspólny z telefonem (tests/remote-crypto.test.ts liczy to samo w TS).
+    #[test]
+    fn near_derive_matches_js() {
+        let (key, sas) = near_derive(&[5u8; 32], &[1u8; 16], &[2u8; 16], &[3u8; 32], &[4u8; 32]);
+        let want = include_str!("../../tests/remote-near.hex").trim().to_string();
+        assert_eq!(format!("{} {}", hex(&key), sas), want);
+    }
+
+    #[test]
+    fn near_pc_agrees_with_phone_side() {
+        use ring::agreement::{agree_ephemeral, EphemeralPrivateKey, UnparsedPublicKey, X25519};
+        let rng = ring::rand::SystemRandom::new();
+        let phone = EphemeralPrivateKey::generate(&X25519, &rng).unwrap();
+        let pk_phone = phone.compute_public_key().unwrap().as_ref().to_vec();
+        let (pk_pc, key_pc, sas_pc) = near_pc(&pk_phone, &[1; 16], &[2; 16]).unwrap();
+        let (key_ph, sas_ph) = agree_ephemeral(phone, &UnparsedPublicKey::new(&X25519, &pk_pc), |s| near_derive(s, &[1; 16], &[2; 16], &pk_phone, &pk_pc)).unwrap();
+        assert_eq!(key_pc, key_ph);
+        assert_eq!(sas_pc, sas_ph);
+        assert_eq!(sas_pc.len(), 6);
     }
 
     #[test]

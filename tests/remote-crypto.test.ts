@@ -68,3 +68,16 @@ test('link do parowania z kodu QR', () => {
   assert.equal(M.parsePairLink(`http://x/#p=a&k=${Buffer.alloc(8).toString('base64url')}`), null, 'zły rozmiar klucza');
   assert.equal(M.parsePairLink('javascript:alert(1)#p=a&k=b'), null);
 });
+
+test('parowanie kodem: klucz i kod z X25519 jak w Ruście (near_derive)', async () => {
+  const fs = await import('node:fs');
+  const f = (n: number, v: number) => new Uint8Array(n).fill(v);
+  const r = M.nearDerive(f(32, 5), f(16, 1), f(16, 2), f(32, 3), f(32, 4));
+  assert.equal(`${Buffer.from(r.key).toString('hex')} ${r.sas}`, fs.readFileSync(new URL('./remote-near.hex', import.meta.url), 'utf8').trim());
+  // Obie strony wymiany X25519 dochodzą do tego samego klucza i kodu.
+  const a = M.nearKeyPair(), b = M.nearKeyPair();
+  const x = M.nearDerive(M.x25519(a.secretKey, b.publicKey), f(16, 1), f(16, 2), a.publicKey, b.publicKey);
+  const y = M.nearDerive(M.x25519(b.secretKey, a.publicKey), f(16, 1), f(16, 2), a.publicKey, b.publicKey);
+  assert.deepEqual(x, y);
+  assert.match(x.sas, /^\d{6}$/);
+});

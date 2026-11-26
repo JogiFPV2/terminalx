@@ -126,6 +126,7 @@ async function handle(r: { conn: number; device: string; perm: string; id: numbe
         return;
       }
       case 'closeTab': closeTab(p.tab); return ok();
+      case 'bridgePair': return ok(await bridgePair());
       default: throw new Error(`Nieznana operacja ${r.m}`);
     }
   } catch (e) {
@@ -172,6 +173,24 @@ export async function beginPair() {
 export async function setPerm(id: string, perm: string) { await call('remote_set_perm', { deviceId: id, perm }); refreshStatus(); }
 export async function revoke(id: string) { await call('remote_revoke', { deviceId: id }); refreshStatus(); }
 
+/** Jedno parowanie: sparowany telefon prosi o kod mostka Telefon (powiadomienia, SMS-y, dyktafon). Włączamy wtyczkę
+ *  Telefon, jeśli jest wyłączona, czekamy na mostek i oddajemy jednorazowy kod z adresami; telefon paruje mostek sam. */
+async function bridgePair() {
+  const { setEnabled } = await import('./plugins/host.svelte');
+  const rec = app.plugins.find((x) => x.id === 'tx.phone');
+  if (rec && !rec.enabled) setEnabled('tx.phone', true);
+  let running = false;
+  for (let i = 0; i < 40 && !running; i++) {
+    running = !!(await call<{ running: boolean }>('phone_status').catch(() => null))?.running;
+    if (!running) await new Promise((r) => setTimeout(r, 250));
+  }
+  if (!running) await call('phone_start', { port: Number(rec?.config?.port) || 47390 });
+  const info = await call<{ code: string; link: string }>('phone_pair_begin');
+  const q = new URLSearchParams(info.link.split('?')[1] || '');
+  notify('Telefon paruje mostek (powiadomienia, SMS-y, dyktafon)', 'info', 4000);
+  return { code: q.get('c') || info.code, hosts: (q.get('h') || '').split(',').filter(Boolean), port: Number(q.get('p')) || 47390 };
+}
+
 let started = false;
 export function initRemote() {
   if (started || !isTauri) return;
@@ -181,12 +200,15 @@ export function initRemote() {
     listen('remote:clients', () => refreshStatus());
     listen('remote:devices', () => refreshStatus());
     listen<{ conn: number }>('remote:closed', (e) => { const m = subs.get(e.payload.conn); m?.forEach((off) => off()); subs.delete(e.payload.conn); });
-    listen<{ pairId: string; name: string; addr: string }>('remote:pair-request', (e) => {
+    listen<{ pairId: string; name: string; addr: string; sas?: string | null }>('remote:pair-request', (e) => {
       const p = e.payload;
       remote.pair = null;
+      const sas = p.sas ? `${p.sas.slice(0, 3)} ${p.sas.slice(3)}` : '';
       ui.confirm = {
         title: 'Nowe urządzenie',
-        message: `„${p.name}” (${p.addr}) chce sterować tą aplikacją. Zezwól tylko, jeśli to Twój telefon i właśnie zeskanowałeś kod.\n\nUrządzenie dostanie uprawnienie „Sterowanie”; zmienisz je w Ustawienia → Zdalny dostęp.`,
+        message: sas
+          ? `„${p.name}” (${p.addr}) chce sterować tą aplikacją.\n\nKod: ${sas}\n\nZezwól tylko, jeśli telefon pokazuje dokładnie ten sam kod. Inny kod oznacza, że ktoś próbuje się podszyć.\n\nUrządzenie dostanie uprawnienie „Sterowanie”; zmienisz je w Ustawienia → Zdalny dostęp.`
+          : `„${p.name}” (${p.addr}) chce sterować tą aplikacją. Zezwól tylko, jeśli to Twój telefon i właśnie zeskanowałeś kod.\n\nUrządzenie dostanie uprawnienie „Sterowanie”; zmienisz je w Ustawienia → Zdalny dostęp.`,
         confirmLabel: 'Zezwól',
         resolve: (ok) => {
           call('remote_pair_decision', { pairId: p.pairId, ok: !!ok, perm: 'control' });

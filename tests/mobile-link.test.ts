@@ -111,3 +111,48 @@ test('żaden adres nie odpowiada: czytelny komunikat zamiast czekania', async ()
   assert.match(l.error, /Zapora Windows/);
   l.close();
 });
+
+test('parowanie kodem bez QR: ten sam 6-cyfrowy kod po obu stronach, potem zwykłe połączenie', async () => {
+  let pcSas = '';
+  const pc = await startFakePc({ approve: async (_name: string, sas: string) => { pcSas = sas; return 'control'; } });
+  try {
+    let phoneSas = '', saved: SavedPc | null = null;
+    const l = Link.near(`http://127.0.0.1:${pc.port}`, '127.0.0.1', { sas: (c) => (phoneSas = c), paired: (p) => (saved = p) }, 'Pixel');
+    l.connect();
+    await until(() => l.state === 'ready');
+    assert.match(phoneSas, /^\d{6}$/);
+    assert.equal(phoneSas, pcSas, 'telefon i komputer pokazują ten sam kod');
+    assert.equal(saved!.pcId, 'pc-PRACOWNIA-1');
+    assert.equal(saved!.name, 'PRACOWNIA');
+    l.close();
+    const again = new Link(saved!, {});
+    again.connect();
+    await until(() => again.state === 'ready');
+    assert.deepEqual(await again.req('bridgePair'), { code: 'ABCD-EFGH-JKMN', hosts: ['127.0.0.1'], port: 47390 });
+    again.close();
+  } finally { await pc.close(); }
+});
+
+test('parowanie kodem odrzucone, gdy komputer nie czeka na nowe urządzenie', async () => {
+  const pc = await startFakePc({ nearOpen: false });
+  try {
+    const l = Link.near(`http://127.0.0.1:${pc.port}`, 'x', {});
+    l.connect();
+    await until(() => l.state === 'error');
+    assert.match(l.error, /Sparuj telefon/);
+  } finally { await pc.close(); }
+});
+
+test('zmiana adresu komputera: telefon znajduje go w sieci po id i łączy się z nowym adresem', async () => {
+  const pc = await startFakePc();
+  try {
+    const key = 'MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=';
+    pc.devices.set('d1', { key, perm: 'view' });
+    let asked = '';
+    const l = new Link({ device: 'd1', url: 'http://127.0.0.1:1', key, name: 'PC', pcId: pc.pcId, added: 1 }, { rescue: async (id) => { asked = id; return [`http://127.0.0.1:${pc.port}`]; } });
+    l.connect();
+    await until(() => l.state === 'ready', 5000);
+    assert.equal(asked, pc.pcId);
+    l.close();
+  } finally { await pc.close(); }
+});
