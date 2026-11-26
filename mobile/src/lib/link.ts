@@ -1,7 +1,9 @@
 // Połączenie aplikacji na Androida z Hermitty na komputerze (protokół z src-tauri/src/remote.rs).
 // Powitanie jawne (wyzwania obu stron), potem każda ramka szyfrowana kluczem sesji z licznikiem.
-// Parowanie: link z kodu QR (http://adres:port/#p=…&k=…) → komputer pyta użytkownika → „paired” z id urządzenia.
-import { Dir, b64, unb64, sessionKey, randomBytes, parsePairLink } from '../../../src/lib/remote-crypto.ts';
+// Parowanie: link z kodu QR (http://adres:port/#p=…&k=…) albo kodem bez QR (komputer znaleziony w sieci, wymiana X25519,
+// ten sam 6-cyfrowy kod na obu ekranach) → komputer pyta użytkownika → „paired” z id urządzenia.
+import type nacl from 'tweetnacl';
+import { Dir, b64, unb64, sessionKey, randomBytes, parsePairLink, nearKeyPair, x25519, nearDerive } from '../../../src/lib/remote-crypto.ts';
 
 export interface SavedPc {
   /** Id urządzenia nadane przez komputer przy parowaniu. */
@@ -13,13 +15,15 @@ export interface SavedPc {
   name: string;
   /** Pozostałe adresy komputera (np. druga karta sieciowa); próbowane razem z głównym. */
   alts?: string[];
+  /** Stały identyfikator komputera (z powitania): po zmianie adresu IP telefon szuka go w sieci. */
+  pcId?: string;
   added: number;
   lastSeen?: number;
 }
 
 export type LinkState = 'idle' | 'connecting' | 'waiting' | 'ready' | 'denied' | 'error' | 'offline';
 
-type PairTarget = { url: string; key: string; pair: string; name: string; alts?: string[] };
+type PairTarget = { url: string; key: string; pair: string; name: string; alts?: string[]; pcId?: string; /** Parowanie kodem bez QR (klucz powstaje z wymiany X25519). */ near?: boolean };
 type Pending = { res: (v: any) => void; rej: (e: Error) => void; timer: ReturnType<typeof setTimeout> };
 
 export interface LinkEvents {
@@ -29,6 +33,10 @@ export interface LinkEvents {
   paired: (pc: SavedPc) => void;
   /** Komputer nie zna już tego urządzenia (odwołane na komputerze). */
   forgotten: () => void;
+  /** Parowanie kodem: 6 cyfr, które komputer też pokazuje (użytkownik porównuje). */
+  sas: (code: string) => void;
+  /** Żaden znany adres nie odpowiada: szukanie komputera w sieci po jego id; zwraca nowe adresy albo nic. */
+  rescue: (pcId: string) => Promise<string[] | null>;
 }
 
 const wsUrl = (url: string) => url.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws';
@@ -53,6 +61,11 @@ export class Link {
     this.pc = pc; this.on = on; this.deviceName = deviceName;
   }
 
+  /** Parowanie kodem z komputerem znalezionym w sieci (bez QR). */
+  static near(url: string, name: string, on: Partial<LinkEvents>, deviceName?: string, pcId?: string): Link {
+    return new Link({ url, key: '', pair: '', name, near: true, pcId }, on, deviceName);
+  }
+
   /** Parowanie z tekstu zeskanowanego z kodu QR albo wklejonego linku. */
   static fromPairLink(text: string, on: Partial<LinkEvents>, deviceName?: string): Link | null {
     const p = parsePairLink(text);
@@ -66,6 +79,8 @@ export class Link {
   }
 
   private probes: WebSocket[] = [];
+  private nearState: { kp: nacl.BoxKeyPair; cs: Uint8Array; cc: Uint8Array } | null = null;
+  private rescuing = false;
   private hiTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Łączy się ze wszystkimi znanymi adresami naraz; zostaje przy pierwszym, który przyśle powitanie. */
@@ -77,8 +92,10 @@ export class Link {
     this.ws = null;
     this.tx = this.rx = null;
     this.set('connecting');
-    const key = unb64(this.pc.key);
+    const near = 'near' in this.pc && !!this.pc.near;
+    const key = near ? new Uint8Array(32) : unb64(this.pc.key);
     const pairing = 'pair' in this.pc;
+    this.nearState = null;
     const urls = [...new Set([this.pc.url, ...(this.pc.alts || [])])];
     let failed = 0;
     const dead = new Set<WebSocket>();
@@ -95,6 +112,19 @@ export class Link {
       this.set('offline', why);
       this.retry = Math.min(this.retry + 1, 6);
       this.retryTimer = setTimeout(() => this.connect(), 500 * 2 ** this.retry);
+      // Komputer mógł dostać nowy adres IP: szukamy go w sieci po id i od razu próbujemy nowych adresów.
+      const pcId = (this.pc as SavedPc).pcId;
+      if (pcId && this.on.rescue && !this.rescuing) {
+        this.rescuing = true;
+        this.on.rescue(pcId).then((found) => {
+          this.rescuing = false;
+          const fresh = (found || []).filter((u) => !urls.includes(u));
+          if (!fresh.length || this.closed || this.ws) return;
+          this.pc.alts = [...new Set([...fresh.slice(1), this.pc.url, ...(this.pc.alts || [])])];
+          this.pc.url = fresh[0];
+          this.connect();
+        }, () => { this.rescuing = false; });
+      }
     };
     const unreachable = () => `Nie mogę połączyć się z komputerem (${urls.map((u) => u.replace(/^https?:\/\//, '')).join(', ')}). Sprawdź, czy telefon jest w tej samej sieci Wi-Fi, czy aplikacja ma zgodę na sieć lokalną (Android 17: Ustawienia → Aplikacje → Hermitty → Uprawnienia → Urządzenia w pobliżu), czy w Hermitty jest włączony Zdalny dostęp i czy Zapora Windows go nie blokuje (Ustawienia → Zdalny dostęp → „Telefon nie może się połączyć?”).`;
     this.hiTimer = setTimeout(() => { if (!this.ws) giveUp(unreachable()); }, 9000);
@@ -119,16 +149,37 @@ export class Link {
         const plain = this.rx ? this.rx.open(m.data) : null;
         let msg: any;
         try { msg = JSON.parse(plain ?? m.data); } catch { return; }
-        if (plain === null && msg.t === 'hi' && !this.tx) {
+        if (plain === null && msg.t === 'hi' && !this.tx && !this.nearState) {
           // Przy parowaniu nazwa komputera z powitania zastępuje adres IP.
           if (pairing && typeof msg.name === 'string' && msg.name.trim()) (this.pc as { name: string }).name = msg.name.trim().slice(0, 40);
+          if (typeof msg.pc === 'string' && /^[A-Za-z0-9_-]{4,64}$/.test(msg.pc)) (this.pc as { pcId?: string }).pcId = msg.pc;
           const cs = unb64(msg.c), cc = randomBytes(16);
+          if (near) {
+            // Parowanie kodem: najpierw klucze X25519 (jawnie), klucz urządzenia powstaje z ich wymiany.
+            const kp = nearKeyPair();
+            this.nearState = { kp, cs, cc };
+            sock.send(JSON.stringify({ t: 'near', v: 2, name: this.deviceName, pk: b64(kp.publicKey), c: b64(cc) }));
+            return;
+          }
           this.tx = new Dir(sessionKey(key, 'c2s', cs, cc));
           this.rx = new Dir(sessionKey(key, 's2c', cs, cc));
           const hello = pairing
             ? { t: 'pair', v: 2, pair: (this.pc as PairTarget).pair, name: this.deviceName, c: b64(cc) }
             : { t: 'hello', v: 2, device: (this.pc as SavedPc).device, c: b64(cc) };
           sock.send(JSON.stringify(hello));
+          sock.send(this.tx.seal(JSON.stringify({ t: 'auth', ts: Date.now() })));
+          return;
+        }
+        if (plain === null && msg.t === 'near' && this.nearState && !this.tx) {
+          const { kp, cs, cc } = this.nearState;
+          let pkPc: Uint8Array;
+          try { pkPc = unb64(msg.pk); } catch { return; }
+          if (pkPc.length !== 32) return;
+          const d = nearDerive(x25519(kp.secretKey, pkPc), cs, cc, kp.publicKey, pkPc);
+          this.pc.key = b64(d.key);
+          this.on.sas?.(d.sas);
+          this.tx = new Dir(sessionKey(d.key, 'c2s', cs, cc));
+          this.rx = new Dir(sessionKey(d.key, 's2c', cs, cc));
           sock.send(this.tx.seal(JSON.stringify({ t: 'auth', ts: Date.now() })));
           return;
         }
@@ -166,7 +217,7 @@ export class Link {
       case 'denied': this.set('denied', 'Komputer nie zgodził się na to urządzenie.'); return;
       case 'paired': {
         const p = this.pc as PairTarget;
-        const saved: SavedPc = { device: m.device, url: p.url, key: p.key, name: p.name, alts: p.alts, added: Date.now(), lastSeen: Date.now() };
+        const saved: SavedPc = { device: m.device, url: p.url, key: p.key, name: p.name, alts: p.alts, pcId: p.pcId, added: Date.now(), lastSeen: Date.now() };
         this.pc = saved;
         this.on.paired?.(saved);
         return;

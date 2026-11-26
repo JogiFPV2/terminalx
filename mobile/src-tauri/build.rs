@@ -18,7 +18,7 @@ fn main() {
             .plugin(
                 "bridge",
                 tauri_build::InlinedPlugin::new()
-                    .commands(&["status", "discover", "pair", "unpair", "kick", "dismiss", "settings", "perm", "rec"])
+                    .commands(&["status", "discover", "scan", "pair", "unpair", "kick", "dismiss", "settings", "perm", "rec"])
                     .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
             ),
     )

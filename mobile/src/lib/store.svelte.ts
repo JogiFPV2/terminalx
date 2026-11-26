@@ -2,6 +2,7 @@
 // Lista komputerów i ustawienia w localStorage WebView; klucze urządzeń w sejfie (Android Keystore, lib/secrets.ts).
 import { Link, type LinkState, type SavedPc } from './link.ts';
 import { getSecret, setSecret, deleteSecret, pcKeyName } from './secrets.ts';
+import { scanPcs, bridgePaired, pairBridge } from './bridge.svelte';
 import { applyTheme, BUILTIN } from '../../../src/lib/theme';
 import type { ThemeMode } from '../../../src/lib/types';
 
@@ -42,6 +43,8 @@ export const S = $state({
   toast: '' as string,
   /** Połączenie otwarte dla ekranu workspace'ów (bez przechodzenia do ekranu pilota). */
   quiet: false,
+  /** Parowanie bez QR: kod, który musi być taki sam na komputerze. */
+  sas: '',
 });
 
 let link: Link | null = null;
@@ -99,7 +102,7 @@ function applyState(st: { workspaces: RWs[]; parked: any[]; activeWs: string }) 
 const handlers = {
   state: (s: LinkState, info: { perm?: string; error?: string }) => {
     S.state = s; S.error = info.error || ''; if (info.perm) S.perm = info.perm;
-    if (s === 'ready') refresh();
+    if (s === 'ready') { refresh(); if (pairBridgeNext) { pairBridgeNext = false; autoBridge(); } }
   },
   ev: (e: string, d: any) => {
     if (e === 'state') applyState(d);
@@ -111,11 +114,30 @@ const handlers = {
     S.pcs = [...S.pcs.filter((p) => p.device !== pc.device), pc];
     unsealed.add(pc.device); savePcs();
     seal(pc).then(savePcs);
-    S.cur = pc.device; S.sheet = null;
+    S.cur = pc.device; S.sheet = null; S.sas = '';
+    pairBridgeNext = true;
     toast('Sparowano z komputerem');
   },
   forgotten: () => { if (S.cur) forget(S.cur, true); },
+  sas: (code: string) => { S.sas = code; },
+  // Komputer zmienił adres IP: szukamy go w sieci po stałym id.
+  rescue: async (pcId: string) => {
+    const port = Number(new URL(curPc()?.url || 'http://x:7420').port) || 7420;
+    const found = (await scanPcs(port).catch(() => [])).filter((f) => f.id === pcId);
+    return found.map((f) => `http://${f.host}:${f.port}`);
+  },
 };
+
+/** Jedno parowanie: po sparowaniu zdalnego dostępu telefon sam paruje mostek Telefon kodem od komputera. */
+let pairBridgeNext = false;
+async function autoBridge() {
+  if ((await bridgePaired()) !== false) return;
+  try {
+    const r = await req<{ code: string; hosts: string[]; port: number }>('bridgePair', {}, 40_000);
+    await pairBridge(r.hosts, r.port, r.code);
+    toast('Sparowano też mostek: powiadomienia, SMS-y i dyktafon na komputerze');
+  } catch (e) { console.warn('mostek', e); }
+}
 
 async function refresh() {
   try {
@@ -155,6 +177,14 @@ export function pair(text: string): boolean {
   Object.assign(S, { cur: null, workspaces: [], parked: [], chat: {}, flows: [], ws: '', tab: '' });
   link = l; l.connect();
   return true;
+}
+
+/** Parowanie bez QR z komputerem znalezionym w sieci: oba ekrany pokażą ten sam 6-cyfrowy kod. */
+export function pairNear(host: string, port: number, name: string, pcId?: string) {
+  link?.close();
+  Object.assign(S, { cur: null, workspaces: [], parked: [], chat: {}, flows: [], ws: '', tab: '', sas: '' });
+  link = Link.near(`http://${host}:${port}`, name, handlers, S.settings.name, pcId);
+  link.connect();
 }
 
 export function disconnect() { link?.close(); link = null; S.cur = null; S.state = 'idle'; S.quiet = false; }

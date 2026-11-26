@@ -44,8 +44,8 @@
     <div class="empty">
       <ol>
         <li>Na komputerze otwórz Hermitty → Ustawienia → <b>Zdalny dostęp</b> i włącz go.</li>
-        <li>Kliknij <b>Sparuj telefon</b>, żeby pokazać kod QR.</li>
-        <li>Tutaj stuknij <b>Dodaj komputer</b> i zeskanuj kod.</li>
+        <li>Kliknij <b>Pokaż kod QR</b> (parowanie jest otwarte przez 5 minut).</li>
+        <li>Tutaj stuknij <b>Dodaj komputer</b> i wybierz komputer z listy (albo zeskanuj kod).</li>
       </ol>
     </div>
   {/if}

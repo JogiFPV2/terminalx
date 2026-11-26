@@ -30,6 +30,11 @@ import app.tauri.plugin.Plugin
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.net.DatagramPacket
+import java.net.DatagramSocket
+import java.net.InetAddress
+import java.net.NetworkInterface
+import java.net.SocketTimeoutException
 
 @TauriPlugin
 class BridgePlugin(private val activity: Activity) : Plugin(activity) {
@@ -106,6 +111,52 @@ class BridgePlugin(private val activity: Activity) : Plugin(activity) {
       .put("link", pending ?: JSONObject.NULL)
       .put("device", Link.deviceName())
     ok(invoke, o)
+  }
+
+  /**
+   * Komputery z Hermitty (zdalny dostęp) w tej sieci: pytanie rozgłoszeniowe UDP na porcie zdalnego dostępu,
+   * odpowiedź z nazwą, stałym id komputera i portem (remote.rs). Bez kodu QR: telefon sam znajduje komputer,
+   * także gdy ten zmienił adres IP.
+   */
+  @Command
+  fun scan(invoke: Invoke) {
+    val port = invoke.getArgs().optInt("port", 7420)
+    bg(invoke) {
+      val found = linkedMapOf<String, JSONObject>()
+      DatagramSocket().use { s ->
+        s.broadcast = true
+        s.soTimeout = 250
+        val msg = "HERMITTY-REMOTE?".toByteArray()
+        val targets = mutableSetOf<InetAddress>(InetAddress.getByName("255.255.255.255"))
+        runCatching {
+          for (ni in NetworkInterface.getNetworkInterfaces()) {
+            if (!ni.isUp || ni.isLoopback) continue
+            for (ia in ni.interfaceAddresses) ia.broadcast?.let { targets += it }
+          }
+        }
+        val end = System.currentTimeMillis() + 1600
+        var nextSend = 0L
+        val buf = ByteArray(2048)
+        while (System.currentTimeMillis() < end) {
+          // Trzy rundy pytań (pierwszy pakiet bywa gubiony, zanim Wi-Fi się obudzi).
+          if (System.currentTimeMillis() >= nextSend) {
+            for (t in targets) runCatching { s.send(DatagramPacket(msg, msg.size, t, port)) }
+            nextSend = System.currentTimeMillis() + 500
+          }
+          try {
+            val p = DatagramPacket(buf, buf.size)
+            s.receive(p)
+            val o = runCatching { JSONObject(String(p.data, 0, p.length)) }.getOrNull() ?: continue
+            if (o.optString("t") != "hermitty-remote") continue
+            val host = p.address.hostAddress ?: continue
+            found["${o.optString("id")}|$host"] = JSONObject()
+              .put("id", o.optString("id")).put("name", o.optString("name", "Komputer"))
+              .put("host", host).put("port", o.optInt("port", port))
+          } catch (e: SocketTimeoutException) { /* następna runda */ }
+        }
+      }
+      JSONArray(found.values.toList())
+    }
   }
 
   @Command

@@ -4,7 +4,7 @@
   import { onMount } from 'svelte';
   import Icon from '../../../src/lib/Icon.svelte';
   import { BR, refresh, discover, pairBridge, unpair, kick, dismissLink, setOpt, askPerm, rec, pendingLink } from '../lib/bridge.svelte';
-  import { toast, msg } from '../lib/store.svelte';
+  import { toast, msg, S, req, lastPc, open } from '../lib/store.svelte';
   import Scanner from './Scanner.svelte';
   import { parseBridgeLink } from '../lib/bridge.svelte';
 
@@ -28,6 +28,24 @@
     try { const name = await pairBridge(hosts, p, c); code = ''; pendingLink.v = null; dismissLink().catch(() => {}); toast(`Sparowano z ${name || 'komputerem'}`); }
     catch (e) { toast(msg(e)); }
     finally { pairing = false; refresh(); }
+  }
+
+  // Jedno parowanie: komputer sparowany przez Zdalny dostęp daje kod mostka przez już zaufane połączenie.
+  const linkReady = () => S.state === 'ready';
+  async function viaRemote() {
+    if (!linkReady()) {
+      const pc = lastPc();
+      if (!pc) { toast('Najpierw dodaj komputer (Twoje komputery → Dodaj komputer).'); return; }
+      await open(pc.device, true);
+      for (let i = 0; i < 40 && !linkReady(); i++) await new Promise((r) => setTimeout(r, 250));
+      if (!linkReady()) { toast(S.error || 'Nie udało się połączyć z komputerem.'); return; }
+    }
+    pairing = true;
+    try {
+      const r = await req<{ code: string; hosts: string[]; port: number }>('bridgePair', {}, 40_000);
+      pairing = false;
+      await doPair(r.hosts, r.port, r.code);
+    } catch (e) { pairing = false; toast(msg(e)); }
   }
 
   function fromLink(t: string) {
@@ -83,6 +101,10 @@
       {#if !st.paired}
         <section class="card">
           <h2>Parowanie</h2>
+          {#if S.pcs.length}
+            <button class="btn pri wide" disabled={pairing} onclick={viaRemote}><Icon name="monitor" size={18} />Sparuj przez połączony komputer</button>
+            <p class="muted small">Bez przepisywania kodu: komputer sparowany w „Twoje komputery” sam poda kod mostka. Albo ręcznie:</p>
+          {/if}
           <ol class="small"><li>W Hermitty na komputerze włącz wtyczkę Telefon (Ustawienia → Pluginy) i kliknij „Sparuj telefon”.</li><li>Zeskanuj kod QR albo wybierz komputer i przepisz kod z ekranu.</li></ol>
           <button class="btn pri wide" onclick={() => (scanning = true)}><Icon name="search" size={18} />Zeskanuj kod QR</button>
           <p class="muted small">{searching ? 'Szukam komputerów w tej sieci…' : found.length ? 'Komputery w tej sieci:' : 'Nie znaleziono komputera w tej sieci Wi-Fi. Wpisz adres ręcznie (np. adres Tailscale 100.x.x.x).'}</p>

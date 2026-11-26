@@ -53,3 +53,15 @@ export async function lanGranted(): Promise<boolean> {
   try { return (await call<BridgeStatus>('status')).perms.lan !== false; } catch { return true; }
 }
 export const askLan = () => call('perm', { kind: 'lan' });
+
+export interface FoundPc { id: string; name: string; host: string; port: number }
+/** Komputery z Hermitty (zdalny dostęp) w tej sieci (rozgłoszenie UDP, BridgePlugin.scan). */
+export async function scanPcs(port = 7420): Promise<FoundPc[]> {
+  if (!inTauri()) return [];
+  return (await call<FoundPc[]>('scan', { port })) || [];
+}
+/** Czy mostek Telefon jest już sparowany (do automatycznego parowania po zdalnym dostępie). */
+export async function bridgePaired(): Promise<boolean | null> {
+  if (!inTauri()) return null;
+  try { return (await call<BridgeStatus>('status')).paired; } catch { return null; }
+}
